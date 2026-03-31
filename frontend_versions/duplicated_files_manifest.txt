@@ -1,3 +1,4 @@
+frontend_versions/changes.md
 frontend_versions/components.json
 frontend_versions/eslint.config.js
 frontend_versions/index.html
