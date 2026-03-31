@@ -12,10 +12,11 @@ import { getHotelImage, getRestaurantImage } from "@/lib/destinationImages";
 import { IMAGE_FALLBACKS } from "@/lib/imageManifest";
 import { resolveGoogleMapsUrl } from "@/lib/maps";
 
-function RecommendationCardItem({ item, type = "hotel" }) {
+function RecommendationCardItem({ item, type = "hotel", index = 0 }) {
   const isHotel = type === "hotel";
   const photoUrl = isHotel ? getHotelImage(item) : getRestaurantImage(item);
   const fallbackSrc = isHotel ? IMAGE_FALLBACKS.hotel : IMAGE_FALLBACKS.restaurant;
+  const isPriorityCard = index < 3;
   const labelIcon = isHotel ? <FaHotel /> : <FaUtensils />;
   const labelText = item.typeLabel || (isHotel ? "Stay" : "Dining");
   const mapsUrl = resolveGoogleMapsUrl({
@@ -46,6 +47,8 @@ function RecommendationCardItem({ item, type = "hotel" }) {
           fallbackSrc={fallbackSrc}
           alt={item.name || (isHotel ? "Hotel recommendation" : "Restaurant recommendation")}
           sizes="(max-width: 560px) 100vw, (max-width: 980px) 50vw, 33vw"
+          loading={isPriorityCard ? "eager" : "lazy"}
+          fetchPriority={isPriorityCard ? "high" : "low"}
           className="h-full w-full"
           imgClassName="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
         />

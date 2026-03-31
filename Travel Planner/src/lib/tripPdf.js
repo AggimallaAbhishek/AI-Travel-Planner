@@ -21,8 +21,11 @@ const DAY_LAYOUT = {
   introLine: 4.3,
   signatureLine: 4.1,
   activityLine: 4.0,
+  activityGap: 1.4,
   noteLine: 4.0,
   blockGap: 5,
+  minBottomPadding: 4,
+  pageBreakSafety: 6,
 };
 
 const PDF_COLORS = {
@@ -931,11 +934,12 @@ function drawCoverPage(state, model, logoDataUrl = "") {
   textY += 18;
 
   const highlightsHeight = 38;
+  const highlightsY = Math.min(textY + 6, pageHeight - PDF_LAYOUT.marginBottom - highlightsHeight);
   setFillColor(doc, PDF_COLORS.surface);
   setDrawColor(doc, PDF_COLORS.border);
   doc.roundedRect(
     PDF_LAYOUT.marginX,
-    pageHeight - PDF_LAYOUT.marginBottom - highlightsHeight,
+    highlightsY,
     contentWidth,
     highlightsHeight,
     5,
@@ -948,7 +952,7 @@ function drawCoverPage(state, model, logoDataUrl = "") {
   doc.text(
     "HIGHLIGHTS",
     PDF_LAYOUT.marginX + 6,
-    pageHeight - PDF_LAYOUT.marginBottom - highlightsHeight + 6.5
+    highlightsY + 6.5
   );
 
   doc.setFont("helvetica", "normal");
@@ -958,7 +962,7 @@ function drawCoverPage(state, model, logoDataUrl = "") {
     doc.text(
       `- ${sanitizePdfText(highlight)}`,
       PDF_LAYOUT.marginX + 6,
-      pageHeight - PDF_LAYOUT.marginBottom - highlightsHeight + 13 + index * 7.5
+      highlightsY + 13 + index * 7.5
     );
   });
 
@@ -1084,8 +1088,6 @@ function drawOverviewSpread(state, model) {
 
     state.cursorY += highlightsHeight + PDF_LAYOUT.sectionGap;
   }
-
-  addPage(state);
 }
 
 function estimateDayBlockHeight(doc, day, width) {
@@ -1096,9 +1098,10 @@ function estimateDayBlockHeight(doc, day, width) {
   const titleLines = splitLines(doc, day.title, width - 14 - costPillWidth);
   const introLines = splitLines(doc, day.intro, width - 14);
   const signatureLines = splitLines(doc, day.signatureMoment, width - 18);
+  const activityTextWidth = width - 22;
   const activityHeight = day.activities.reduce((total, activity) => {
-    const lines = splitLines(doc, activity, width - 20);
-    return total + estimateLinesHeight(lines, DAY_LAYOUT.activityLine) + 1.4;
+    const lines = splitLines(doc, activity, activityTextWidth);
+    return total + estimateLinesHeight(lines, DAY_LAYOUT.activityLine) + DAY_LAYOUT.activityGap;
   }, 0);
   const noteLines = day.notes ? splitLines(doc, day.notes, width - 18) : [];
 
@@ -1110,11 +1113,12 @@ function estimateDayBlockHeight(doc, day, width) {
     12 +
     estimateLinesHeight(signatureLines, DAY_LAYOUT.signatureLine) +
     activityHeight +
-    (noteLines.length > 0 ? estimateLinesHeight(noteLines, DAY_LAYOUT.noteLine) + 8 : 0)
+    (noteLines.length > 0 ? estimateLinesHeight(noteLines, DAY_LAYOUT.noteLine) + 8 : 0) +
+    DAY_LAYOUT.minBottomPadding
   );
 }
 
-function drawActivityList(doc, day, x, startY, width) {
+function drawActivityList(doc, day, x, startY, textWidth) {
   let cursorY = startY;
 
   doc.setFont("helvetica", "normal");
@@ -1122,11 +1126,11 @@ function drawActivityList(doc, day, x, startY, width) {
   setTextColor(doc, PDF_COLORS.ink);
 
   day.activities.forEach((activity) => {
-    const lines = splitLines(doc, activity, width - 10);
+    const lines = splitLines(doc, activity, textWidth);
     setFillColor(doc, PDF_COLORS.gold);
     doc.circle(x + 2, cursorY - 1.1, 0.85, "F");
     doc.text(lines, x + 6, cursorY);
-    cursorY += estimateLinesHeight(lines, DAY_LAYOUT.activityLine) + 1.4;
+    cursorY += estimateLinesHeight(lines, DAY_LAYOUT.activityLine) + DAY_LAYOUT.activityGap;
   });
 
   return cursorY;
@@ -1157,7 +1161,7 @@ function drawDaySections(state, model) {
 
   model.days.forEach((day) => {
     const blockHeight = estimateDayBlockHeight(doc, day, contentWidth);
-    ensureSpace(state, blockHeight);
+    ensureSpace(state, blockHeight + DAY_LAYOUT.pageBreakSafety);
 
     const x = PDF_LAYOUT.marginX;
     const y = state.cursorY;
@@ -1227,7 +1231,7 @@ function drawDaySections(state, model) {
     doc.text(signatureLines, x + 10, contentY + 6);
     contentY += signatureHeight + 3;
 
-    contentY = drawActivityList(doc, day, x + 6, contentY, contentWidth - 12);
+    contentY = drawActivityList(doc, day, x + 6, contentY, contentWidth - 22);
 
     if (day.notes) {
       const noteLines = splitLines(doc, day.notes, contentWidth - 18);
@@ -1243,18 +1247,22 @@ function drawDaySections(state, model) {
       doc.setFontSize(8.9);
       setTextColor(doc, PDF_COLORS.muted);
       doc.text(noteLines, x + 6, contentY);
+      contentY += estimateLinesHeight(noteLines, DAY_LAYOUT.noteLine);
     }
 
-    state.cursorY += blockHeight + DAY_LAYOUT.blockGap;
+    const renderedBottomY = contentY + DAY_LAYOUT.minBottomPadding;
+    const layoutBottomY = y + blockHeight;
+    state.cursorY =
+      Math.max(layoutBottomY, renderedBottomY) + DAY_LAYOUT.blockGap;
   });
 }
 
 function estimateStayCardHeight(doc, item, width) {
   return (
-    18 +
-    estimateLinesHeight(splitLines(doc, item.title, width - 12), 5) +
-    estimateLinesHeight(splitLines(doc, item.descriptor, width - 12), 4.1) +
-    estimateLinesHeight(splitLines(doc, item.description, width - 12), 4.2)
+    15 +
+    estimateLinesHeight(splitLines(doc, item.title, width - 12), 4.8) +
+    estimateLinesHeight(splitLines(doc, item.descriptor, width - 12), 3.9) +
+    estimateLinesHeight(splitLines(doc, item.description, width - 12), PDF_TEXT.bodyLine)
   );
 }
 
@@ -1285,7 +1293,7 @@ function drawStaySection(state, model) {
     doc.text(
       sanitizePdfText(item.eyebrow).toUpperCase(),
       PDF_LAYOUT.marginX + 6,
-      state.cursorY + 7
+      state.cursorY + 6.5
     );
 
     doc.setFont("times", "bold");
@@ -1294,19 +1302,19 @@ function drawStaySection(state, model) {
     doc.text(
       splitLines(doc, item.title, contentWidth - 12),
       PDF_LAYOUT.marginX + 6,
-      state.cursorY + 14
+      state.cursorY + 12.5
     );
 
     let textY =
       state.cursorY +
-      16 +
-      estimateLinesHeight(splitLines(doc, item.title, contentWidth - 12), 5);
+      14.5 +
+      estimateLinesHeight(splitLines(doc, item.title, contentWidth - 12), 4.8);
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8.9);
     setTextColor(doc, PDF_COLORS.gold);
     doc.text(splitLines(doc, item.descriptor, contentWidth - 12), PDF_LAYOUT.marginX + 6, textY);
-    textY += estimateLinesHeight(splitLines(doc, item.descriptor, contentWidth - 12), 4.1) + 3;
+    textY += estimateLinesHeight(splitLines(doc, item.descriptor, contentWidth - 12), 3.9) + 2.4;
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
@@ -1317,10 +1325,10 @@ function drawStaySection(state, model) {
       textY
     );
 
-    state.cursorY += cardHeight + 5;
+    state.cursorY += cardHeight + 4;
   });
 
-  state.cursorY += 2;
+  state.cursorY += 1;
 }
 
 function drawBudgetSnapshot(state, model) {
@@ -1385,7 +1393,7 @@ function drawTravelNotes(state, model) {
 
   model.travelTips.forEach((tip) => {
     const lines = splitLines(doc, tip, contentWidth - 18);
-    const cardHeight = 11 + estimateLinesHeight(lines, 4.2);
+    const cardHeight = 10 + estimateLinesHeight(lines, PDF_TEXT.bodyLine);
     ensureSpace(state, cardHeight);
 
     setFillColor(doc, PDF_COLORS.surfaceAlt);
@@ -1405,9 +1413,9 @@ function drawTravelNotes(state, model) {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
     setTextColor(doc, PDF_COLORS.ink);
-    doc.text(lines, PDF_LAYOUT.marginX + 8, state.cursorY + 6.5);
+    doc.text(lines, PDF_LAYOUT.marginX + 8, state.cursorY + 6.2);
 
-    state.cursorY += cardHeight + 4;
+    state.cursorY += cardHeight + 3.5;
   });
 }
 
@@ -1460,6 +1468,12 @@ export async function createTripPdfDocument(trip, options = {}) {
     author: PDF_BRAND.appTitle,
     creator: PDF_BRAND.appTitle,
     keywords: "travel,itinerary,trip,pdf,ai travel planner",
+  });
+
+  console.debug("[trip-pdf] Applying PDF spacing profile", {
+    sectionGap: PDF_LAYOUT.sectionGap,
+    dayBlockGap: DAY_LAYOUT.blockGap,
+    textSpacing: PDF_TEXT,
   });
 
   drawCoverPage(state, model, assets.logoDataUrl);

@@ -105,10 +105,36 @@ test("recommendation image service falls back to fast online image URLs when met
   );
 
   assert.ok(
-    imageUrl.startsWith("https://loremflickr.com/720/480/")
+    imageUrl.startsWith("https://loremflickr.com/640/420/")
   );
   assert.ok(
     imageUrl.includes("hotel,room,lobby,dubai,united,armani")
   );
   assert.equal(fetchCalls, 0);
+});
+
+test("recommendation image service builds restaurant-focused fast fallback tags", async () => {
+  const service = createRecommendationImageService({
+    fetchImpl: async () => {
+      throw new Error("fetch should not be called in fast fallback mode");
+    },
+  });
+
+  const imageUrl = await service.resolveRecommendationImage(
+    {
+      name: "Cedar Social",
+      location: "Dubai, United Arab Emirates",
+    },
+    {
+      destination: "Dubai, United Arab Emirates",
+      category: "restaurant",
+    }
+  );
+
+  assert.ok(
+    imageUrl.startsWith("https://loremflickr.com/640/420/")
+  );
+  assert.ok(
+    imageUrl.includes("restaurant,food,dining,dubai,united,cedar")
+  );
 });

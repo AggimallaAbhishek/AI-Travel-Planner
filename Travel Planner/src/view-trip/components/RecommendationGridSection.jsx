@@ -73,11 +73,12 @@ function RecommendationGridSection({
 
         {!isLoading && !errorMessage && items.length > 0 ? (
           <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-            {items.map((item) => (
+            {items.map((item, index) => (
               <RecommendationCardItem
                 key={`${type}-${item.name}-${item.location}`}
                 item={item}
                 type={type}
+                index={index}
               />
             ))}
           </div>

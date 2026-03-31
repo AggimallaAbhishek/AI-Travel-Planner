@@ -8,6 +8,8 @@ const DEFAULT_IMAGE_USER_AGENT =
 const DEFAULT_WIKIMEDIA_MIN_INTERVAL_MS = 250;
 const DEFAULT_ENABLE_WIKIMEDIA_LOOKUPS = false;
 const LOREM_FLICKR_BASE_URL = "https://loremflickr.com";
+const FAST_IMAGE_WIDTH = 640;
+const FAST_IMAGE_HEIGHT = 420;
 
 function normalizeText(value, fallback = "") {
   if (typeof value !== "string") {
@@ -140,7 +142,7 @@ function buildFastOnlineImageUrl(item = {}, options = {}) {
     `${options.category ?? ""}::${normalizeText(options.destination)}::${normalizeText(item.name)}`
   );
 
-  return `${LOREM_FLICKR_BASE_URL}/720/480/${tagPath}?lock=${signature}`;
+  return `${LOREM_FLICKR_BASE_URL}/${FAST_IMAGE_WIDTH}/${FAST_IMAGE_HEIGHT}/${tagPath}?lock=${signature}`;
 }
 
 export function createRecommendationImageService({
