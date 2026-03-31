@@ -26,7 +26,7 @@ Travel Planner is a Vite + React single-page application backed by a small Expre
 
 ### Backend
 
-- Express 5 API under [`server/`](/Users/aggimallaabhishek/Documents/Travel-Plannar/Travel%20Planner/server)
+- Express 5 API under `Travel Planner/server/`
 - Firebase Admin SDK for token verification and Firestore access
 - Gemini service wrapper for itinerary generation
 - Request validation, auth guards, CORS, and in-memory rate limiting
@@ -182,7 +182,7 @@ npm run audit:prod          # Production dependency audit
 
 Frontend snapshots are maintained in:
 
-[`../frontend_versions/`](/Users/aggimallaabhishek/Documents/Travel-Plannar/frontend_versions)
+`frontend_versions/`
 
 `npm run dev` automatically starts the polling-based backup sync process.  
 Manual sync is available through `npm run sync:frontend`.
@@ -241,6 +241,22 @@ Start the backend:
 ```bash
 npm run server
 ```
+
+## Vercel Deployment
+
+Deploy this repository from the repository root, not from `Travel Planner/`.
+
+- `Root Directory`: `.`
+- `Install Command`: use [vercel.json](/Users/aggimallaabhishek/Documents/AI-Travel-Planner/vercel.json)
+- `Build Command`: use [vercel.json](/Users/aggimallaabhishek/Documents/AI-Travel-Planner/vercel.json)
+- `Output Directory`: use [vercel.json](/Users/aggimallaabhishek/Documents/AI-Travel-Planner/vercel.json)
+
+Required deployment notes:
+
+- Keep `VITE_API_BASE_URL` blank so the frontend calls the same-origin `/api` routes in production.
+- Add `CORS_ALLOWED_ORIGINS` for any non-same-origin frontend domains you intentionally allow.
+- Provide server-side secrets in Vercel project environment variables: `GOOGLE_GEMINI_API_KEY`, `GOOGLE_PLACES_API_KEY`, `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`, `GOOGLE_CLIENT_ID`, and `GOOGLE_SECRET_KEY`.
+- The serverless API entrypoint is [api/[...all].js](/Users/aggimallaabhishek/Documents/AI-Travel-Planner/api/%5B...all%5D.js).
 
 ## Current Constraints
 
