@@ -1,14 +1,23 @@
 import React, { useEffect, useRef, useState } from "react";
 import { IoMdInformationCircleOutline } from "react-icons/io";
-import { FaMapMarkerAlt, FaCalendarAlt, FaMoneyBillWave, FaUsers, FaShare } from "react-icons/fa";
+import {
+  FaCalendarAlt,
+  FaFilePdf,
+  FaMapMarkerAlt,
+  FaMoneyBillWave,
+  FaShare,
+  FaUsers,
+} from "react-icons/fa";
 import { toast } from "react-toastify";
 import { getTripImage } from "@/lib/destinationImages";
 import AppImage from "@/components/ui/AppImage";
 import { IMAGE_FALLBACKS } from "@/lib/imageManifest";
+import { downloadTripPlanPdf } from "@/lib/tripPdf";
 
 function InfoSection({ trip }) {
     const photoUrl = getTripImage(trip?.userSelection?.location?.label);
     const [showShareOptions, setShowShareOptions] = useState(false);
+    const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
     const shareMenuRef = useRef(null);
 
     useEffect(() => {
@@ -37,6 +46,32 @@ function InfoSection({ trip }) {
 
     const handleShareClick = () => {
         setShowShareOptions(!showShareOptions);
+    };
+
+    const handleDownloadPdf = async () => {
+        if (isGeneratingPdf) {
+            return;
+        }
+
+        setIsGeneratingPdf(true);
+        console.info("[view-trip] Starting trip PDF download", {
+            tripId: trip?.id ?? null,
+            destination: trip?.aiPlan?.destination ?? trip?.userSelection?.location?.label ?? "",
+        });
+
+        try {
+            const result = await downloadTripPlanPdf(trip);
+            toast.success(`Trip plan downloaded as ${result.fileName}`);
+        } catch (error) {
+            console.error("[view-trip] Failed to generate trip PDF", {
+                tripId: trip?.id ?? null,
+                destination: trip?.aiPlan?.destination ?? trip?.userSelection?.location?.label ?? "",
+                error,
+            });
+            toast.error("Unable to generate the trip PDF right now.");
+        } finally {
+            setIsGeneratingPdf(false);
+        }
     };
 
     const copyTripLink = async () => {
@@ -118,20 +153,41 @@ function InfoSection({ trip }) {
                         )}
                     </div>
 
-                    <div className="flex gap-3 relative" ref={shareMenuRef}>
-                        <button 
-                            onClick={handleShareClick}
-                            className="bg-[var(--voy-surface2)] text-[var(--voy-text-muted)] p-3 rounded-xl flex items-center gap-2 shadow-sm hover:shadow-md transition-all duration-300 hover:text-[var(--voy-gold)] relative border border-[var(--voy-border)]"
-                            aria-expanded={showShareOptions}
-                            aria-controls="voy-share-menu"
-                            aria-label="Share trip options"
+                    <div className="flex flex-wrap gap-3 items-center">
+                        <button
+                            type="button"
+                            onClick={handleDownloadPdf}
+                            disabled={isGeneratingPdf}
+                            className="bg-[var(--voy-gold)] text-[#0a0e1a] px-4 py-3 rounded-xl flex items-center gap-2 shadow-sm hover:shadow-md transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-70"
+                            aria-busy={isGeneratingPdf}
                         >
-                            <FaShare />
+                            {isGeneratingPdf ? (
+                                <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-[#0a0e1a]/25 border-t-[#0a0e1a]" />
+                            ) : (
+                                <FaFilePdf />
+                            )}
+                            <span className="text-sm font-semibold">
+                                {isGeneratingPdf ? "Generating PDF..." : "Download Trip Plan"}
+                            </span>
+                        </button>
+
+                        <div className="relative" ref={shareMenuRef}>
+                            <button
+                                type="button"
+                                onClick={handleShareClick}
+                                className="bg-[var(--voy-surface2)] text-[var(--voy-text-muted)] p-3 rounded-xl flex items-center gap-2 shadow-sm hover:shadow-md transition-all duration-300 hover:text-[var(--voy-gold)] relative border border-[var(--voy-border)]"
+                                aria-expanded={showShareOptions}
+                                aria-controls="voy-share-menu"
+                                aria-label="Share trip options"
+                            >
+                                <FaShare />
+                            </button>
 
                             {showShareOptions && (
                                 <div id="voy-share-menu" className="voy-info-share-menu absolute top-full right-0 mt-2 rounded-xl p-3 z-10 min-w-[180px]">
                                     <div className="text-sm font-medium text-[var(--voy-text)] mb-2">Share this trip</div>
-                                    <button 
+                                    <button
+                                        type="button"
                                         onClick={copyTripLink}
                                         className="w-full text-left py-2 px-3 rounded-lg hover:bg-[var(--voy-surface2)] text-[var(--voy-text-muted)] transition-colors"
                                     >
@@ -139,7 +195,7 @@ function InfoSection({ trip }) {
                                     </button>
                                 </div>
                             )}
-                        </button>
+                        </div>
                     </div>
                 </div>
             </div>

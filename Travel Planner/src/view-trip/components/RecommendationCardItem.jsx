@@ -10,6 +10,7 @@ import { FaHotel } from "react-icons/fa6";
 import AppImage from "@/components/ui/AppImage";
 import { getHotelImage, getRestaurantImage } from "@/lib/destinationImages";
 import { IMAGE_FALLBACKS } from "@/lib/imageManifest";
+import { resolveGoogleMapsUrl } from "@/lib/maps";
 
 function RecommendationCardItem({ item, type = "hotel" }) {
   const isHotel = type === "hotel";
@@ -17,6 +18,25 @@ function RecommendationCardItem({ item, type = "hotel" }) {
   const fallbackSrc = isHotel ? IMAGE_FALLBACKS.hotel : IMAGE_FALLBACKS.restaurant;
   const labelIcon = isHotel ? <FaHotel /> : <FaUtensils />;
   const labelText = item.typeLabel || (isHotel ? "Stay" : "Dining");
+  const mapsUrl = resolveGoogleMapsUrl({
+    mapsUrl: item?.mapsUrl ?? item?.googleMapsUri,
+    name: item?.name,
+    location: item?.location,
+    coordinates: item?.geoCoordinates,
+  });
+  const hasCoordinates =
+    item?.geoCoordinates?.latitude !== null &&
+    item?.geoCoordinates?.longitude !== null;
+
+  const handleMapClick = () => {
+    console.info("[maps] Opening recommendation in Google Maps", {
+      type,
+      name: item?.name ?? "",
+      location: item?.location ?? "",
+      hasCoordinates,
+      mapsUrl,
+    });
+  };
 
   return (
     <article className="group overflow-hidden rounded-2xl border border-[var(--voy-border)] bg-[var(--voy-surface)] shadow-md transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
@@ -76,9 +96,10 @@ function RecommendationCardItem({ item, type = "hotel" }) {
         </div>
 
         <a
-          href={item.mapsUrl}
+          href={mapsUrl}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={handleMapClick}
           className="inline-flex items-center gap-2 text-sm font-medium text-[var(--voy-text)] transition-colors hover:text-[var(--voy-gold)]"
         >
           <span>Open in Maps</span>

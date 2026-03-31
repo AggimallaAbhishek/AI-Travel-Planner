@@ -1,3 +1,8 @@
+import {
+  normalizeGeoCoordinates,
+  resolveGoogleMapsUrl,
+} from "./maps.js";
+
 function normalizeText(value, fallback = "") {
   if (typeof value !== "string") {
     return fallback;
@@ -26,24 +31,6 @@ function normalizeRating(value) {
   return Math.min(Math.max(parsed, 0), 5);
 }
 
-function normalizeCoordinates(value) {
-  if (!value || typeof value !== "object") {
-    return { latitude: null, longitude: null };
-  }
-
-  const latitude = Number.parseFloat(
-    value.latitude ?? value.lat ?? value.latitudeDegrees
-  );
-  const longitude = Number.parseFloat(
-    value.longitude ?? value.lng ?? value.longitudeDegrees
-  );
-
-  return {
-    latitude: Number.isFinite(latitude) ? latitude : null,
-    longitude: Number.isFinite(longitude) ? longitude : null,
-  };
-}
-
 function normalizeExternalUrl(value, fallback = "") {
   if (typeof value !== "string") {
     return fallback;
@@ -55,16 +42,6 @@ function normalizeExternalUrl(value, fallback = "") {
   }
 
   return trimmed;
-}
-
-function buildMapsSearchUrl(name, location) {
-  const query = normalizeText([name, location].filter(Boolean).join(", "));
-
-  if (!query) {
-    return "";
-  }
-
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 
 function normalizeCategory(value, fallback = "place") {
@@ -125,12 +102,15 @@ export function normalizeRecommendationItem(item = {}, options = {}) {
       item.imageUrl ?? item.photoUrl ?? item.hotelImageUrl
     ),
     priceLabel: normalizeText(item.priceLabel ?? item.price ?? item.priceRange),
-    mapsUrl: normalizeExternalUrl(
-      item.mapsUrl ?? item.googleMapsUri,
-      buildMapsSearchUrl(name, location)
-    ),
+    mapsUrl: resolveGoogleMapsUrl({
+      mapsUrl: item.mapsUrl ?? item.googleMapsUri,
+      name,
+      location,
+      coordinates:
+        item.geoCoordinates ?? item.coordinates ?? item.locationCoordinates,
+    }),
     typeLabel: normalizeText(item.typeLabel ?? item.primaryTypeDisplayName),
-    geoCoordinates: normalizeCoordinates(
+    geoCoordinates: normalizeGeoCoordinates(
       item.geoCoordinates ?? item.coordinates ?? item.locationCoordinates
     ),
     category,

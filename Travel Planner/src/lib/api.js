@@ -1,13 +1,5 @@
-import { auth } from "@/service/firebaseConfig";
-
-export class ApiError extends Error {
-  constructor(message, status, details = null) {
-    super(message);
-    this.name = "ApiError";
-    this.status = status;
-    this.details = details;
-  }
-}
+import { auth } from "../service/firebaseConfig.js";
+import { ApiError, resolveApiRequestFailure } from "../../shared/apiErrors.js";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
 
@@ -37,16 +29,7 @@ export async function apiFetch(path, options = {}) {
       signal: options.signal,
     });
   } catch (error) {
-    const isAbortError = error instanceof Error && error.name === "AbortError";
-    throw new ApiError(
-      isAbortError
-        ? "Request timed out. Please try again."
-        : "Unable to reach the API server. Start backend with `npm run server` and retry.",
-      0,
-      {
-        cause: error instanceof Error ? error.message : String(error),
-      }
-    );
+    throw resolveApiRequestFailure(error);
   }
 
   const contentType = response.headers.get("content-type") ?? "";

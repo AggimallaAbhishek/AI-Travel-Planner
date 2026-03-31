@@ -1,3 +1,5 @@
+import { normalizeGeoCoordinates } from "./maps.js";
+
 function normalizeText(value, fallback = "") {
   if (typeof value !== "string") {
     return fallback;
@@ -47,21 +49,7 @@ function normalizeRating(value) {
 }
 
 function normalizeCoordinates(value) {
-  if (!value || typeof value !== "object") {
-    return { latitude: null, longitude: null };
-  }
-
-  const latitude = Number.parseFloat(
-    value.latitude ?? value.lat ?? value.latitudeDegrees
-  );
-  const longitude = Number.parseFloat(
-    value.longitude ?? value.lng ?? value.longitudeDegrees
-  );
-
-  return {
-    latitude: Number.isFinite(latitude) ? latitude : null,
-    longitude: Number.isFinite(longitude) ? longitude : null,
-  };
+  return normalizeGeoCoordinates(value);
 }
 
 function normalizeStringArray(values, maxItems = 8) {

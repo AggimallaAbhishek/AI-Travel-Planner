@@ -1,3 +1,4 @@
+import { buildGoogleMapsSearchUrl } from "../../shared/maps.js";
 import { normalizeDestinationRecommendations } from "../../shared/recommendations.js";
 
 const GOOGLE_PLACES_TEXT_SEARCH_URL =
@@ -185,11 +186,6 @@ function formatRestaurantPriceLabel(budget, offset) {
   return [`$$ Casual`, `$$$ Elevated local`, `$$ Bistro`][offset % 3];
 }
 
-function buildMapsSearchUrl(name, location) {
-  const query = normalizeText([name, location].filter(Boolean).join(", "));
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
-}
-
 function buildMockHotelDescription({
   destination,
   district,
@@ -260,7 +256,10 @@ function mapGooglePlaceToRecommendation(place, category, destination) {
     rating: place.rating,
     description: buildLiveDescription(place, category, destination),
     priceLabel: mapPriceLevel(place.priceLevel),
-    mapsUrl: normalizeText(place.googleMapsUri, buildMapsSearchUrl(name, location)),
+    mapsUrl: normalizeText(
+      place.googleMapsUri,
+      buildGoogleMapsSearchUrl({ name, location })
+    ),
     typeLabel: normalizeText(place.primaryTypeDisplayName?.text),
     geoCoordinates: place.location,
     category,
@@ -400,7 +399,10 @@ export function buildMockDestinationRecommendations({
         budget: userSelection.budget,
       }),
       priceLabel: formatHotelPriceLabel(userSelection.budget, index),
-      mapsUrl: buildMapsSearchUrl(name, `${district}, ${normalizedDestination}`),
+      mapsUrl: buildGoogleMapsSearchUrl({
+        name,
+        location: `${district}, ${normalizedDestination}`,
+      }),
       typeLabel: "Curated stay",
       category: "hotel",
     };
@@ -424,7 +426,10 @@ export function buildMockDestinationRecommendations({
         diningStyle: selectBySeed(DINING_STYLES, seed, index),
       }),
       priceLabel: formatRestaurantPriceLabel(userSelection.budget, index),
-      mapsUrl: buildMapsSearchUrl(name, `${district}, ${normalizedDestination}`),
+      mapsUrl: buildGoogleMapsSearchUrl({
+        name,
+        location: `${district}, ${normalizedDestination}`,
+      }),
       typeLabel: "Curated dining spot",
       category: "restaurant",
     };

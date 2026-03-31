@@ -1,20 +1,33 @@
 import React from "react";
-import { Link } from "react-router-dom";
 import { FaExternalLinkAlt, FaMapMarkerAlt, FaStar, FaTag } from "react-icons/fa";
 import { getHotelImage } from "@/lib/destinationImages";
 import AppImage from "@/components/ui/AppImage";
 import { IMAGE_FALLBACKS } from "@/lib/imageManifest";
+import { resolveGoogleMapsUrl } from "@/lib/maps";
 
 function HotelCardItem({ hotel }) {
   const photoUrl = getHotelImage(hotel);
+  const mapsUrl = resolveGoogleMapsUrl({
+    mapsUrl: hotel?.mapsUrl ?? hotel?.googleMapsUri,
+    name: hotel?.hotelName,
+    location: hotel?.hotelAddress,
+    coordinates: hotel?.geoCoordinates,
+  });
+
+  const handleMapClick = () => {
+    console.info("[maps] Opening hotel in Google Maps", {
+      hotelName: hotel?.hotelName ?? "",
+      hotelAddress: hotel?.hotelAddress ?? "",
+      mapsUrl,
+    });
+  };
 
   return (
-    <Link
-      to={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-        hotel.hotelName + ", " + (hotel.hotelAddress || "")
-      )}`}
+    <a
+      href={mapsUrl}
       target="_blank"
       rel="noopener noreferrer"
+      onClick={handleMapClick}
       className="no-underline block"
     >
       <div className="relative bg-[var(--voy-surface2)] rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 cursor-pointer border border-[var(--voy-border)]">
@@ -66,7 +79,7 @@ function HotelCardItem({ hotel }) {
           </div>
         </div>
       </div>
-    </Link>
+    </a>
   );
 }
 
