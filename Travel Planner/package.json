@@ -1,0 +1,58 @@
+{
+  "name": "ai-travel-planner",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node ./scripts/devWithFrontendSync.mjs",
+    "dev:vite": "vite",
+    "dev:server": "node --watch server/index.js",
+    "server": "node server/index.js",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "test": "node --test",
+    "sync:frontend": "node ./scripts/frontendBackupSync.mjs --full",
+    "sync:frontend:watch": "node ./scripts/frontendBackupSync.mjs --watch",
+    "audit:full": "npm audit",
+    "audit:prod": "npm audit --omit=dev"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@radix-ui/react-dialog": "^1.1.6",
+    "@radix-ui/react-slot": "^1.1.2",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "cors": "^2.8.5",
+    "d3-geo": "^3.1.1",
+    "dotenv": "^17.2.2",
+    "express": "^5.1.0",
+    "firebase": "^11.5.0",
+    "firebase-admin": "^13.7.0",
+    "lucide-react": "^0.483.0",
+    "postcss": "^8.5.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-icons": "^5.5.0",
+    "react-router-dom": "^7.8.2",
+    "react-toastify": "^11.0.5",
+    "tailwind-merge": "^3.0.2",
+    "tailwindcss": "^3.0.0",
+    "topojson-client": "^3.1.0",
+    "world-atlas": "^2.0.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.21.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.21",
+    "eslint": "^9.21.0",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "eslint-plugin-react-refresh": "^0.4.19",
+    "globals": "^15.15.0",
+    "tailwindcss-animate": "^1.0.7",
+    "vite": "^6.2.2"
+  },
+  "overrides": {
+    "@tootallnate/once": "3.0.1"
+  }
+}
