@@ -99,6 +99,7 @@ frontend_versions/src/lib/tripPdf.js
 frontend_versions/src/lib/tripPrefill.js
 frontend_versions/src/lib/tripRecommendations.js
 frontend_versions/src/lib/typewriter.js
+frontend_versions/src/lib/voyagrCurrency.js
 frontend_versions/src/lib/worldMap.js
 frontend_versions/src/main.jsx
 frontend_versions/src/my-trips/components/UserTripCardItem.jsx

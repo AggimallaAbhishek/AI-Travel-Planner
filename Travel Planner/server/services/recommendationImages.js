@@ -5,6 +5,7 @@ const DEFAULT_IMAGE_TIMEOUT_MS = 10_000;
 const DEFAULT_WIKIMEDIA_IMAGE_WIDTH = 1280;
 const DEFAULT_IMAGE_USER_AGENT =
   "AI-Travel-Planner/1.0 (recommendation images)";
+const DEFAULT_WIKIMEDIA_MIN_INTERVAL_MS = 250;
 
 function normalizeText(value, fallback = "") {
   if (typeof value !== "string") {
@@ -26,6 +27,12 @@ function normalizeExternalUrl(value, fallback = "") {
   }
 
   return trimmed;
+}
+
+function sleep(durationMs) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, durationMs);
+  });
 }
 
 function buildTimedFetchOptions(options = {}, timeoutMs) {
@@ -147,9 +154,24 @@ export function createRecommendationImageService({
   wikidataEntityDataUrl = WIKIDATA_ENTITY_DATA_URL,
   userAgent = DEFAULT_IMAGE_USER_AGENT,
   imageWidth = DEFAULT_WIKIMEDIA_IMAGE_WIDTH,
+  minIntervalMs = DEFAULT_WIKIMEDIA_MIN_INTERVAL_MS,
   cache = new Map(),
 } = {}) {
+  let nextRequestAt = 0;
+
   async function fetchJson(url) {
+    const now = Date.now();
+    const scheduledAt = Math.max(nextRequestAt, now);
+    const waitMs = Math.max(0, scheduledAt - now);
+    nextRequestAt = scheduledAt + minIntervalMs;
+
+    if (waitMs > 0) {
+      console.info("[recommendation-images] Waiting before next image request", {
+        waitMs,
+      });
+      await sleep(waitMs);
+    }
+
     const response = await fetchImpl(
       url,
       buildTimedFetchOptions(
@@ -313,21 +335,23 @@ export function createRecommendationImageService({
 
   async function enrichRecommendationItems(items = [], options = {}) {
     const safeItems = Array.isArray(items) ? items : [];
+    const enrichedItems = [];
 
-    return Promise.all(
-      safeItems.map(async (item) => {
-        const imageUrl = await resolveRecommendationImage(item, options);
+    for (const item of safeItems) {
+      const imageUrl = await resolveRecommendationImage(item, options);
 
-        if (!imageUrl) {
-          return item;
-        }
+      if (!imageUrl) {
+        enrichedItems.push(item);
+        continue;
+      }
 
-        return {
-          ...item,
-          imageUrl,
-        };
-      })
-    );
+      enrichedItems.push({
+        ...item,
+        imageUrl,
+      });
+    }
+
+    return enrichedItems;
   }
 
   async function enrichDestinationRecommendationImages({

@@ -10,7 +10,7 @@ export const VOYAGR_DESTINATIONS = [
       "https://images.unsplash.com/photo-1537996194471-e657df975ab4?w=1200&q=80",
     rating: 4.8,
     reviews: 12400,
-    price: "From $1,200",
+    startingPriceUsd: 1200,
     badge: "Trending",
   },
   {
@@ -24,7 +24,7 @@ export const VOYAGR_DESTINATIONS = [
       "https://images.unsplash.com/photo-1570077188670-e3a8d69ac5ff?w=1200&q=80",
     rating: 4.9,
     reviews: 8900,
-    price: "From $1,800",
+    startingPriceUsd: 1800,
     badge: "Popular",
   },
   {
@@ -38,7 +38,7 @@ export const VOYAGR_DESTINATIONS = [
       "https://images.unsplash.com/photo-1758651794755-801ab0d3c308?w=1200&q=80&auto=format&fit=crop",
     rating: 4.9,
     reviews: 15600,
-    price: "From $1,600",
+    startingPriceUsd: 1600,
     badge: "Must Visit",
   },
   {
@@ -52,7 +52,7 @@ export const VOYAGR_DESTINATIONS = [
       "https://images.unsplash.com/photo-1526392060635-9d6019884377?w=1200&q=80",
     rating: 4.8,
     reviews: 9800,
-    price: "From $1,900",
+    startingPriceUsd: 1900,
     badge: "UNESCO",
   },
   {
@@ -66,7 +66,7 @@ export const VOYAGR_DESTINATIONS = [
       "https://images.unsplash.com/photo-1533104816931-20fa691ff6ca?w=1200&q=80",
     rating: 4.8,
     reviews: 11200,
-    price: "From $2,100",
+    startingPriceUsd: 2100,
     badge: "Scenic",
   },
   {
@@ -80,7 +80,7 @@ export const VOYAGR_DESTINATIONS = [
       "https://images.unsplash.com/photo-1508193638397-1c4234db14d8?w=1200&q=80",
     rating: 4.7,
     reviews: 5600,
-    price: "From $1,700",
+    startingPriceUsd: 1700,
     badge: "Nature",
   },
   {
@@ -94,7 +94,7 @@ export const VOYAGR_DESTINATIONS = [
       "https://images.unsplash.com/photo-1723242498318-18f3073eaac4?w=1200&q=80&auto=format&fit=crop",
     rating: 4.8,
     reviews: 18800,
-    price: "From $1,950",
+    startingPriceUsd: 1950,
     badge: "Iconic",
   },
   {
@@ -108,7 +108,7 @@ export const VOYAGR_DESTINATIONS = [
       "https://images.unsplash.com/photo-1576485290814-1c72aa4bbb8e?w=1200&q=80",
     rating: 4.8,
     reviews: 7100,
-    price: "From $1,650",
+    startingPriceUsd: 1650,
     badge: "Editor's Pick",
   },
   {
@@ -122,7 +122,7 @@ export const VOYAGR_DESTINATIONS = [
       "https://images.unsplash.com/photo-1504893524553-b855bce32c67?w=1200&q=80",
     rating: 4.7,
     reviews: 5400,
-    price: "From $2,050",
+    startingPriceUsd: 2050,
     badge: "Aurora",
   },
   {
@@ -136,7 +136,7 @@ export const VOYAGR_DESTINATIONS = [
       "https://images.unsplash.com/photo-1507699622108-4be3abd695ad?w=1200&q=80",
     rating: 4.9,
     reviews: 6900,
-    price: "From $2,300",
+    startingPriceUsd: 2300,
     badge: "Adventure Hub",
   },
   {
@@ -150,7 +150,7 @@ export const VOYAGR_DESTINATIONS = [
       "https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=1200&q=80",
     rating: 4.7,
     reviews: 9700,
-    price: "From $1,880",
+    startingPriceUsd: 1880,
     badge: "Luxury",
   },
   {
@@ -164,7 +164,7 @@ export const VOYAGR_DESTINATIONS = [
       "https://images.unsplash.com/photo-1597212618440-806262de4f6b?w=1200&q=80",
     rating: 4.7,
     reviews: 6200,
-    price: "From $1,240",
+    startingPriceUsd: 1240,
     badge: "Colorful",
   },
   {
@@ -178,7 +178,7 @@ export const VOYAGR_DESTINATIONS = [
       "https://images.unsplash.com/photo-1538485399081-7c8971d2d6b3?w=1200&q=80",
     rating: 4.8,
     reviews: 9100,
-    price: "From $1,580",
+    startingPriceUsd: 1580,
     badge: "Urban Favorite",
   },
   {
@@ -192,7 +192,7 @@ export const VOYAGR_DESTINATIONS = [
       "https://images.unsplash.com/photo-1513735492246-483525079686?w=1200&q=80",
     rating: 4.8,
     reviews: 8300,
-    price: "From $1,340",
+    startingPriceUsd: 1340,
     badge: "Sunlit",
   },
   {
@@ -206,7 +206,7 @@ export const VOYAGR_DESTINATIONS = [
       "https://images.unsplash.com/photo-1483729558449-99ef09a8c325?w=1200&q=80",
     rating: 4.7,
     reviews: 10100,
-    price: "From $1,520",
+    startingPriceUsd: 1520,
     badge: "Electric",
   },
   {
@@ -220,7 +220,7 @@ export const VOYAGR_DESTINATIONS = [
       "https://images.unsplash.com/photo-1579606032821-4e6161c81bd3?w=1200&q=80",
     rating: 4.8,
     reviews: 4700,
-    price: "From $1,760",
+    startingPriceUsd: 1760,
     badge: "Ancient Wonder",
   },
   {
@@ -234,7 +234,7 @@ export const VOYAGR_DESTINATIONS = [
       "https://images.unsplash.com/photo-1525625293386-3f8f99389edd?w=1200&q=80",
     rating: 4.8,
     reviews: 8600,
-    price: "From $1,690",
+    startingPriceUsd: 1690,
     badge: "Future City",
   },
   {
@@ -248,7 +248,7 @@ export const VOYAGR_DESTINATIONS = [
       "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=1200&q=80",
     rating: 4.9,
     reviews: 7600,
-    price: "From $2,420",
+    startingPriceUsd: 2420,
     badge: "Panoramic",
   },
   {
@@ -262,7 +262,7 @@ export const VOYAGR_DESTINATIONS = [
       "https://images.unsplash.com/photo-1527838832700-5059252407fa?w=1200&q=80",
     rating: 4.8,
     reviews: 9800,
-    price: "From $1,280",
+    startingPriceUsd: 1280,
     badge: "Crossroads",
   },
   {
@@ -276,7 +276,7 @@ export const VOYAGR_DESTINATIONS = [
       "https://images.unsplash.com/photo-1514282401047-d79a71a590e8?w=1200&q=80",
     rating: 4.9,
     reviews: 6400,
-    price: "From $2,750",
+    startingPriceUsd: 2750,
     badge: "Escape",
   },
 ];
