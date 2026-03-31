@@ -1,0 +1,9 @@
+{
+  "installCommand": "cd \"Travel Planner\" && npm install",
+  "buildCommand": "cd \"Travel Planner\" && npm run build",
+  "outputDirectory": "Travel Planner/dist",
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/$1" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
