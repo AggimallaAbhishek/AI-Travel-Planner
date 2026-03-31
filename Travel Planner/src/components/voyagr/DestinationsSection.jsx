@@ -3,6 +3,12 @@ import { VOYAGR_DESTINATIONS } from "./data";
 import SectionHeader from "./SectionHeader";
 import AppImage from "@/components/ui/AppImage";
 import { IMAGE_FALLBACKS } from "@/lib/imageManifest";
+import {
+  buildDestinationMapsUrl,
+  DEFAULT_VOYAGR_CURRENCY,
+  formatDestinationStartingPrice,
+  VOYAGR_CURRENCY_OPTIONS,
+} from "@/lib/voyagrCurrency";
 
 const FILTERS = [
   { id: "all", label: "All" },
@@ -26,9 +32,9 @@ function getFilteredDestinations(activeFilter) {
 export default function DestinationsSection({
   activeFilter,
   onFilterChange,
-  onExploreDestination,
 }) {
   const [savedDestinations, setSavedDestinations] = useState(new Set());
+  const [currencyCode, setCurrencyCode] = useState(DEFAULT_VOYAGR_CURRENCY);
 
   const destinations = useMemo(
     () => getFilteredDestinations(activeFilter),
@@ -49,7 +55,15 @@ export default function DestinationsSection({
         count: next.size,
       });
       return next;
+      });
+  };
+
+  const handleCurrencyChange = (event) => {
+    const nextCurrency = event.target.value;
+    console.info("[voyagr-destinations] currency changed", {
+      currencyCode: nextCurrency,
     });
+    setCurrencyCode(nextCurrency);
   };
 
   return (
@@ -61,22 +75,44 @@ export default function DestinationsSection({
         subtitle="Handpicked locations loved by travelers worldwide, adapted to your trip goals."
       />
 
-      <div className="voy-filter-bar voy-reveal">
-        {FILTERS.map((filter) => (
-          <button
-            key={filter.id}
-            type="button"
-            className={`voy-filter-btn ${activeFilter === filter.id ? "active" : ""}`}
-            onClick={() => onFilterChange(filter.id)}
+      <div className="voy-dest-toolbar voy-reveal">
+        <div className="voy-filter-bar">
+          {FILTERS.map((filter) => (
+            <button
+              key={filter.id}
+              type="button"
+              className={`voy-filter-btn ${activeFilter === filter.id ? "active" : ""}`}
+              onClick={() => onFilterChange(filter.id)}
+            >
+              {filter.label}
+            </button>
+          ))}
+        </div>
+
+        <label className="voy-dest-currency" htmlFor="destination-currency">
+          <span>Currency</span>
+          <select
+            id="destination-currency"
+            value={currencyCode}
+            onChange={handleCurrencyChange}
           >
-            {filter.label}
-          </button>
-        ))}
+            {VOYAGR_CURRENCY_OPTIONS.map((currency) => (
+              <option key={currency.value} value={currency.value}>
+                {currency.label}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       <div className="voy-dest-grid">
         {destinations.map((destination) => {
           const isSaved = savedDestinations.has(destination.id);
+          const mapsUrl = buildDestinationMapsUrl(destination);
+          const priceLabel = formatDestinationStartingPrice(
+            destination.startingPriceUsd,
+            currencyCode
+          );
 
           return (
             <article className="voy-dest-card" key={destination.id}>
@@ -113,17 +149,23 @@ export default function DestinationsSection({
                     <span>★ {destination.rating}</span>
                     <span>({destination.reviews.toLocaleString()})</span>
                   </div>
-                  <div className="voy-dest-price">{destination.price}</div>
+                  <div className="voy-dest-price">{priceLabel}</div>
                 </div>
-                <button
-                  type="button"
+                <a
                   className="voy-dest-explore"
+                  href={mapsUrl}
+                  target="_blank"
+                  rel="noreferrer"
                   onClick={() =>
-                    onExploreDestination(`${destination.name}, ${destination.country}`)
+                    console.info("[voyagr-destinations] opening destination in Google Maps", {
+                      destinationId: destination.id,
+                      destination: `${destination.name}, ${destination.country}`,
+                      mapsUrl,
+                    })
                   }
                 >
-                  Use for Trip Planning
-                </button>
+                  Show in Maps
+                </a>
               </div>
             </article>
           );

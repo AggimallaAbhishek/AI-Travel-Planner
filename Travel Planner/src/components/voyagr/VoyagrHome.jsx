@@ -54,9 +54,6 @@ export default function VoyagrHome() {
       <DestinationsSection
         activeFilter={activeFilter}
         onFilterChange={setActiveFilter}
-        onExploreDestination={(destination) =>
-          openTripCreator({ destination, travelers: "2 Travelers" })
-        }
       />
 
       <Suspense

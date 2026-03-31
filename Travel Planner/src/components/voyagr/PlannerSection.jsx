@@ -1,6 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import SectionHeader from "./SectionHeader";
+import {
+  DEFAULT_VOYAGR_CURRENCY,
+  formatVoyagrCurrency,
+  VOYAGR_CURRENCY_OPTIONS,
+} from "@/lib/voyagrCurrency";
 
 const INTERESTS = [
   { id: "adventure", label: "🧗 Adventure" },
@@ -26,12 +31,8 @@ const ITINERARY_ACTIVITY_LIBRARY = {
   photography: ["Golden-hour photo walk", "City skyline spot", "Portrait session"],
 };
 
-function formatCurrency(amount) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(amount);
+function formatCurrency(amount, currencyCode) {
+  return formatVoyagrCurrency(amount, currencyCode);
 }
 
 function buildPreviewDays(formState) {
@@ -80,7 +81,7 @@ export default function PlannerSection({ onOpenTripCreator }) {
     tripDays: 5,
     budgetAmount: 2500,
     accommodation: "Mid-range (3★ Hotel)",
-    currency: "USD ($)",
+    currency: DEFAULT_VOYAGR_CURRENCY,
     interests: [],
     pace: "Moderate (4-5 activities/day)",
     notes: "",
@@ -343,7 +344,7 @@ export default function PlannerSection({ onOpenTripCreator }) {
                     }))
                   }
                 />
-                <strong>{formatCurrency(formState.budgetAmount)}</strong>
+                <strong>{formatCurrency(formState.budgetAmount, formState.currency)}</strong>
               </label>
             </div>
           </div>
@@ -398,10 +399,11 @@ export default function PlannerSection({ onOpenTripCreator }) {
                     }))
                   }
                 >
-                  <option>USD ($)</option>
-                  <option>EUR (€)</option>
-                  <option>GBP (£)</option>
-                  <option>INR (₹)</option>
+                  {VOYAGR_CURRENCY_OPTIONS.map((currency) => (
+                    <option key={currency.value} value={currency.value}>
+                      {currency.label}
+                    </option>
+                  ))}
                 </select>
               </label>
               <label className="voy-form-field full">

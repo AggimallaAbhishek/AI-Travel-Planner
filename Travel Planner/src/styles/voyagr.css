@@ -699,12 +699,51 @@ html[data-theme="light"] .voy-hero-stats {
   background: var(--voy-bg2);
 }
 
+.voy-dest-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.9rem 1rem;
+  margin-bottom: 1.8rem;
+}
+
 .voy-filter-bar {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   gap: 0.5rem;
-  margin-bottom: 1.8rem;
+}
+
+.voy-dest-currency {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.42rem 0.55rem 0.42rem 0.8rem;
+  border: 1px solid var(--voy-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.06);
+}
+
+.voy-dest-currency span {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--voy-text-muted);
+}
+
+.voy-dest-currency select {
+  border: 0;
+  background: transparent;
+  color: var(--voy-text);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding-right: 0.35rem;
+}
+
+.voy-dest-currency select:focus {
+  outline: none;
 }
 
 .voy-filter-btn {
@@ -849,12 +888,16 @@ html[data-theme="light"] .voy-hero-stats {
 
 .voy-dest-explore {
   width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   margin-top: 0.8rem;
   border: 1px solid var(--voy-border);
   color: var(--voy-text-muted);
   border-radius: var(--voy-radius-sm);
   padding: 0.58rem 0.7rem;
   font-size: 0.8rem;
+  text-decoration: none;
 }
 
 .voy-dest-explore:hover {

@@ -1,4 +1,4 @@
-import { resolveGoogleMapsUrl } from "@/lib/maps";
+import { resolveGoogleMapsUrl } from "./maps.js";
 
 const CURRENCY_CONFIG = {
   INR: {
