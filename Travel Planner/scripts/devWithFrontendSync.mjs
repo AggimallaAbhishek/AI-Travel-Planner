@@ -1,14 +1,12 @@
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const scriptFilePath = fileURLToPath(import.meta.url);
 const projectRoot = path.resolve(path.dirname(scriptFilePath), "..");
 const nodeExecutable = process.execPath;
-const viteExecutable =
-  process.platform === "win32"
-    ? path.join(projectRoot, "node_modules", ".bin", "vite.cmd")
-    : path.join(projectRoot, "node_modules", ".bin", "vite");
+const viteCliPath = path.join(projectRoot, "node_modules", "vite", "bin", "vite.js");
 
 function logDebug(message, context = undefined) {
   if (context) {
@@ -17,6 +15,12 @@ function logDebug(message, context = undefined) {
   }
 
   console.info("[dev-sync]", message);
+}
+
+if (!existsSync(viteCliPath)) {
+  throw new Error(
+    `Unable to find Vite CLI at ${viteCliPath}. Run npm install before starting the dev server.`
+  );
 }
 
 const syncProcess = spawn(
@@ -28,7 +32,7 @@ const syncProcess = spawn(
   }
 );
 
-const viteProcess = spawn(viteExecutable, [], {
+const viteProcess = spawn(nodeExecutable, [viteCliPath], {
   cwd: projectRoot,
   stdio: "inherit",
 });
