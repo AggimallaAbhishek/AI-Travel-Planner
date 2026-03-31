@@ -3,9 +3,14 @@ import { normalizeDestinationRecommendations } from "../../shared/recommendation
 
 const GOOGLE_PLACES_TEXT_SEARCH_URL =
   "https://places.googleapis.com/v1/places:searchText";
+const NOMINATIM_SEARCH_URL =
+  "https://nominatim.openstreetmap.org/search";
+const OVERPASS_API_URL = "https://overpass-api.de/api/interpreter";
 const DEFAULT_CACHE_TTL_MS = 15 * 60 * 1000;
 const DEFAULT_RESULT_LIMIT = 6;
 const DEFAULT_REQUEST_TIMEOUT_MS = 12_000;
+const DEFAULT_RECOMMENDATION_RADIUS_METERS = 3_000;
+const DEFAULT_NOMINATIM_MIN_INTERVAL_MS = 1_000;
 
 const GOOGLE_PLACES_FIELD_MASK = [
   "places.displayName",
@@ -94,6 +99,205 @@ function normalizeText(value, fallback = "") {
   return trimmed || fallback;
 }
 
+function normalizeNumber(value) {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function sleep(durationMs) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, durationMs);
+  });
+}
+
+function buildTimedFetchOptions(options = {}, timeoutMs) {
+  return {
+    ...options,
+    ...(typeof AbortSignal !== "undefined" &&
+    typeof AbortSignal.timeout === "function"
+      ? { signal: AbortSignal.timeout(timeoutMs) }
+      : {}),
+  };
+}
+
+function formatCuisineLabel(value) {
+  const cuisine = normalizeText(value);
+  if (!cuisine) {
+    return "";
+  }
+
+  return cuisine
+    .split(";")
+    .map((item) => normalizeText(item))
+    .filter(Boolean)
+    .slice(0, 2)
+    .join(", ");
+}
+
+function formatAddressFromTags(tags = {}, fallback = "") {
+  const parts = [
+    normalizeText(tags["addr:housenumber"]),
+    normalizeText(tags["addr:street"]),
+    normalizeText(tags["addr:suburb"]),
+    normalizeText(tags["addr:city"]),
+    normalizeText(tags["addr:state"]),
+    normalizeText(tags["addr:country"]),
+  ].filter(Boolean);
+
+  const distinctParts = [];
+  const seen = new Set();
+
+  for (const part of parts) {
+    const key = part.toLowerCase();
+    if (seen.has(key)) {
+      continue;
+    }
+
+    distinctParts.push(part);
+    seen.add(key);
+  }
+
+  return normalizeText(
+    tags["addr:full"] ?? distinctParts.join(", "),
+    fallback
+  );
+}
+
+function extractOsmCoordinates(element = {}) {
+  const latitude = normalizeNumber(element.lat ?? element.center?.lat);
+  const longitude = normalizeNumber(element.lon ?? element.center?.lon);
+
+  return {
+    latitude,
+    longitude,
+  };
+}
+
+function calculateDistanceMeters(
+  fromLatitude,
+  fromLongitude,
+  toLatitude,
+  toLongitude
+) {
+  const coordinates = [
+    fromLatitude,
+    fromLongitude,
+    toLatitude,
+    toLongitude,
+  ].map(normalizeNumber);
+
+  if (coordinates.some((value) => value === null)) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  const [safeFromLatitude, safeFromLongitude, safeToLatitude, safeToLongitude] =
+    coordinates;
+  const earthRadiusMeters = 6_371_000;
+  const toRadians = (value) => (value * Math.PI) / 180;
+  const deltaLatitude = toRadians(safeToLatitude - safeFromLatitude);
+  const deltaLongitude = toRadians(safeToLongitude - safeFromLongitude);
+  const originLatitude = toRadians(safeFromLatitude);
+  const targetLatitude = toRadians(safeToLatitude);
+  const haversine =
+    Math.sin(deltaLatitude / 2) ** 2 +
+    Math.cos(originLatitude) *
+      Math.cos(targetLatitude) *
+      Math.sin(deltaLongitude / 2) ** 2;
+
+  return (
+    2 * earthRadiusMeters * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine))
+  );
+}
+
+function formatDistanceLabel(distanceMeters) {
+  if (!Number.isFinite(distanceMeters)) {
+    return "";
+  }
+
+  if (distanceMeters < 950) {
+    return `${Math.max(1, Math.round(distanceMeters / 50) * 50)} m`;
+  }
+
+  return `${(distanceMeters / 1_000).toFixed(1)} km`;
+}
+
+function buildOpenStreetMapNote() {
+  return "Live destination data from OpenStreetMap. © OpenStreetMap contributors.";
+}
+
+function buildOpenStreetMapTypeLabel(tags = {}, category) {
+  if (category === "hotel") {
+    const stars = normalizeText(tags.stars);
+    if (stars) {
+      return `${stars}-star stay`;
+    }
+
+    return normalizeText(tags.tourism, "Hotel");
+  }
+
+  const cuisine = formatCuisineLabel(tags.cuisine);
+  if (cuisine) {
+    return cuisine;
+  }
+
+  return normalizeText(tags.amenity, "Restaurant");
+}
+
+function buildOpenStreetMapDescription({
+  tags = {},
+  category,
+  destination,
+  distanceLabel,
+}) {
+  const explicitDescription = normalizeText(tags.description);
+  if (explicitDescription) {
+    return explicitDescription;
+  }
+
+  if (category === "hotel") {
+    return distanceLabel
+      ? `Live hotel listing near ${destination}, approximately ${distanceLabel} from the selected location.`
+      : `Live hotel listing near ${destination}.`;
+  }
+
+  const cuisine = formatCuisineLabel(tags.cuisine);
+  if (cuisine) {
+    return distanceLabel
+      ? `${cuisine} dining option near ${destination}, approximately ${distanceLabel} from the selected location.`
+      : `${cuisine} dining option near ${destination}.`;
+  }
+
+  return distanceLabel
+    ? `Live restaurant listing near ${destination}, approximately ${distanceLabel} from the selected location.`
+    : `Live restaurant listing near ${destination}.`;
+}
+
+function buildOpenStreetMapQuery({
+  category,
+  latitude,
+  longitude,
+  radiusMeters,
+  limit,
+  timeoutMs,
+}) {
+  const safeLatitude = normalizeNumber(latitude);
+  const safeLongitude = normalizeNumber(longitude);
+  const timeoutSeconds = Math.max(5, Math.ceil(timeoutMs / 1_000));
+  const resultLimit = Math.max(limit * 6, 18);
+  const filter =
+    category === "hotel"
+      ? '["tourism"~"hotel|hostel|guest_house|motel|apartment"]["name"]'
+      : '["amenity"~"restaurant|cafe|fast_food|food_court"]["name"]';
+
+  return `[out:json][timeout:${timeoutSeconds}];
+(
+  node(around:${radiusMeters},${safeLatitude},${safeLongitude})${filter};
+  way(around:${radiusMeters},${safeLatitude},${safeLongitude})${filter};
+  relation(around:${radiusMeters},${safeLatitude},${safeLongitude})${filter};
+);
+out body center ${resultLimit};`;
+}
+
 function resolveRecommendationLimit() {
   const parsed = Number.parseInt(
     process.env.DESTINATION_RECOMMENDATION_LIMIT ?? "",
@@ -133,8 +337,36 @@ function resolveRequestTimeoutMs() {
   return DEFAULT_REQUEST_TIMEOUT_MS;
 }
 
+function resolveRecommendationRadiusMeters() {
+  const parsed = Number.parseInt(
+    process.env.DESTINATION_RECOMMENDATION_RADIUS_METERS ?? "",
+    10
+  );
+
+  if (Number.isInteger(parsed) && parsed >= 1_000 && parsed <= 20_000) {
+    return parsed;
+  }
+
+  return DEFAULT_RECOMMENDATION_RADIUS_METERS;
+}
+
 export function resolveGooglePlacesApiKey() {
   return process.env.GOOGLE_PLACES_API_KEY ?? process.env.GOOGLE_MAPS_API_KEY ?? "";
+}
+
+function resolveNominatimSearchUrl() {
+  return normalizeText(process.env.NOMINATIM_SEARCH_URL, NOMINATIM_SEARCH_URL);
+}
+
+function resolveOverpassApiUrl() {
+  return normalizeText(process.env.OVERPASS_API_URL, OVERPASS_API_URL);
+}
+
+function resolveOpenStreetMapUserAgent() {
+  return normalizeText(
+    process.env.OSM_USER_AGENT,
+    "AI-Travel-Planner/1.0 (destination recommendations)"
+  );
 }
 
 function createSeed(value) {
@@ -266,6 +498,8 @@ function mapGooglePlaceToRecommendation(place, category, destination) {
   };
 }
 
+let nextNominatimRequestAt = 0;
+
 async function parseErrorResponse(response) {
   const contentType = response.headers.get("content-type") ?? "";
 
@@ -280,6 +514,190 @@ async function parseErrorResponse(response) {
 
   const text = await response.text();
   return normalizeText(text, `HTTP ${response.status}`);
+}
+
+async function geocodeDestinationWithNominatim({
+  destination,
+  fetchImpl,
+  timeoutMs,
+  userAgent,
+  searchUrl,
+  minIntervalMs,
+}) {
+  const now = Date.now();
+  const scheduledAt = Math.max(nextNominatimRequestAt, now);
+  const waitMs = Math.max(0, scheduledAt - now);
+  nextNominatimRequestAt = scheduledAt + minIntervalMs;
+
+  if (waitMs > 0) {
+    console.info("[recommendations] Waiting before Nominatim request", {
+      destination,
+      waitMs,
+    });
+    await sleep(waitMs);
+  }
+
+  const query = new URLSearchParams({
+    q: destination,
+    format: "jsonv2",
+    limit: "1",
+    addressdetails: "1",
+  });
+  const requestUrl = `${searchUrl}?${query.toString()}`;
+
+  console.info("[recommendations] Geocoding destination with Nominatim", {
+    destination,
+  });
+
+  const response = await fetchImpl(
+    requestUrl,
+    buildTimedFetchOptions(
+      {
+        headers: {
+          Accept: "application/json",
+          "Accept-Language": "en",
+          "User-Agent": userAgent,
+        },
+      },
+      timeoutMs
+    )
+  );
+
+  if (!response.ok) {
+    const message = await parseErrorResponse(response);
+    throw new Error(
+      `Nominatim geocoding failed with status ${response.status}: ${message}`
+    );
+  }
+
+  const results = await response.json();
+  const bestMatch = Array.isArray(results) ? results[0] : null;
+  const latitude = normalizeNumber(bestMatch?.lat);
+  const longitude = normalizeNumber(bestMatch?.lon);
+
+  if (latitude === null || longitude === null) {
+    throw new Error(`No usable coordinates found for ${destination}.`);
+  }
+
+  return {
+    latitude,
+    longitude,
+    displayName: normalizeText(bestMatch?.display_name, destination),
+  };
+}
+
+function mapOpenStreetMapElementToRecommendation({
+  element,
+  category,
+  destination,
+  searchCenter,
+}) {
+  const tags = element?.tags ?? {};
+  const name = normalizeText(tags.name);
+  if (!name) {
+    return null;
+  }
+
+  const geoCoordinates = extractOsmCoordinates(element);
+  const distanceMeters = calculateDistanceMeters(
+    searchCenter.latitude,
+    searchCenter.longitude,
+    geoCoordinates.latitude,
+    geoCoordinates.longitude
+  );
+  const distanceLabel = formatDistanceLabel(distanceMeters);
+  const location = formatAddressFromTags(tags, destination);
+
+  return {
+    name,
+    location,
+    description: buildOpenStreetMapDescription({
+      tags,
+      category,
+      destination,
+      distanceLabel,
+    }),
+    priceLabel: "",
+    mapsUrl: buildGoogleMapsSearchUrl({
+      name,
+      location,
+      coordinates: geoCoordinates,
+    }),
+    typeLabel: buildOpenStreetMapTypeLabel(tags, category),
+    geoCoordinates,
+    category,
+    distanceMeters,
+  };
+}
+
+async function searchOpenStreetMapCategory({
+  destination,
+  category,
+  center,
+  fetchImpl,
+  limit,
+  timeoutMs,
+  userAgent,
+  overpassApiUrl,
+  radiusMeters,
+}) {
+  const query = buildOpenStreetMapQuery({
+    category,
+    latitude: center.latitude,
+    longitude: center.longitude,
+    radiusMeters,
+    limit,
+    timeoutMs,
+  });
+
+  console.info("[recommendations] Fetching OpenStreetMap results", {
+    destination,
+    category,
+    limit,
+    radiusMeters,
+  });
+
+  const response = await fetchImpl(
+    overpassApiUrl,
+    buildTimedFetchOptions(
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+          "User-Agent": userAgent,
+        },
+        body: new URLSearchParams({
+          data: query,
+        }),
+      },
+      timeoutMs
+    )
+  );
+
+  if (!response.ok) {
+    const message = await parseErrorResponse(response);
+    throw new Error(
+      `OpenStreetMap ${category} search failed with status ${response.status}: ${message}`
+    );
+  }
+
+  const payload = await response.json();
+  const elements = Array.isArray(payload?.elements) ? payload.elements : [];
+
+  return elements
+    .map((element) =>
+      mapOpenStreetMapElementToRecommendation({
+        element,
+        category,
+        destination,
+        searchCenter: center,
+      })
+    )
+    .filter(Boolean)
+    .sort((left, right) => left.distanceMeters - right.distanceMeters)
+    .slice(0, limit)
+    .map(({ distanceMeters: _distanceMeters, ...recommendation }) => recommendation);
 }
 
 async function searchGooglePlacesCategory({
@@ -374,6 +792,93 @@ async function fetchGooglePlacesRecommendations({
   });
 }
 
+async function fetchOpenStreetMapRecommendations({
+  destination,
+  fetchImpl,
+  limit,
+  timeoutMs,
+  userAgent,
+  nominatimSearchUrl,
+  overpassApiUrl,
+  radiusMeters,
+  minIntervalMs,
+}) {
+  const center = await geocodeDestinationWithNominatim({
+    destination,
+    fetchImpl,
+    timeoutMs,
+    userAgent,
+    searchUrl: nominatimSearchUrl,
+    minIntervalMs,
+  });
+
+  const results = await Promise.allSettled([
+    searchOpenStreetMapCategory({
+      destination,
+      category: "hotel",
+      center,
+      fetchImpl,
+      limit,
+      timeoutMs,
+      userAgent,
+      overpassApiUrl,
+      radiusMeters,
+    }),
+    searchOpenStreetMapCategory({
+      destination,
+      category: "restaurant",
+      center,
+      fetchImpl,
+      limit,
+      timeoutMs,
+      userAgent,
+      overpassApiUrl,
+      radiusMeters,
+    }),
+  ]);
+
+  const [hotelsResult, restaurantsResult] = results;
+  const hotels =
+    hotelsResult.status === "fulfilled" ? hotelsResult.value : [];
+  const restaurants =
+    restaurantsResult.status === "fulfilled" ? restaurantsResult.value : [];
+  const failures = [hotelsResult, restaurantsResult].filter(
+    (result) => result.status === "rejected"
+  );
+
+  if (failures.length > 0) {
+    console.error("[recommendations] OpenStreetMap category request failed", {
+      destination,
+      failures: failures.map((result) =>
+        result.reason instanceof Error ? result.reason.message : String(result.reason)
+      ),
+    });
+  }
+
+  if (hotels.length === 0 && restaurants.length === 0 && failures.length > 0) {
+    throw new Error(
+      failures
+        .map((result) =>
+          result.reason instanceof Error ? result.reason.message : String(result.reason)
+        )
+        .join(" | ")
+    );
+  }
+
+  const warning = failures.length > 0
+    ? `${buildOpenStreetMapNote()} Some categories could not be loaded right now, so available live results are shown.`
+    : buildOpenStreetMapNote();
+
+  return normalizeDestinationRecommendations({
+    destination,
+    hotels,
+    restaurants,
+    provider: "openstreetmap",
+    warning,
+    fetchedAt: new Date().toISOString(),
+  });
+}
+
 export function buildMockDestinationRecommendations({
   destination,
   userSelection = {},
@@ -453,6 +958,11 @@ export function createDestinationRecommendationService({
   limit = resolveRecommendationLimit(),
   timeoutMs = resolveRequestTimeoutMs(),
   resolveApiKey = resolveGooglePlacesApiKey,
+  nominatimSearchUrl = resolveNominatimSearchUrl(),
+  overpassApiUrl = resolveOverpassApiUrl(),
+  osmUserAgent = resolveOpenStreetMapUserAgent(),
+  radiusMeters = resolveRecommendationRadiusMeters(),
+  nominatimMinIntervalMs = DEFAULT_NOMINATIM_MIN_INTERVAL_MS,
 } = {}) {
   async function getRecommendationsForDestination({
     destination,
@@ -486,6 +996,20 @@ export function createDestinationRecommendationService({
     const apiKey = normalizeText(resolveApiKey());
     let recommendations;
 
+    async function loadOpenStreetMapRecommendations() {
+      return fetchOpenStreetMapRecommendations({
+        destination: normalizedDestination,
+        fetchImpl,
+        limit,
+        timeoutMs,
+        userAgent: osmUserAgent,
+        nominatimSearchUrl,
+        overpassApiUrl,
+        radiusMeters,
+        minIntervalMs: nominatimMinIntervalMs,
+      });
+    }
+
     if (apiKey) {
       try {
         recommendations = await fetchGooglePlacesRecommendations({
@@ -496,7 +1020,37 @@ export function createDestinationRecommendationService({
           timeoutMs,
         });
       } catch (error) {
-        console.error("[recommendations] Live provider failed, using fallback", {
+        console.error("[recommendations] Google Places failed, trying OpenStreetMap", {
+          destination: normalizedDestination,
+          message: error instanceof Error ? error.message : String(error),
+        });
+        try {
+          recommendations = await loadOpenStreetMapRecommendations();
+        } catch (fallbackError) {
+          console.error("[recommendations] OpenStreetMap fallback failed, using mock data", {
+            destination: normalizedDestination,
+            message:
+              fallbackError instanceof Error
+                ? fallbackError.message
+                : String(fallbackError),
+          });
+          recommendations = buildMockDestinationRecommendations({
+            destination: normalizedDestination,
+            userSelection,
+            limit,
+            warning:
+              "Live destination data is temporarily unavailable, so curated sample recommendations are being shown instead.",
+          });
+        }
+      }
+    } else {
+      console.info("[recommendations] Google Places not configured, trying OpenStreetMap", {
+        destination: normalizedDestination,
+      });
+      try {
+        recommendations = await loadOpenStreetMapRecommendations();
+      } catch (error) {
+        console.error("[recommendations] OpenStreetMap failed, using mock data", {
           destination: normalizedDestination,
           message: error instanceof Error ? error.message : String(error),
         });
@@ -505,20 +1059,9 @@ export function createDestinationRecommendationService({
           userSelection,
           limit,
           warning:
-            "Live destination data is temporarily unavailable, so these curated sample recommendations are being shown instead.",
+            "Live destination data is not configured, so curated sample recommendations are being shown.",
         });
       }
-    } else {
-      console.info("[recommendations] Using mock provider", {
-        destination: normalizedDestination,
-      });
-      recommendations = buildMockDestinationRecommendations({
-        destination: normalizedDestination,
-        userSelection,
-        limit,
-        warning:
-          "Live destination data is not configured, so these curated sample recommendations are being shown.",
-      });
     }
 
     cache.set(cacheKey, {

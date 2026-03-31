@@ -6,6 +6,7 @@ function Restaurants({
   restaurants = [],
   isLoading = false,
   errorMessage = "",
+  note = "",
   onRetry,
 }) {
   const destination = trip?.userSelection?.location?.label || "this destination";
@@ -19,6 +20,7 @@ function Restaurants({
       errorMessage={errorMessage}
       type="restaurant"
       destination={destination}
+      note={note}
       emptyTitle="No restaurants found yet"
       emptyDescription={`We could not find restaurant recommendations for ${destination} right now.`}
       onRetry={onRetry}

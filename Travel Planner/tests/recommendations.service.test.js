@@ -76,9 +76,86 @@ test("destination recommendation service caches live provider responses by desti
   assert.equal(first.restaurants[0].name, "Ember Table");
 });
 
+test("destination recommendation service uses OpenStreetMap when Google Places is not configured", async () => {
+  const requests = [];
+  const service = createDestinationRecommendationService({
+    resolveApiKey: () => "",
+    nominatimMinIntervalMs: 0,
+    fetchImpl: async (url, options = {}) => {
+      requests.push({ url, options });
+
+      if (String(url).includes("nominatim")) {
+        return {
+          ok: true,
+          async json() {
+            return [
+              {
+                lat: "25.1972",
+                lon: "55.2744",
+                display_name: "Burj Khalifa, Dubai, United Arab Emirates",
+              },
+            ];
+          },
+        };
+      }
+
+      const body = decodeURIComponent(String(options.body));
+      const isHotelQuery = body.includes("tourism");
+
+      return {
+        ok: true,
+        async json() {
+          return {
+            elements: isHotelQuery
+              ? [
+                  {
+                    type: "node",
+                    lat: 25.198,
+                    lon: 55.2747,
+                    tags: {
+                      name: "Armani Hotel Dubai",
+                      tourism: "hotel",
+                      stars: "5",
+                      "addr:city": "Dubai",
+                    },
+                  },
+                ]
+              : [
+                  {
+                    type: "node",
+                    lat: 25.1965,
+                    lon: 55.2753,
+                    tags: {
+                      name: "At.mosphere",
+                      amenity: "restaurant",
+                      cuisine: "international;fine dining",
+                      "addr:city": "Dubai",
+                    },
+                  },
+                ],
+          };
+        },
+      };
+    },
+  });
+
+  const recommendations = await service.getRecommendationsForDestination({
+    destination: "Burj Khalifa, Dubai",
+  });
+
+  assert.equal(recommendations.provider, "openstreetmap");
+  assert.ok(recommendations.warning.includes("OpenStreetMap"));
+  assert.equal(recommendations.hotels[0].name, "Armani Hotel Dubai");
+  assert.equal(recommendations.restaurants[0].name, "At.mosphere");
+  assert.equal(recommendations.hotels[0].typeLabel, "5-star stay");
+  assert.equal(recommendations.restaurants[0].typeLabel, "international, fine dining");
+  assert.equal(requests.length, 3);
+});
+
 test("destination recommendation service falls back to mock data when live provider fails", async () => {
   const service = createDestinationRecommendationService({
     resolveApiKey: () => "test-key",
+    nominatimMinIntervalMs: 0,
     fetchImpl: async () => {
       throw new Error("network failure");
     },

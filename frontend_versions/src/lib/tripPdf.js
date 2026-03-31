@@ -2,7 +2,7 @@ const PDF_LAYOUT = {
   marginX: 16,
   marginTop: 18,
   marginBottom: 16,
-  sectionGap: 8,
+  sectionGap: 10,
 };
 
 const PDF_COLORS = {
@@ -11,10 +11,23 @@ const PDF_COLORS = {
   faint: [153, 161, 175],
   gold: [184, 144, 47],
   goldSoft: [246, 238, 224],
+  greenDeep: [36, 59, 46],
+  greenSoft: [232, 240, 235],
   surface: [255, 255, 255],
   surfaceAlt: [249, 246, 240],
   border: [227, 232, 240],
 };
+
+const PDF_BRAND = {
+  appTitle: "AI Travel Planner",
+  subtitle: "Professional AI-generated itinerary and travel brief",
+};
+
+const DEFAULT_PDF_LOGO_URL = `${
+  typeof import.meta !== "undefined" && import.meta.env?.BASE_URL
+    ? import.meta.env.BASE_URL
+    : "/"
+}logo-1.png`;
 
 function normalizeText(value, fallback = "") {
   if (typeof value !== "string") {
@@ -72,6 +85,10 @@ function formatCreatedAt(value) {
   }).format(parsed);
 }
 
+function formatGeneratedAt(value) {
+  return formatCreatedAt(value);
+}
+
 function normalizeValue(value, fallback = "Not specified") {
   return normalizeText(typeof value === "string" ? value : String(value ?? ""), fallback);
 }
@@ -127,7 +144,14 @@ function buildHotelEntry(hotel, index) {
   };
 }
 
-function buildOverviewItems({ destination, selection, totalEstimatedCost, createdAt, dayCount }) {
+function buildOverviewItems({
+  destination,
+  selection,
+  totalEstimatedCost,
+  createdAt,
+  generatedAt,
+  dayCount,
+}) {
   const durationDays = dayCount || selection?.days || 0;
 
   return [
@@ -147,6 +171,10 @@ function buildOverviewItems({ destination, selection, totalEstimatedCost, create
     {
       label: "Created",
       value: formatCreatedAt(createdAt),
+    },
+    {
+      label: "Generated",
+      value: formatGeneratedAt(generatedAt),
     },
     {
       label: "Estimated Cost",
@@ -169,11 +197,12 @@ function buildSummary(destination, days) {
   return `${days.length}-day itinerary for ${destination} with ${activityCount} planned ${activityLabel}.`;
 }
 
-export function buildTripPdfDocumentModel(trip = {}) {
+export function buildTripPdfDocumentModel(trip = {}, options = {}) {
   const destination = normalizeText(
     trip?.aiPlan?.destination ?? trip?.userSelection?.location?.label,
     "Unknown destination"
   );
+  const generatedAt = options.generatedAt ?? new Date().toISOString();
   const aiPlanDays = Array.isArray(trip?.aiPlan?.days) ? trip.aiPlan.days : [];
   const itineraryDays = Array.isArray(trip?.itinerary?.days) ? trip.itinerary.days : [];
   const days = (aiPlanDays.length > 0 ? aiPlanDays.map(buildDayFromAiPlan) : itineraryDays.map(buildDayFromItinerary)).sort(
@@ -186,9 +215,13 @@ export function buildTripPdfDocumentModel(trip = {}) {
   const hotels = Array.isArray(trip?.hotels) ? trip.hotels.map(buildHotelEntry) : [];
   const travelTips = normalizeStringArray(trip?.aiPlan?.travelTips, []);
   const model = {
-    title: `Trip Plan for ${destination}`,
+    appTitle: PDF_BRAND.appTitle,
+    brandSubtitle: PDF_BRAND.subtitle,
+    title: `${destination} Trip Plan`,
     destination,
     fileName: buildTripFileName(destination),
+    generatedAt,
+    generatedAtLabel: formatGeneratedAt(generatedAt),
     overview: {
       summary: buildSummary(destination, days),
       items: buildOverviewItems({
@@ -196,6 +229,7 @@ export function buildTripPdfDocumentModel(trip = {}) {
         selection: trip?.userSelection ?? {},
         totalEstimatedCost,
         createdAt: trip?.createdAt,
+        generatedAt,
         dayCount: days.length,
       }),
     },
@@ -291,7 +325,7 @@ function estimateLinesHeight(lines, lineHeight) {
 }
 
 function drawSectionHeading(state, eyebrow, title) {
-  ensureSpace(state, 14);
+  ensureSpace(state, 16);
 
   const { doc } = state;
   doc.setFont("helvetica", "bold");
@@ -300,22 +334,108 @@ function drawSectionHeading(state, eyebrow, title) {
   doc.text(sanitizePdfText(eyebrow).toUpperCase(), PDF_LAYOUT.marginX, state.cursorY);
   state.cursorY += 4;
 
-  doc.setFontSize(14);
+  doc.setFontSize(15);
   setTextColor(doc, PDF_COLORS.ink);
   doc.text(sanitizePdfText(title), PDF_LAYOUT.marginX, state.cursorY);
-  state.cursorY += 6;
+  state.cursorY += 7;
 }
 
-function drawHeader(state, model) {
+function resolveImageFormat(dataUrl) {
+  if (typeof dataUrl !== "string") {
+    return "PNG";
+  }
+
+  if (dataUrl.startsWith("data:image/jpeg") || dataUrl.startsWith("data:image/jpg")) {
+    return "JPEG";
+  }
+
+  if (dataUrl.startsWith("data:image/webp")) {
+    return "WEBP";
+  }
+
+  return "PNG";
+}
+
+async function blobToDataUrl(blob) {
+  const arrayBuffer = await blob.arrayBuffer();
+
+  if (typeof globalThis.Buffer !== "undefined") {
+    return `data:${blob.type};base64,${globalThis.Buffer.from(arrayBuffer).toString("base64")}`;
+  }
+
+  const bytes = new Uint8Array(arrayBuffer);
+  let binary = "";
+
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+
+  return `data:${blob.type};base64,${btoa(binary)}`;
+}
+
+async function resolvePdfLogoDataUrl(options = {}) {
+  if (options.logoDataUrl) {
+    return options.logoDataUrl;
+  }
+
+  const logoUrl = options.logoUrl ?? DEFAULT_PDF_LOGO_URL;
+
+  if (!logoUrl || typeof fetch !== "function") {
+    return "";
+  }
+
+  try {
+    const response = await fetch(logoUrl);
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const blob = await response.blob();
+    return await blobToDataUrl(blob);
+  } catch (error) {
+    console.warn("[trip-pdf] Unable to load PDF logo asset", {
+      logoUrl,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return "";
+  }
+}
+
+function drawBrandBadge(doc, x, y, size, logoDataUrl = "") {
+  if (logoDataUrl) {
+    try {
+      doc.addImage(logoDataUrl, resolveImageFormat(logoDataUrl), x, y, size, size);
+      return;
+    } catch (error) {
+      console.warn("[trip-pdf] Failed to embed logo image into PDF", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  setFillColor(doc, PDF_COLORS.greenDeep);
+  doc.roundedRect(x, y, size, size, 6, 6, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(16);
+  setTextColor(doc, PDF_COLORS.surface);
+  doc.text("AI", x + size / 2, y + size / 2 + 2, { align: "center" });
+}
+
+function drawHeader(state, model, logoDataUrl = "") {
   const { doc, contentWidth } = state;
-  const summaryLines = splitLines(doc, model.overview.summary, contentWidth - 18);
-  const titleLines = splitLines(doc, model.title, contentWidth - 18);
+  const summaryLines = splitLines(doc, model.overview.summary, contentWidth - 24);
+  const titleLines = splitLines(doc, model.title, contentWidth - 42);
+  const subtitleLines = splitLines(doc, model.brandSubtitle, contentWidth - 42);
   const blockHeight =
-    12 + estimateLinesHeight(titleLines, 7) + estimateLinesHeight(summaryLines, 4.4);
+    24 +
+    estimateLinesHeight(titleLines, 6.8) +
+    estimateLinesHeight(subtitleLines, 4.3) +
+    estimateLinesHeight(summaryLines, 4.4);
 
   ensureSpace(state, blockHeight);
 
-  setFillColor(doc, PDF_COLORS.surfaceAlt);
+  setFillColor(doc, PDF_COLORS.greenSoft);
   setDrawColor(doc, PDF_COLORS.border);
   doc.roundedRect(
     PDF_LAYOUT.marginX,
@@ -328,21 +448,56 @@ function drawHeader(state, model) {
   );
 
   setFillColor(doc, PDF_COLORS.gold);
-  doc.roundedRect(PDF_LAYOUT.marginX, state.cursorY, 4, blockHeight, 3, 3, "F");
+  doc.roundedRect(PDF_LAYOUT.marginX, state.cursorY, contentWidth, 8, 5, 5, "F");
 
-  const textX = PDF_LAYOUT.marginX + 8;
-  let textY = state.cursorY + 8;
+  const logoSize = 18;
+  const logoX = PDF_LAYOUT.marginX + 6;
+  const logoY = state.cursorY + 12;
+  drawBrandBadge(doc, logoX, logoY, logoSize, logoDataUrl);
+
+  const textX = logoX + logoSize + 6;
+  let textY = state.cursorY + 17;
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(20);
+  doc.setFontSize(9);
+  setTextColor(doc, PDF_COLORS.greenDeep);
+  doc.text(sanitizePdfText(model.appTitle), textX, textY - 5.5);
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(18);
   setTextColor(doc, PDF_COLORS.ink);
   doc.text(titleLines, textX, textY);
-  textY += estimateLinesHeight(titleLines, 7);
+  textY += estimateLinesHeight(titleLines, 6.8) + 2;
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  setTextColor(doc, PDF_COLORS.muted);
+  doc.text(subtitleLines, textX, textY);
+  textY += estimateLinesHeight(subtitleLines, 4.3) + 3;
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9.5);
   setTextColor(doc, PDF_COLORS.muted);
   doc.text(summaryLines, textX, textY);
+
+  const timestampWidth = 52;
+  const timestampX = PDF_LAYOUT.marginX + contentWidth - timestampWidth - 6;
+  const timestampY = state.cursorY + 14;
+  setFillColor(doc, PDF_COLORS.surface);
+  setDrawColor(doc, PDF_COLORS.border);
+  doc.roundedRect(timestampX, timestampY, timestampWidth, 17, 4, 4, "FD");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7);
+  setTextColor(doc, PDF_COLORS.gold);
+  doc.text("GENERATED", timestampX + 4, timestampY + 5.5);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8.5);
+  setTextColor(doc, PDF_COLORS.ink);
+  doc.text(
+    splitLines(doc, model.generatedAtLabel, timestampWidth - 8),
+    timestampX + 4,
+    timestampY + 10.5
+  );
 
   state.cursorY += blockHeight + PDF_LAYOUT.sectionGap;
 }
@@ -352,9 +507,9 @@ function drawOverview(state, model) {
 
   const { doc, contentWidth } = state;
   const summaryLines = splitLines(doc, model.overview.summary, contentWidth - 12);
-  const rowHeight = 11;
+  const rowHeight = 14;
   const rows = Math.ceil(model.overview.items.length / 2);
-  const blockHeight = 10 + estimateLinesHeight(summaryLines, 4.8) + rows * rowHeight + 6;
+  const blockHeight = 12 + estimateLinesHeight(summaryLines, 4.8) + rows * rowHeight + 8;
 
   ensureSpace(state, blockHeight);
 
@@ -380,6 +535,9 @@ function drawOverview(state, model) {
     const itemX = x + 6 + column * (columnWidth + columnGap);
     const itemY = cursorY + row * rowHeight;
 
+    setFillColor(doc, PDF_COLORS.surfaceAlt);
+    doc.roundedRect(itemX - 2, itemY - 4.5, columnWidth + 2, 11, 3, 3, "F");
+
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.2);
     setTextColor(doc, PDF_COLORS.gold);
@@ -402,7 +560,7 @@ function estimateDayBlockHeight(doc, day, width) {
   const noteLines = day.notes ? splitLines(doc, `Notes: ${day.notes}`, width - 14) : [];
   const noteHeight = estimateLinesHeight(noteLines, 4.2);
 
-  return 16 + estimateLinesHeight(titleLines, 5.2) + activityHeights + (noteHeight ? noteHeight + 4 : 0);
+  return 18 + estimateLinesHeight(titleLines, 5.2) + activityHeights + (noteHeight ? noteHeight + 6 : 0);
 }
 
 function drawDayBlocks(state, model) {
@@ -442,6 +600,8 @@ function drawDayBlocks(state, model) {
     setFillColor(doc, PDF_COLORS.surface);
     setDrawColor(doc, PDF_COLORS.border);
     doc.roundedRect(x, y, contentWidth, blockHeight, 4, 4, "FD");
+    setFillColor(doc, PDF_COLORS.gold);
+    doc.roundedRect(x, y, 3, blockHeight, 2, 2, "F");
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
@@ -474,7 +634,7 @@ function drawDayBlocks(state, model) {
     });
 
     if (day.notes) {
-      contentY += 2;
+      contentY += 3;
       doc.setFont("helvetica", "italic");
       doc.setFontSize(9);
       setTextColor(doc, PDF_COLORS.muted);
@@ -494,7 +654,7 @@ function estimateHotelBlockHeight(doc, hotel, width) {
   const descriptionLines = splitLines(doc, hotel.description, width - 12);
 
   return (
-    15 +
+    18 +
     estimateLinesHeight(nameLines, 5) +
     estimateLinesHeight(addressLines, 4.2) +
     estimateLinesHeight(descriptionLines, 4.2)
@@ -534,6 +694,8 @@ function drawHotels(state, model) {
     setFillColor(doc, PDF_COLORS.surface);
     setDrawColor(doc, PDF_COLORS.border);
     doc.roundedRect(x, y, contentWidth, blockHeight, 4, 4, "FD");
+    setFillColor(doc, PDF_COLORS.greenDeep);
+    doc.roundedRect(x, y, 3, blockHeight, 2, 2, "F");
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11.4);
@@ -551,7 +713,7 @@ function drawHotels(state, model) {
     );
 
     let contentY =
-      y + 18 + estimateLinesHeight(splitLines(doc, hotel.name, contentWidth - 12), 5);
+      y + 20 + estimateLinesHeight(splitLines(doc, hotel.name, contentWidth - 12), 5);
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
@@ -573,7 +735,8 @@ function drawTotalCost(state, model) {
   drawSectionHeading(state, "Budget", "Estimated total cost");
 
   const { doc, contentWidth } = state;
-  const summary = "Use this as a planning estimate and keep a contingency buffer for local transport, taxes, and last-minute changes.";
+  const summary =
+    "Use this estimate as a planning baseline and keep a contingency buffer for local transport, taxes, and last-minute changes.";
   const summaryLines = splitLines(doc, summary, contentWidth - 12);
   const blockHeight = 18 + estimateLinesHeight(summaryLines, 4.2);
 
@@ -634,25 +797,55 @@ function drawTravelTips(state, model) {
   });
 }
 
+function decoratePages(doc, model) {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const pageCount = doc.getNumberOfPages();
+
+  for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
+    doc.setPage(pageNumber);
+    setDrawColor(doc, PDF_COLORS.border);
+    doc.line(
+      PDF_LAYOUT.marginX,
+      pageHeight - 10,
+      pageWidth - PDF_LAYOUT.marginX,
+      pageHeight - 10
+    );
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    setTextColor(doc, PDF_COLORS.muted);
+    doc.text(sanitizePdfText(model.appTitle), PDF_LAYOUT.marginX, pageHeight - 5.5);
+    doc.text(
+      `Page ${pageNumber} of ${pageCount}`,
+      pageWidth - PDF_LAYOUT.marginX,
+      pageHeight - 5.5,
+      { align: "right" }
+    );
+  }
+}
+
 export async function createTripPdfDocument(trip, options = {}) {
-  const model = buildTripPdfDocumentModel(trip);
+  const model = buildTripPdfDocumentModel(trip, options);
   const doc = options.doc ?? (await createPdfDocument(options.PdfClass));
+  const logoDataUrl = await resolvePdfLogoDataUrl(options);
   const state = createRenderState(doc);
 
   doc.setProperties({
     title: model.title,
     subject: `Travel itinerary for ${model.destination}`,
-    author: "Voyagr",
-    creator: "Voyagr",
-    keywords: "travel,itinerary,trip,pdf",
+    author: PDF_BRAND.appTitle,
+    creator: PDF_BRAND.appTitle,
+    keywords: "travel,itinerary,trip,pdf,ai travel planner",
   });
 
-  drawHeader(state, model);
+  drawHeader(state, model, logoDataUrl);
   drawOverview(state, model);
   drawDayBlocks(state, model);
   drawHotels(state, model);
   drawTotalCost(state, model);
   drawTravelTips(state, model);
+  decoratePages(doc, model);
 
   console.debug("[trip-pdf] PDF document rendered", {
     destination: model.destination,

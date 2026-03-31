@@ -62,10 +62,14 @@ function buildFullTripFixture() {
 }
 
 test("buildTripPdfDocumentModel uses aiPlan data for overview and day sections", () => {
-  const model = buildTripPdfDocumentModel(buildFullTripFixture());
+  const model = buildTripPdfDocumentModel(buildFullTripFixture(), {
+    generatedAt: "2026-04-01T12:30:10.000Z",
+  });
 
-  assert.equal(model.title, "Trip Plan for Bali, Indonesia");
+  assert.equal(model.appTitle, "AI Travel Planner");
+  assert.equal(model.title, "Bali, Indonesia Trip Plan");
   assert.equal(model.fileName, "bali-indonesia-trip-plan.pdf");
+  assert.equal(model.generatedAtLabel, "Apr 1, 2026, 6:00 PM");
   assert.equal(model.days.length, 2);
   assert.equal(model.days[0].title, "Arrival in Ubud & Monkey Forest Fun");
   assert.equal(model.days[0].activities.length, 4);
@@ -102,6 +106,8 @@ test("buildTripPdfDocumentModel falls back to itinerary data for legacy trips", 
         },
       ],
     },
+  }, {
+    generatedAt: "2026-04-01T12:30:10.000Z",
   });
 
   assert.equal(model.days.length, 1);
@@ -129,6 +135,8 @@ test("buildTripPdfDocumentModel handles missing hotels, tips, and estimated cost
         },
       ],
     },
+  }, {
+    generatedAt: "2026-04-01T12:30:10.000Z",
   });
 
   assert.equal(model.hotels.length, 0);
@@ -161,10 +169,14 @@ test("createTripPdfDocument renders a PDF without throwing on special characters
       ],
       travelTips: ["Keep a rideshare backup for late evenings."],
     },
+  }, {
+    generatedAt: "2026-04-01T12:30:10.000Z",
+    logoUrl: "",
   });
 
   const output = doc.output("arraybuffer");
 
+  assert.equal(model.appTitle, "AI Travel Planner");
   assert.equal(model.fileName, "sao-paulo-brasil-trip-plan.pdf");
   assert.ok(output instanceof ArrayBuffer);
   assert.ok(output.byteLength > 0);
@@ -183,10 +195,13 @@ test("downloadTripPlanPdf uses the computed filename and tolerates partial trip 
       saveFn: (_doc, fileName) => {
         capturedFileName = fileName;
       },
+      generatedAt: "2026-04-01T12:30:10.000Z",
+      logoUrl: "",
     }
   );
 
   assert.equal(capturedFileName, "kyoto-trip-plan.pdf");
   assert.equal(result.fileName, "kyoto-trip-plan.pdf");
-  assert.equal(result.model.title, "Trip Plan for Kyoto");
+  assert.equal(result.model.title, "Kyoto Trip Plan");
+  assert.equal(result.model.generatedAtLabel, "Apr 1, 2026, 6:00 PM");
 });

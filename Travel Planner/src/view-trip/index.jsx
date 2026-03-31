@@ -218,6 +218,7 @@ function Viewtrip() {
           restaurants={recommendations.restaurants}
           isLoading={recommendations.loading}
           errorMessage={recommendations.errorMessage}
+          note={recommendations.warning}
           onRetry={handleRetryRecommendations}
         />
         <PlacesToVisit trip={trip} />

@@ -7,7 +7,10 @@ import {
   listTripsForUser,
   validateTripRequest,
 } from "../services/trips.js";
-import { getRecommendationsForDestination } from "../services/recommendations.js";
+import {
+  buildMockDestinationRecommendations,
+  getRecommendationsForDestination,
+} from "../services/recommendations.js";
 
 const router = express.Router();
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
@@ -241,10 +244,27 @@ router.get("/trips/:tripId/recommendations", requireAuth, async (req, res) => {
       return;
     }
 
-    const recommendations = await getRecommendationsForDestination({
-      destination,
-      userSelection: trip.userSelection,
-    });
+    let recommendations;
+
+    try {
+      recommendations = await getRecommendationsForDestination({
+        destination,
+        userSelection: trip.userSelection,
+      });
+    } catch (error) {
+      console.error("[trips] Recommendation providers failed, using mock data", {
+        tripId: trip.id,
+        destination,
+        message: getErrorText(error),
+      });
+
+      recommendations = buildMockDestinationRecommendations({
+        destination,
+        userSelection: trip.userSelection,
+        warning:
+          "Live destination data could not be loaded, so curated sample recommendations are being shown instead.",
+      });
+    }
 
     console.info("[trips] Destination recommendations loaded", {
       tripId: trip.id,
