@@ -7,6 +7,7 @@ import {
   listTripsForUser,
   validateTripRequest,
 } from "../services/trips.js";
+import { getRecommendationsForDestination } from "../services/recommendations.js";
 
 const router = express.Router();
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
@@ -205,6 +206,62 @@ router.get("/trips/:tripId", requireAuth, async (req, res) => {
     console.error("[trips] Failed to load trip", error);
     res.status(500).json({
       message: "Unable to load the trip right now.",
+    });
+  }
+});
+
+router.get("/trips/:tripId/recommendations", requireAuth, async (req, res) => {
+  try {
+    const trip = await getTripForUser({
+      tripId: req.params.tripId,
+      user: req.user,
+    });
+
+    if (!trip) {
+      res.status(404).json({
+        message: "Trip not found.",
+      });
+      return;
+    }
+
+    if (trip === "forbidden") {
+      res.status(403).json({
+        message: "You do not have access to this trip.",
+      });
+      return;
+    }
+
+    const destination =
+      trip.userSelection?.location?.label ?? trip.aiPlan?.destination ?? "";
+
+    if (!destination) {
+      res.status(400).json({
+        message: "This trip does not have a destination to search.",
+      });
+      return;
+    }
+
+    const recommendations = await getRecommendationsForDestination({
+      destination,
+      userSelection: trip.userSelection,
+    });
+
+    console.info("[trips] Destination recommendations loaded", {
+      tripId: trip.id,
+      destination,
+      provider: recommendations.provider,
+      hotels: recommendations.hotels.length,
+      restaurants: recommendations.restaurants.length,
+    });
+
+    res.json({ recommendations });
+  } catch (error) {
+    console.error("[trips] Failed to load destination recommendations", {
+      tripId: req.params.tripId,
+      message: getErrorText(error),
+    });
+    res.status(500).json({
+      message: "Unable to load destination recommendations right now.",
     });
   }
 });

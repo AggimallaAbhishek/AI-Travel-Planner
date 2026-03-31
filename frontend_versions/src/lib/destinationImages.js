@@ -14,14 +14,21 @@ export function getTripImage(locationLabel) {
 }
 
 export function getHotelImage(hotel) {
-  if (isRemoteImageUrl(hotel?.hotelImageUrl)) {
-    return hotel.hotelImageUrl;
+  const remoteImageUrl = hotel?.hotelImageUrl ?? hotel?.imageUrl;
+
+  if (isRemoteImageUrl(remoteImageUrl)) {
+    return remoteImageUrl;
   }
 
   return (
-    getManifestImageForQuery(`${hotel?.hotelName ?? ""} ${hotel?.hotelAddress ?? ""}`, {
+    getManifestImageForQuery(
+      `${hotel?.hotelName ?? hotel?.name ?? ""} ${
+        hotel?.hotelAddress ?? hotel?.location ?? ""
+      }`,
+      {
       category: "hotel",
-    }) ?? IMAGE_FALLBACKS.hotel
+      }
+    ) ?? IMAGE_FALLBACKS.hotel
   );
 }
 
@@ -39,5 +46,20 @@ export function getPlaceImage(place) {
     getManifestImageForQuery(`${place?.placeName ?? ""} ${place?.category ?? ""}`, {
       category: firstCategory || "place",
     }) ?? getCategoryFallback(firstCategory || "place")
+  );
+}
+
+export function getRestaurantImage(restaurant) {
+  if (isRemoteImageUrl(restaurant?.imageUrl)) {
+    return restaurant.imageUrl;
+  }
+
+  return (
+    getManifestImageForQuery(
+      `${restaurant?.name ?? ""} ${restaurant?.location ?? ""} ${restaurant?.typeLabel ?? ""}`,
+      {
+        category: "restaurant",
+      }
+    ) ?? IMAGE_FALLBACKS.restaurant
   );
 }

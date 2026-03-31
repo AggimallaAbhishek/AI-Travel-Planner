@@ -1,31 +1,29 @@
 import React from "react";
 import RecommendationGridSection from "./RecommendationGridSection";
 
-function Hotels({
+function Restaurants({
   trip,
-  hotels = [],
+  restaurants = [],
   isLoading = false,
   errorMessage = "",
-  note = "",
   onRetry,
 }) {
   const destination = trip?.userSelection?.location?.label || "this destination";
 
   return (
     <RecommendationGridSection
-      title="Hotel Recommendations"
-      subtitle={`Discover accommodations recommended for your ${destination} itinerary.`}
-      items={hotels}
+      title="Restaurant Recommendations"
+      subtitle={`Discover dining spots worth adding to your ${destination} itinerary.`}
+      items={restaurants}
       isLoading={isLoading}
       errorMessage={errorMessage}
-      type="hotel"
+      type="restaurant"
       destination={destination}
-      note={note}
-      emptyTitle="No hotels found yet"
-      emptyDescription={`We could not find hotel recommendations for ${destination} right now.`}
+      emptyTitle="No restaurants found yet"
+      emptyDescription={`We could not find restaurant recommendations for ${destination} right now.`}
       onRetry={onRetry}
     />
   );
 }
 
-export default Hotels;
+export default Restaurants;

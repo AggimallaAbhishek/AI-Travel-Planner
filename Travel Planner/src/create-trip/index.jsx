@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { SelectBudgetOptions, SelectTravelsList } from "../constants/options";
 import { toast } from "react-toastify";
@@ -19,9 +19,10 @@ import {
   DialogHeader
 } from "@/components/ui/dialog";
 import { FcGoogle } from "react-icons/fc";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/lib/api";
+import { readCreateTripPrefill } from "@/lib/tripPrefill";
 import {
   getUserSelectionErrors,
   normalizeUserSelection,
@@ -61,6 +62,7 @@ function CreateTrip() {
   const [showDestinationSuggestions, setShowDestinationSuggestions] = useState(false);
   const [activeDestinationSuggestionIndex, setActiveDestinationSuggestionIndex] =
     useState(-1);
+  const location = useLocation();
   const navigate = useNavigate();
   const { user, signInWithGoogle } = useAuth();
   const destinationInputValue = formData.location?.label ?? "";
@@ -69,6 +71,28 @@ function CreateTrip() {
     [destinationInputValue]
   );
   const destinationListId = "voy-create-destination-listbox";
+
+  useEffect(() => {
+    const prefill = readCreateTripPrefill(new URLSearchParams(location.search));
+    if (!prefill) {
+      return;
+    }
+
+    setFormData((previousData) => ({
+      ...previousData,
+      ...(prefill.location ? { location: prefill.location } : {}),
+      ...(prefill.days ? { days: prefill.days } : {}),
+      ...(prefill.budget ? { budget: prefill.budget } : {}),
+      ...(prefill.travelers ? { travelers: prefill.travelers } : {}),
+    }));
+    setFieldErrors({});
+    console.info("[create-trip] Applied query prefill", {
+      destination: prefill.location?.label ?? "",
+      days: prefill.days ?? null,
+      budget: prefill.budget ?? "",
+      travelers: prefill.travelers ?? "",
+    });
+  }, [location.search]);
 
   const handleInputChange = (name, value) => {
     setFormData((previousData) => ({

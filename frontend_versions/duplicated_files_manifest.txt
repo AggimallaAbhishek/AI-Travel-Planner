@@ -95,6 +95,7 @@ frontend_versions/src/lib/imageManifest.js
 frontend_versions/src/lib/staticPageContent.js
 frontend_versions/src/lib/theme.js
 frontend_versions/src/lib/tripPrefill.js
+frontend_versions/src/lib/tripRecommendations.js
 frontend_versions/src/lib/typewriter.js
 frontend_versions/src/lib/worldMap.js
 frontend_versions/src/main.jsx
@@ -125,6 +126,9 @@ frontend_versions/src/view-trip/components/Hotels.jsx
 frontend_versions/src/view-trip/components/InfoSection.jsx
 frontend_versions/src/view-trip/components/PlaceCardItem.jsx
 frontend_versions/src/view-trip/components/PlacesToVisit.jsx
+frontend_versions/src/view-trip/components/RecommendationCardItem.jsx
+frontend_versions/src/view-trip/components/RecommendationGridSection.jsx
+frontend_versions/src/view-trip/components/Restaurants.jsx
 frontend_versions/src/view-trip/index.jsx
 frontend_versions/tailwind.config.js
 frontend_versions/vite.config.js
