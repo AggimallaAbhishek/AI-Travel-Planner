@@ -20,6 +20,8 @@ test("recommendation image service keeps an existing remote image URL", async ()
 test("recommendation image service resolves images from Wikidata through Wikimedia Commons", async () => {
   const requests = [];
   const service = createRecommendationImageService({
+    enableWikimediaLookups: true,
+    minIntervalMs: 0,
     fetchImpl: async (url) => {
       requests.push(String(url));
 
@@ -83,46 +85,12 @@ test("recommendation image service resolves images from Wikidata through Wikimed
   assert.equal(requests.length, 2);
 });
 
-test("recommendation image service falls back to Wikimedia Commons search when metadata is missing", async () => {
+test("recommendation image service falls back to fast online image URLs when metadata is missing", async () => {
+  let fetchCalls = 0;
   const service = createRecommendationImageService({
-    fetchImpl: async (url) => {
-      if (String(url).includes("list=search")) {
-        return {
-          ok: true,
-          async json() {
-            return {
-              query: {
-                search: [
-                  {
-                    title: "File:Armani Hotel Dubai.jpg",
-                  },
-                ],
-              },
-            };
-          },
-        };
-      }
-
-      return {
-        ok: true,
-        async json() {
-          return {
-            query: {
-              pages: [
-                {
-                  title: "File:Armani Hotel Dubai.jpg",
-                  imageinfo: [
-                    {
-                      thumburl:
-                        "https://upload.wikimedia.org/example/armani-hotel-dubai.jpg",
-                    },
-                  ],
-                },
-              ],
-            },
-          };
-        },
-      };
+    fetchImpl: async () => {
+      fetchCalls += 1;
+      throw new Error("fetch should not be called in fast fallback mode");
     },
   });
 
@@ -136,8 +104,11 @@ test("recommendation image service falls back to Wikimedia Commons search when m
     }
   );
 
-  assert.equal(
-    imageUrl,
-    "https://upload.wikimedia.org/example/armani-hotel-dubai.jpg"
+  assert.ok(
+    imageUrl.startsWith("https://loremflickr.com/720/480/")
   );
+  assert.ok(
+    imageUrl.includes("hotel,room,lobby,dubai,united,armani")
+  );
+  assert.equal(fetchCalls, 0);
 });

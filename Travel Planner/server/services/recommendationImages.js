@@ -7,7 +7,7 @@ const DEFAULT_IMAGE_USER_AGENT =
   "AI-Travel-Planner/1.0 (recommendation images)";
 const DEFAULT_WIKIMEDIA_MIN_INTERVAL_MS = 250;
 const DEFAULT_ENABLE_WIKIMEDIA_LOOKUPS = false;
-const UNSPLASH_SOURCE_BASE_URL = "https://source.unsplash.com/1200x800/?";
+const LOREM_FLICKR_BASE_URL = "https://loremflickr.com";
 
 function normalizeText(value, fallback = "") {
   if (typeof value !== "string") {
@@ -117,21 +117,30 @@ function createStableSignature(value) {
   return Math.abs(hash % 10000);
 }
 
-function buildFastOnlineImageUrl(item = {}, options = {}) {
-  const categoryTerm =
-    options.category === "restaurant"
-      ? "restaurant interior,food"
-      : "hotel room,hotel exterior";
-  const destination = normalizeText(options.destination);
-  const itemName = normalizeText(item.name);
-  const query = [categoryTerm, destination, itemName]
+function toTagTokens(value, maxTokens = 3) {
+  return normalizeText(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .map((token) => token.trim())
     .filter(Boolean)
-    .join(",");
+    .slice(0, maxTokens);
+}
+
+function buildFastOnlineImageUrl(item = {}, options = {}) {
+  const categoryTags =
+    options.category === "restaurant"
+      ? ["restaurant", "food", "dining"]
+      : ["hotel", "room", "lobby"];
+  const destinationTags = toTagTokens(options.destination, 2);
+  const nameTags = toTagTokens(item.name, 1);
+  const allTags = [...categoryTags, ...destinationTags, ...nameTags];
+  const tagPath = allTags.join(",");
   const signature = createStableSignature(
-    `${options.category ?? ""}::${destination}::${itemName}`
+    `${options.category ?? ""}::${normalizeText(options.destination)}::${normalizeText(item.name)}`
   );
 
-  return `${UNSPLASH_SOURCE_BASE_URL}${encodeURIComponent(query)}&sig=${signature}`;
+  return `${LOREM_FLICKR_BASE_URL}/720/480/${tagPath}?lock=${signature}`;
 }
 
 export function createRecommendationImageService({

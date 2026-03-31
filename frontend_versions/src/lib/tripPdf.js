@@ -5,8 +5,24 @@ const PDF_LAYOUT = {
   marginX: 16,
   marginTop: 16,
   marginBottom: 16,
-  sectionGap: 10,
+  sectionGap: 7,
   cardRadius: 5,
+};
+
+const PDF_TEXT = {
+  summaryLine: 4.6,
+  bodyLine: 4.3,
+  compactLine: 4.0,
+  cardValueLine: 4.1,
+};
+
+const DAY_LAYOUT = {
+  titleLine: 5.2,
+  introLine: 4.3,
+  signatureLine: 4.1,
+  activityLine: 4.0,
+  noteLine: 4.0,
+  blockGap: 5,
 };
 
 const PDF_COLORS = {
@@ -954,7 +970,7 @@ function drawOverviewSpread(state, model) {
 
   const { doc, contentWidth } = state;
   const summaryLines = splitLines(doc, model.overview.summary, contentWidth - 14);
-  const summaryHeight = 16 + estimateLinesHeight(summaryLines, 5);
+  const summaryHeight = 14 + estimateLinesHeight(summaryLines, PDF_TEXT.summaryLine);
 
   ensureSpace(state, summaryHeight + 60);
 
@@ -973,43 +989,69 @@ function drawOverviewSpread(state, model) {
   doc.setFontSize(10);
   setTextColor(doc, PDF_COLORS.ink);
   doc.text(summaryLines, PDF_LAYOUT.marginX + 7, state.cursorY + 10);
-  state.cursorY += summaryHeight + 8;
+  state.cursorY += summaryHeight + 6;
 
   const columnGap = 6;
   const cardWidth = (contentWidth - columnGap) / 2;
-  const cardHeight = 18;
+  const rowGap = 3;
+  const cards = model.overview.items.map((item) => {
+    const valueLines = splitLines(doc, item.value, cardWidth - 10);
+    const cardHeight = Math.max(
+      16,
+      9 + estimateLinesHeight(valueLines, PDF_TEXT.cardValueLine)
+    );
 
-  model.overview.items.forEach((item, index) => {
+    return {
+      item,
+      valueLines,
+      cardHeight,
+    };
+  });
+  const rowHeights = [];
+
+  cards.forEach((card, index) => {
+    const row = Math.floor(index / 2);
+    rowHeights[row] = Math.max(rowHeights[row] ?? 0, card.cardHeight);
+  });
+
+  const rowStarts = [];
+  let usedHeight = 0;
+  rowHeights.forEach((rowHeight, rowIndex) => {
+    rowStarts[rowIndex] = usedHeight;
+    usedHeight += rowHeight + (rowIndex === rowHeights.length - 1 ? 0 : rowGap);
+  });
+
+  cards.forEach((card, index) => {
     const column = index % 2;
     const row = Math.floor(index / 2);
     const x = PDF_LAYOUT.marginX + column * (cardWidth + columnGap);
-    const y = state.cursorY + row * (cardHeight + 4);
+    const y = state.cursorY + rowStarts[row];
 
     setFillColor(doc, PDF_COLORS.surface);
     setDrawColor(doc, PDF_COLORS.border);
-    doc.roundedRect(x, y, cardWidth, cardHeight, 4, 4, "FD");
+    doc.roundedRect(x, y, cardWidth, card.cardHeight, 4, 4, "FD");
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.4);
     setTextColor(doc, PDF_COLORS.gold);
-    doc.text(sanitizePdfText(item.label).toUpperCase(), x + 5, y + 6);
+    doc.text(sanitizePdfText(card.item.label).toUpperCase(), x + 5, y + 5.8);
 
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(9.6);
+    doc.setFontSize(9.4);
     setTextColor(doc, PDF_COLORS.navyDeep);
-    doc.text(splitLines(doc, item.value, cardWidth - 10), x + 5, y + 12);
+    doc.text(card.valueLines, x + 5, y + 10.8);
   });
 
-  state.cursorY += Math.ceil(model.overview.items.length / 2) * (cardHeight + 4) + 8;
+  state.cursorY += usedHeight + 6;
 
   if (model.overview.highlights.length > 0) {
     const highlightLines = model.overview.highlights.map((highlight) =>
       splitLines(doc, highlight, contentWidth - 16)
     );
     const highlightsHeight =
-      12 +
+      10 +
       highlightLines.reduce(
-        (total, lines) => total + estimateLinesHeight(lines, 4.5) + 2,
+        (total, lines) => total + estimateLinesHeight(lines, PDF_TEXT.bodyLine) + 1.5,
         0
       );
 
@@ -1037,7 +1079,7 @@ function drawOverviewSpread(state, model) {
     setTextColor(doc, PDF_COLORS.ink);
     highlightLines.forEach((lines) => {
       doc.text(lines, PDF_LAYOUT.marginX + 8, highlightY);
-      highlightY += estimateLinesHeight(lines, 4.5) + 2;
+      highlightY += estimateLinesHeight(lines, PDF_TEXT.bodyLine) + 1.5;
     });
 
     state.cursorY += highlightsHeight + PDF_LAYOUT.sectionGap;
@@ -1056,19 +1098,19 @@ function estimateDayBlockHeight(doc, day, width) {
   const signatureLines = splitLines(doc, day.signatureMoment, width - 18);
   const activityHeight = day.activities.reduce((total, activity) => {
     const lines = splitLines(doc, activity, width - 20);
-    return total + estimateLinesHeight(lines, 4.2) + 2;
+    return total + estimateLinesHeight(lines, DAY_LAYOUT.activityLine) + 1.4;
   }, 0);
   const noteLines = day.notes ? splitLines(doc, day.notes, width - 18) : [];
 
   return (
-    16 +
-    imageHeight +
-    estimateLinesHeight(titleLines, 5.5) +
-    estimateLinesHeight(introLines, 4.5) +
     14 +
-    estimateLinesHeight(signatureLines, 4.2) +
+    imageHeight +
+    estimateLinesHeight(titleLines, DAY_LAYOUT.titleLine) +
+    estimateLinesHeight(introLines, DAY_LAYOUT.introLine) +
+    12 +
+    estimateLinesHeight(signatureLines, DAY_LAYOUT.signatureLine) +
     activityHeight +
-    (noteLines.length > 0 ? estimateLinesHeight(noteLines, 4.1) + 10 : 0)
+    (noteLines.length > 0 ? estimateLinesHeight(noteLines, DAY_LAYOUT.noteLine) + 8 : 0)
   );
 }
 
@@ -1084,7 +1126,7 @@ function drawActivityList(doc, day, x, startY, width) {
     setFillColor(doc, PDF_COLORS.gold);
     doc.circle(x + 2, cursorY - 1.1, 0.85, "F");
     doc.text(lines, x + 6, cursorY);
-    cursorY += estimateLinesHeight(lines, 4.2) + 2;
+    cursorY += estimateLinesHeight(lines, DAY_LAYOUT.activityLine) + 1.4;
   });
 
   return cursorY;
@@ -1124,12 +1166,12 @@ function drawDaySections(state, model) {
     setDrawColor(doc, PDF_COLORS.border);
     doc.roundedRect(x, y, contentWidth, blockHeight, 5, 5, "FD");
 
-    let contentY = y + 6;
+    let contentY = y + 5.5;
     if (day.imageDataUrl) {
       setFillColor(doc, PDF_COLORS.greenSoft);
       doc.roundedRect(x + 5, y + 5, contentWidth - 10, 34, 4, 4, "F");
       drawImageContained(doc, day.imageDataUrl, x + 5, y + 5, contentWidth - 10, 34);
-      contentY += 38;
+      contentY += 37;
     }
 
     doc.setFont("helvetica", "bold");
@@ -1157,22 +1199,22 @@ function drawDaySections(state, model) {
     }
 
     const titleLines = splitLines(doc, day.title, titleWidth);
-    contentY += 5;
+    contentY += 4.5;
     doc.setFont("times", "bold");
     doc.setFontSize(14);
     setTextColor(doc, PDF_COLORS.navyDeep);
     doc.text(titleLines, x + 6, contentY);
-    contentY += estimateLinesHeight(titleLines, 5.5) + 2;
+    contentY += estimateLinesHeight(titleLines, DAY_LAYOUT.titleLine) + 1.5;
 
     const introLines = splitLines(doc, day.intro, contentWidth - 12);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9.5);
     setTextColor(doc, PDF_COLORS.muted);
     doc.text(introLines, x + 6, contentY);
-    contentY += estimateLinesHeight(introLines, 4.5) + 4;
+    contentY += estimateLinesHeight(introLines, DAY_LAYOUT.introLine) + 3;
 
     const signatureLines = splitLines(doc, day.signatureMoment, contentWidth - 18);
-    const signatureHeight = 11 + estimateLinesHeight(signatureLines, 4.2);
+    const signatureHeight = 10 + estimateLinesHeight(signatureLines, DAY_LAYOUT.signatureLine);
     setFillColor(doc, PDF_COLORS.goldSoft);
     doc.roundedRect(x + 6, contentY - 3.5, contentWidth - 12, signatureHeight, 4, 4, "F");
     doc.setFont("helvetica", "bold");
@@ -1183,7 +1225,7 @@ function drawDaySections(state, model) {
     doc.setFontSize(9);
     setTextColor(doc, PDF_COLORS.ink);
     doc.text(signatureLines, x + 10, contentY + 6);
-    contentY += signatureHeight + 4;
+    contentY += signatureHeight + 3;
 
     contentY = drawActivityList(doc, day, x + 6, contentY, contentWidth - 12);
 
@@ -1191,19 +1233,19 @@ function drawDaySections(state, model) {
       const noteLines = splitLines(doc, day.notes, contentWidth - 18);
       setDrawColor(doc, PDF_COLORS.border);
       doc.line(x + 6, contentY, x + contentWidth - 6, contentY);
-      contentY += 5;
+      contentY += 4.5;
       doc.setFont("helvetica", "bold");
       doc.setFontSize(7.2);
       setTextColor(doc, PDF_COLORS.gold);
       doc.text("Practical note".toUpperCase(), x + 6, contentY);
-      contentY += 4.5;
+      contentY += 4;
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8.9);
       setTextColor(doc, PDF_COLORS.muted);
       doc.text(noteLines, x + 6, contentY);
     }
 
-    state.cursorY += blockHeight + 7;
+    state.cursorY += blockHeight + DAY_LAYOUT.blockGap;
   });
 }
 
