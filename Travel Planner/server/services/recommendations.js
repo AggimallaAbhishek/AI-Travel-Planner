@@ -12,6 +12,8 @@ const DEFAULT_RESULT_LIMIT = 6;
 const DEFAULT_REQUEST_TIMEOUT_MS = 12_000;
 const DEFAULT_RECOMMENDATION_RADIUS_METERS = 3_000;
 const DEFAULT_NOMINATIM_MIN_INTERVAL_MS = 1_000;
+const DEFAULT_MOCK_CACHE_TTL_MS = 60_000;
+const RECOMMENDATION_CACHE_SCHEMA_VERSION = "v3-image-fast-path";
 
 const GOOGLE_PLACES_FIELD_MASK = [
   "places.displayName",
@@ -323,6 +325,19 @@ function resolveRecommendationCacheTtlMs() {
   }
 
   return DEFAULT_CACHE_TTL_MS;
+}
+
+function resolveMockRecommendationCacheTtlMs(cacheTtlMs) {
+  const parsed = Number.parseInt(
+    process.env.DESTINATION_RECOMMENDATION_MOCK_CACHE_TTL_MS ?? "",
+    10
+  );
+
+  if (Number.isInteger(parsed) && parsed >= 5_000 && parsed <= cacheTtlMs) {
+    return parsed;
+  }
+
+  return Math.min(cacheTtlMs, DEFAULT_MOCK_CACHE_TTL_MS);
 }
 
 function resolveRequestTimeoutMs() {
@@ -981,6 +996,8 @@ export function createDestinationRecommendationService({
   nominatimMinIntervalMs = DEFAULT_NOMINATIM_MIN_INTERVAL_MS,
   enrichRecommendationImages = enrichDestinationRecommendationImages,
 } = {}) {
+  const mockCacheTtlMs = resolveMockRecommendationCacheTtlMs(cacheTtlMs);
+
   async function getRecommendationsForDestination({
     destination,
     userSelection = {},
@@ -992,16 +1009,19 @@ export function createDestinationRecommendationService({
     }
 
     const cacheKey = [
+      RECOMMENDATION_CACHE_SCHEMA_VERSION,
       normalizedDestination.toLowerCase(),
       normalizeText(userSelection.budget).toLowerCase(),
       normalizeText(userSelection.travelers).toLowerCase(),
     ].join("::");
     const cached = cache.get(cacheKey);
+    const cachedTtlMs = cached?.ttlMs ?? cacheTtlMs;
 
-    if (cached && now() - cached.createdAt < cacheTtlMs) {
+    if (cached && now() - cached.createdAt < cachedTtlMs) {
       console.info("[recommendations] Cache hit", {
         destination: normalizedDestination,
         provider: cached.value.provider,
+        ttlMs: cachedTtlMs,
       });
       return cached.value;
     }
@@ -1060,6 +1080,14 @@ export function createDestinationRecommendationService({
             warning:
               "Live destination data is temporarily unavailable, so curated sample recommendations are being shown instead.",
           });
+          recommendations = normalizeDestinationRecommendations({
+            ...recommendations,
+            ...(await enrichRecommendationImages({
+              destination: normalizedDestination,
+              hotels: recommendations.hotels,
+              restaurants: recommendations.restaurants,
+            })),
+          });
         }
       }
     } else {
@@ -1080,11 +1108,23 @@ export function createDestinationRecommendationService({
           warning:
             "Live destination data is not configured, so curated sample recommendations are being shown.",
         });
+        recommendations = normalizeDestinationRecommendations({
+          ...recommendations,
+          ...(await enrichRecommendationImages({
+            destination: normalizedDestination,
+            hotels: recommendations.hotels,
+            restaurants: recommendations.restaurants,
+          })),
+        });
       }
     }
 
+    const ttlMs =
+      recommendations.provider === "mock" ? mockCacheTtlMs : cacheTtlMs;
+
     cache.set(cacheKey, {
       createdAt: now(),
+      ttlMs,
       value: recommendations,
     });
 

@@ -2,8 +2,9 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import SectionHeader from "./SectionHeader";
 import {
-  DEFAULT_VOYAGR_CURRENCY,
   formatVoyagrCurrency,
+  persistVoyagrCurrencyPreference,
+  readVoyagrCurrencyPreference,
   VOYAGR_CURRENCY_OPTIONS,
 } from "@/lib/voyagrCurrency";
 
@@ -72,7 +73,7 @@ export default function PlannerSection({ onOpenTripCreator }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [previewDays, setPreviewDays] = useState([]);
   const itineraryTimerRef = useRef(null);
-  const [formState, setFormState] = useState({
+  const [formState, setFormState] = useState(() => ({
     destination: "",
     tripType: "Solo Adventure",
     travelers: "2",
@@ -81,11 +82,11 @@ export default function PlannerSection({ onOpenTripCreator }) {
     tripDays: 5,
     budgetAmount: 2500,
     accommodation: "Mid-range (3★ Hotel)",
-    currency: DEFAULT_VOYAGR_CURRENCY,
+    currency: readVoyagrCurrencyPreference(),
     interests: [],
     pace: "Moderate (4-5 activities/day)",
     notes: "",
-  });
+  }));
 
   useEffect(() => {
     return () => {
@@ -139,6 +140,17 @@ export default function PlannerSection({ onOpenTripCreator }) {
         interests,
       };
     });
+  };
+
+  const handleCurrencyChange = (event) => {
+    const normalizedCurrencyCode = persistVoyagrCurrencyPreference(event.target.value);
+    console.info("[voyagr-planner] currency changed", {
+      currencyCode: normalizedCurrencyCode,
+    });
+    setFormState((previous) => ({
+      ...previous,
+      currency: normalizedCurrencyCode,
+    }));
   };
 
   const goNext = () => {
@@ -392,12 +404,7 @@ export default function PlannerSection({ onOpenTripCreator }) {
                 <span>Currency</span>
                 <select
                   value={formState.currency}
-                  onChange={(event) =>
-                    setFormState((previous) => ({
-                      ...previous,
-                      currency: event.target.value,
-                    }))
-                  }
+                  onChange={handleCurrencyChange}
                 >
                   {VOYAGR_CURRENCY_OPTIONS.map((currency) => (
                     <option key={currency.value} value={currency.value}>

@@ -6,6 +6,8 @@ const DEFAULT_WIKIMEDIA_IMAGE_WIDTH = 1280;
 const DEFAULT_IMAGE_USER_AGENT =
   "AI-Travel-Planner/1.0 (recommendation images)";
 const DEFAULT_WIKIMEDIA_MIN_INTERVAL_MS = 250;
+const DEFAULT_ENABLE_WIKIMEDIA_LOOKUPS = false;
+const UNSPLASH_SOURCE_BASE_URL = "https://source.unsplash.com/1200x800/?";
 
 function normalizeText(value, fallback = "") {
   if (typeof value !== "string") {
@@ -82,20 +84,6 @@ function buildCommonsImageInfoUrl({
   return `${commonsApiUrl}?${params.toString()}`;
 }
 
-function buildCommonsSearchUrl({ commonsApiUrl, query }) {
-  const params = new URLSearchParams({
-    action: "query",
-    format: "json",
-    formatversion: "2",
-    list: "search",
-    srnamespace: "6",
-    srlimit: "1",
-    srsearch: query,
-  });
-
-  return `${commonsApiUrl}?${params.toString()}`;
-}
-
 function buildWikidataEntityUrl({ wikidataEntityDataUrl, wikidataId }) {
   return `${wikidataEntityDataUrl}/${encodeURIComponent(wikidataId)}.json`;
 }
@@ -105,11 +93,6 @@ function extractFirstImageInfoUrl(payload = {}) {
   const imageInfo = pages[0]?.imageinfo?.[0];
 
   return normalizeExternalUrl(imageInfo?.thumburl ?? imageInfo?.url);
-}
-
-function extractSearchResultTitle(payload = {}) {
-  const results = Array.isArray(payload?.query?.search) ? payload.query.search : [];
-  return normalizeCommonsFileTitle(results[0]?.title);
 }
 
 function extractWikidataImageFileName(payload = {}, wikidataId) {
@@ -122,29 +105,33 @@ function extractWikidataImageFileName(payload = {}, wikidataId) {
   return normalizeCommonsFileTitle(fileName);
 }
 
-function buildRecommendationSearchQueries(item = {}, destination = "") {
-  const queries = [
-    [item.name, item.location].filter(Boolean).join(" "),
-    [item.name, destination].filter(Boolean).join(" "),
-    item.name,
-  ];
+function createStableSignature(value) {
+  const normalizedValue = normalizeText(value, "fallback-image");
 
-  const normalizedQueries = [];
-  const seen = new Set();
-
-  for (const query of queries) {
-    const normalized = normalizeText(query);
-    const key = normalized.toLowerCase();
-
-    if (!normalized || seen.has(key)) {
-      continue;
-    }
-
-    normalizedQueries.push(normalized);
-    seen.add(key);
+  let hash = 0;
+  for (let index = 0; index < normalizedValue.length; index += 1) {
+    hash = (hash << 5) - hash + normalizedValue.charCodeAt(index);
+    hash |= 0;
   }
 
-  return normalizedQueries;
+  return Math.abs(hash % 10000);
+}
+
+function buildFastOnlineImageUrl(item = {}, options = {}) {
+  const categoryTerm =
+    options.category === "restaurant"
+      ? "restaurant interior,food"
+      : "hotel room,hotel exterior";
+  const destination = normalizeText(options.destination);
+  const itemName = normalizeText(item.name);
+  const query = [categoryTerm, destination, itemName]
+    .filter(Boolean)
+    .join(",");
+  const signature = createStableSignature(
+    `${options.category ?? ""}::${destination}::${itemName}`
+  );
+
+  return `${UNSPLASH_SOURCE_BASE_URL}${encodeURIComponent(query)}&sig=${signature}`;
 }
 
 export function createRecommendationImageService({
@@ -155,6 +142,7 @@ export function createRecommendationImageService({
   userAgent = DEFAULT_IMAGE_USER_AGENT,
   imageWidth = DEFAULT_WIKIMEDIA_IMAGE_WIDTH,
   minIntervalMs = DEFAULT_WIKIMEDIA_MIN_INTERVAL_MS,
+  enableWikimediaLookups = DEFAULT_ENABLE_WIKIMEDIA_LOOKUPS,
   cache = new Map(),
 } = {}) {
   let nextRequestAt = 0;
@@ -256,35 +244,6 @@ export function createRecommendationImageService({
     });
   }
 
-  async function resolveCommonsImageBySearchQuery(query) {
-    const normalizedQuery = normalizeText(query);
-
-    if (!normalizedQuery) {
-      return "";
-    }
-
-    const cacheKey = `commons-search::${normalizedQuery.toLowerCase()}`;
-    return readCached(cacheKey, async () => {
-      console.info("[recommendation-images] Searching Wikimedia Commons", {
-        query: normalizedQuery,
-      });
-
-      const payload = await fetchJson(
-        buildCommonsSearchUrl({
-          commonsApiUrl,
-          query: normalizedQuery,
-        })
-      );
-      const title = extractSearchResultTitle(payload);
-
-      if (!title) {
-        return "";
-      }
-
-      return resolveCommonsImageByTitle(title);
-    });
-  }
-
   async function resolveRecommendationImage(item = {}, options = {}) {
     const directImageUrl = normalizeExternalUrl(
       item.imageUrl ?? item.photoUrl ?? item.hotelImageUrl ?? item.sourceImageUrl
@@ -294,43 +253,33 @@ export function createRecommendationImageService({
       return directImageUrl;
     }
 
-    const commonsTitle = normalizeCommonsFileTitle(
-      item.wikimediaCommonsTitle ?? item.wikimediaCommons
-    );
-
-    try {
-      if (commonsTitle) {
-        const commonsImageUrl = await resolveCommonsImageByTitle(commonsTitle);
-        if (commonsImageUrl) {
-          return commonsImageUrl;
-        }
-      }
-
-      const wikidataImageUrl = await resolveCommonsImageByWikidataId(item.wikidataId);
-      if (wikidataImageUrl) {
-        return wikidataImageUrl;
-      }
-
-      const searchQueries = buildRecommendationSearchQueries(
-        item,
-        options.destination
+    if (enableWikimediaLookups) {
+      const commonsTitle = normalizeCommonsFileTitle(
+        item.wikimediaCommonsTitle ?? item.wikimediaCommons
       );
 
-      for (const query of searchQueries) {
-        const searchImageUrl = await resolveCommonsImageBySearchQuery(query);
-        if (searchImageUrl) {
-          return searchImageUrl;
+      try {
+        if (commonsTitle) {
+          const commonsImageUrl = await resolveCommonsImageByTitle(commonsTitle);
+          if (commonsImageUrl) {
+            return commonsImageUrl;
+          }
         }
+
+        const wikidataImageUrl = await resolveCommonsImageByWikidataId(item.wikidataId);
+        if (wikidataImageUrl) {
+          return wikidataImageUrl;
+        }
+      } catch (error) {
+        console.error("[recommendation-images] Failed to resolve image metadata", {
+          name: item?.name ?? "",
+          location: item?.location ?? "",
+          message: error instanceof Error ? error.message : String(error),
+        });
       }
-    } catch (error) {
-      console.error("[recommendation-images] Failed to resolve image", {
-        name: item?.name ?? "",
-        location: item?.location ?? "",
-        message: error instanceof Error ? error.message : String(error),
-      });
     }
 
-    return "";
+    return buildFastOnlineImageUrl(item, options);
   }
 
   async function enrichRecommendationItems(items = [], options = {}) {

@@ -46,6 +46,7 @@ const CURRENCY_CONFIG = {
 };
 
 export const DEFAULT_VOYAGR_CURRENCY = "INR";
+const VOYAGR_CURRENCY_STORAGE_KEY = "voyagr.currency.code";
 
 export const VOYAGR_CURRENCY_OPTIONS = Object.values(CURRENCY_CONFIG).map((currency) => ({
   value: currency.code,
@@ -55,6 +56,44 @@ export const VOYAGR_CURRENCY_OPTIONS = Object.values(CURRENCY_CONFIG).map((curre
 
 export function resolveVoyagrCurrencyConfig(currencyCode = DEFAULT_VOYAGR_CURRENCY) {
   return CURRENCY_CONFIG[currencyCode] ?? CURRENCY_CONFIG[DEFAULT_VOYAGR_CURRENCY];
+}
+
+function isSupportedVoyagrCurrency(currencyCode) {
+  return (
+    typeof currencyCode === "string" &&
+    Object.prototype.hasOwnProperty.call(CURRENCY_CONFIG, currencyCode)
+  );
+}
+
+export function readVoyagrCurrencyPreference() {
+  if (typeof window === "undefined") {
+    return DEFAULT_VOYAGR_CURRENCY;
+  }
+
+  try {
+    const storedCurrency = window.localStorage.getItem(VOYAGR_CURRENCY_STORAGE_KEY);
+    return isSupportedVoyagrCurrency(storedCurrency)
+      ? storedCurrency
+      : DEFAULT_VOYAGR_CURRENCY;
+  } catch {
+    return DEFAULT_VOYAGR_CURRENCY;
+  }
+}
+
+export function persistVoyagrCurrencyPreference(currencyCode) {
+  const normalizedCode = resolveVoyagrCurrencyConfig(currencyCode).code;
+
+  if (typeof window === "undefined") {
+    return normalizedCode;
+  }
+
+  try {
+    window.localStorage.setItem(VOYAGR_CURRENCY_STORAGE_KEY, normalizedCode);
+  } catch {
+    return normalizedCode;
+  }
+
+  return normalizedCode;
 }
 
 export function formatVoyagrCurrency(amountUsd, currencyCode = DEFAULT_VOYAGR_CURRENCY) {
@@ -88,8 +127,6 @@ export function buildDestinationMapsUrl(destination = {}) {
     .join(", ");
 
   return resolveGoogleMapsUrl({
-    name: destination?.name,
-    location: destination?.country,
     destination: destinationLabel,
   });
 }

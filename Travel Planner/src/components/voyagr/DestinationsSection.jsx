@@ -1,12 +1,13 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { VOYAGR_DESTINATIONS } from "./data";
 import SectionHeader from "./SectionHeader";
 import AppImage from "@/components/ui/AppImage";
 import { IMAGE_FALLBACKS } from "@/lib/imageManifest";
 import {
   buildDestinationMapsUrl,
-  DEFAULT_VOYAGR_CURRENCY,
   formatDestinationStartingPrice,
+  persistVoyagrCurrencyPreference,
+  readVoyagrCurrencyPreference,
   VOYAGR_CURRENCY_OPTIONS,
 } from "@/lib/voyagrCurrency";
 
@@ -34,7 +35,7 @@ export default function DestinationsSection({
   onFilterChange,
 }) {
   const [savedDestinations, setSavedDestinations] = useState(new Set());
-  const [currencyCode, setCurrencyCode] = useState(DEFAULT_VOYAGR_CURRENCY);
+  const [currencyCode, setCurrencyCode] = useState(() => readVoyagrCurrencyPreference());
 
   const destinations = useMemo(
     () => getFilteredDestinations(activeFilter),
@@ -60,11 +61,16 @@ export default function DestinationsSection({
 
   const handleCurrencyChange = (event) => {
     const nextCurrency = event.target.value;
+    const normalizedCurrencyCode = persistVoyagrCurrencyPreference(nextCurrency);
     console.info("[voyagr-destinations] currency changed", {
-      currencyCode: nextCurrency,
+      currencyCode: normalizedCurrencyCode,
     });
-    setCurrencyCode(nextCurrency);
+    setCurrencyCode(normalizedCurrencyCode);
   };
+
+  useEffect(() => {
+    persistVoyagrCurrencyPreference(currencyCode);
+  }, [currencyCode]);
 
   return (
     <section id="destinations" className="voy-section voy-destinations">
@@ -154,8 +160,6 @@ export default function DestinationsSection({
                 <a
                   className="voy-dest-explore"
                   href={mapsUrl}
-                  target="_blank"
-                  rel="noreferrer"
                   onClick={() =>
                     console.info("[voyagr-destinations] opening destination in Google Maps", {
                       destinationId: destination.id,

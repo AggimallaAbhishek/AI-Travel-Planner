@@ -68,16 +68,22 @@ test("buildTripPdfDocumentModel uses aiPlan data for overview and day sections",
 
   assert.equal(model.appTitle, "AI Travel Planner");
   assert.equal(model.title, "Bali, Indonesia Trip Plan");
+  assert.equal(model.coverTitle, "Bali Curated Journey");
   assert.equal(model.fileName, "bali-indonesia-trip-plan.pdf");
   assert.equal(model.generatedAtLabel, "Apr 1, 2026, 6:00 PM");
   assert.equal(model.days.length, 2);
   assert.equal(model.days[0].title, "Arrival in Ubud & Monkey Forest Fun");
+  assert.equal(typeof model.days[0].intro, "string");
+  assert.equal(typeof model.days[0].signatureMoment, "string");
+  assert.equal(typeof model.days[0].imageUrl, "string");
   assert.equal(model.days[0].activities.length, 4);
-  assert.equal(model.hotels[0].name, "Canopy Ubud Retreat");
+  assert.equal(model.hotels[0].title, "Canopy Ubud Retreat");
+  assert.equal(model.staySection.mode, "real");
   assert.equal(
     model.overview.items.find((item) => item.label === "Estimated Cost")?.value,
     "Approx. $980 - $1480"
   );
+  assert.equal(model.overview.highlights.length > 0, true);
 });
 
 test("buildTripPdfDocumentModel falls back to itinerary data for legacy trips", () => {
@@ -115,6 +121,7 @@ test("buildTripPdfDocumentModel falls back to itinerary data for legacy trips", 
   assert.equal(model.days[0].notes, "Visit in the evening for city lights.");
   assert.equal(model.days[0].estimatedCost, "EUR 20");
   assert.equal(model.totalEstimatedCost, "Not specified");
+  assert.equal(model.staySection.mode, "curated");
 });
 
 test("buildTripPdfDocumentModel handles missing hotels, tips, and estimated cost", () => {
@@ -143,6 +150,7 @@ test("buildTripPdfDocumentModel handles missing hotels, tips, and estimated cost
   assert.equal(model.hotelsEmptyMessage, "No hotel recommendations available.");
   assert.deepEqual(model.travelTips, ["No additional travel tips available."]);
   assert.equal(model.totalEstimatedCost, "Not specified");
+  assert.equal(model.staySection.items.length > 0, true);
 });
 
 test("createTripPdfDocument renders a PDF without throwing on special characters", async () => {
@@ -172,6 +180,7 @@ test("createTripPdfDocument renders a PDF without throwing on special characters
   }, {
     generatedAt: "2026-04-01T12:30:10.000Z",
     logoUrl: "",
+    disableImages: true,
   });
 
   const output = doc.output("arraybuffer");
@@ -197,6 +206,7 @@ test("downloadTripPlanPdf uses the computed filename and tolerates partial trip 
       },
       generatedAt: "2026-04-01T12:30:10.000Z",
       logoUrl: "",
+      disableImages: true,
     }
   );
 
