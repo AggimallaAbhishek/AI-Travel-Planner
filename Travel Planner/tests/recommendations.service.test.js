@@ -160,6 +160,103 @@ test("destination recommendation service uses OpenStreetMap when Google Places i
   assert.equal(requests.length, 3);
 });
 
+test("destination recommendation service attaches Google Places photo URIs when available", async () => {
+  const requests = [];
+  const service = createDestinationRecommendationService({
+    resolveApiKey: () => "test-key",
+    enrichRecommendationImages: async ({ hotels, restaurants }) => ({
+      hotels,
+      restaurants,
+    }),
+    fetchImpl: async (url, options = {}) => {
+      const urlText = String(url);
+      requests.push({ url: urlText, options });
+
+      if (urlText.includes("/photos/")) {
+        const isHotelPhoto = urlText.includes("hotel-photo");
+        return {
+          ok: true,
+          headers: {
+            get(name) {
+              return name.toLowerCase() === "content-type"
+                ? "application/json"
+                : "";
+            },
+          },
+          async json() {
+            return {
+              photoUri: isHotelPhoto
+                ? "https://lh3.googleusercontent.com/hotel-photo"
+                : "https://lh3.googleusercontent.com/restaurant-photo",
+            };
+          },
+        };
+      }
+
+      const request = JSON.parse(options.body);
+      const isHotelQuery = request.includedType === "lodging";
+
+      return {
+        ok: true,
+        async json() {
+          return {
+            places: [
+              {
+                displayName: {
+                  text: isHotelQuery ? "Atlas Haven" : "Ember Table",
+                },
+                formattedAddress: isHotelQuery
+                  ? "Downtown, Kyoto"
+                  : "Gion, Kyoto",
+                rating: isHotelQuery ? 4.6 : 4.7,
+                priceLevel: "PRICE_LEVEL_MODERATE",
+                primaryTypeDisplayName: {
+                  text: isHotelQuery ? "Hotel" : "Restaurant",
+                },
+                googleMapsUri: isHotelQuery
+                  ? "https://maps.google.com/?q=atlas"
+                  : "https://maps.google.com/?q=ember",
+                photos: [
+                  {
+                    name: isHotelQuery
+                      ? "places/hotel-place/photos/hotel-photo"
+                      : "places/restaurant-place/photos/restaurant-photo",
+                  },
+                ],
+              },
+            ],
+          };
+        },
+      };
+    },
+  });
+
+  const recommendations = await service.getRecommendationsForDestination({
+    destination: "Kyoto, Japan",
+  });
+
+  assert.equal(recommendations.provider, "google-places");
+  assert.equal(
+    recommendations.hotels[0].imageUrl,
+    "https://lh3.googleusercontent.com/hotel-photo"
+  );
+  assert.equal(
+    recommendations.restaurants[0].imageUrl,
+    "https://lh3.googleusercontent.com/restaurant-photo"
+  );
+
+  const photoRequests = requests.filter((request) =>
+    request.url.includes("/photos/")
+  );
+  assert.equal(photoRequests.length, 2);
+  assert.equal(
+    photoRequests.every((request) =>
+      request.url.includes("skipHttpRedirect=true")
+    ),
+    true
+  );
+});
+
 test("destination recommendation service falls back to mock data when live provider fails", async () => {
   const service = createDestinationRecommendationService({
     resolveApiKey: () => "test-key",

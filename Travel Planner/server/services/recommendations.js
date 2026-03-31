@@ -4,6 +4,7 @@ import { enrichDestinationRecommendationImages } from "./recommendationImages.js
 
 const GOOGLE_PLACES_TEXT_SEARCH_URL =
   "https://places.googleapis.com/v1/places:searchText";
+const GOOGLE_PLACES_MEDIA_BASE_URL = "https://places.googleapis.com/v1";
 const NOMINATIM_SEARCH_URL =
   "https://nominatim.openstreetmap.org/search";
 const OVERPASS_API_URL = "https://overpass-api.de/api/interpreter";
@@ -13,7 +14,10 @@ const DEFAULT_REQUEST_TIMEOUT_MS = 12_000;
 const DEFAULT_RECOMMENDATION_RADIUS_METERS = 3_000;
 const DEFAULT_NOMINATIM_MIN_INTERVAL_MS = 1_000;
 const DEFAULT_MOCK_CACHE_TTL_MS = 60_000;
-const RECOMMENDATION_CACHE_SCHEMA_VERSION = "v3-image-fast-path";
+const DEFAULT_GOOGLE_PLACE_PHOTO_TIMEOUT_MS = 4_000;
+const DEFAULT_GOOGLE_PLACE_PHOTO_MAX_WIDTH_PX = 960;
+const DEFAULT_GOOGLE_PLACE_PHOTO_MAX_HEIGHT_PX = 640;
+const RECOMMENDATION_CACHE_SCHEMA_VERSION = "v4-google-place-photos";
 
 const GOOGLE_PLACES_FIELD_MASK = [
   "places.displayName",
@@ -25,6 +29,7 @@ const GOOGLE_PLACES_FIELD_MASK = [
   "places.editorialSummary",
   "places.location",
   "places.googleMapsUri",
+  "places.photos",
 ].join(",");
 
 const HOTEL_DISTRICTS = [
@@ -105,6 +110,19 @@ function normalizeText(value, fallback = "") {
 function normalizeNumber(value) {
   const parsed = Number.parseFloat(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizeExternalUrl(value, fallback = "") {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const trimmed = value.trim();
+  if (!/^https?:\/\//i.test(trimmed)) {
+    return fallback;
+  }
+
+  return trimmed;
 }
 
 function sleep(durationMs) {
@@ -471,6 +489,93 @@ function mapPriceLevel(priceLevel) {
   }
 }
 
+function extractGooglePlacePhotoName(place = {}) {
+  const photos = Array.isArray(place.photos) ? place.photos : [];
+  return normalizeText(photos[0]?.name);
+}
+
+function buildGooglePlacePhotoMetadataUrl({
+  photoName,
+  apiKey,
+  maxWidthPx = DEFAULT_GOOGLE_PLACE_PHOTO_MAX_WIDTH_PX,
+  maxHeightPx = DEFAULT_GOOGLE_PLACE_PHOTO_MAX_HEIGHT_PX,
+}) {
+  const normalizedPhotoName = normalizeText(photoName).replace(/^\/+/, "");
+  const url = new URL(
+    `${GOOGLE_PLACES_MEDIA_BASE_URL}/${normalizedPhotoName}/media`
+  );
+  url.searchParams.set("maxWidthPx", String(maxWidthPx));
+  url.searchParams.set("maxHeightPx", String(maxHeightPx));
+  url.searchParams.set("skipHttpRedirect", "true");
+  url.searchParams.set("key", apiKey);
+  return url.toString();
+}
+
+async function resolveGooglePlacePhotoUrl({
+  photoName,
+  apiKey,
+  fetchImpl,
+  timeoutMs = DEFAULT_GOOGLE_PLACE_PHOTO_TIMEOUT_MS,
+  maxWidthPx = DEFAULT_GOOGLE_PLACE_PHOTO_MAX_WIDTH_PX,
+  maxHeightPx = DEFAULT_GOOGLE_PLACE_PHOTO_MAX_HEIGHT_PX,
+  photoUrlCache = new Map(),
+}) {
+  const normalizedPhotoName = normalizeText(photoName).replace(/^\/+/, "");
+  const normalizedApiKey = normalizeText(apiKey);
+
+  if (!normalizedPhotoName || !normalizedApiKey) {
+    return "";
+  }
+
+  const cacheKey = `${normalizedPhotoName}::${maxWidthPx}::${maxHeightPx}`;
+  if (photoUrlCache.has(cacheKey)) {
+    return photoUrlCache.get(cacheKey);
+  }
+
+  const lookupPromise = (async () => {
+    const response = await fetchImpl(
+      buildGooglePlacePhotoMetadataUrl({
+        photoName: normalizedPhotoName,
+        apiKey: normalizedApiKey,
+        maxWidthPx,
+        maxHeightPx,
+      }),
+      buildTimedFetchOptions(
+        {
+          headers: {
+            Accept: "application/json",
+          },
+        },
+        timeoutMs
+      )
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `Google Places photo lookup failed with status ${response.status}.`
+      );
+    }
+
+    const contentType = response.headers?.get?.("content-type") ?? "";
+    if (contentType.includes("application/json")) {
+      const payload = await response.json();
+      return normalizeExternalUrl(payload?.photoUri);
+    }
+
+    return normalizeExternalUrl(response.url);
+  })()
+    .catch((error) => {
+      console.warn("[recommendations] Google Places photo lookup failed", {
+        photoName: normalizedPhotoName,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return "";
+    });
+
+  photoUrlCache.set(cacheKey, lookupPromise);
+  return lookupPromise;
+}
+
 function buildLiveDescription(place, category, destination) {
   const editorialSummary = normalizeText(place.editorialSummary?.text);
   if (editorialSummary) {
@@ -726,6 +831,7 @@ async function searchGooglePlacesCategory({
   fetchImpl,
   limit,
   timeoutMs,
+  photoUrlCache,
 }) {
   const textQuery =
     category === "hotel"
@@ -771,8 +877,40 @@ async function searchGooglePlacesCategory({
   const data = await response.json();
   const places = Array.isArray(data.places) ? data.places : [];
 
-  return places
-    .map((place) => mapGooglePlaceToRecommendation(place, category, destination))
+  const recommendations = await Promise.all(
+    places.map(async (place) => {
+      const photoName = extractGooglePlacePhotoName(place);
+      let imageUrl = "";
+
+      if (photoName) {
+        imageUrl = await resolveGooglePlacePhotoUrl({
+          photoName,
+          apiKey,
+          fetchImpl,
+          timeoutMs: Math.min(timeoutMs, DEFAULT_GOOGLE_PLACE_PHOTO_TIMEOUT_MS),
+          photoUrlCache,
+        });
+      }
+
+      return {
+        ...mapGooglePlaceToRecommendation(place, category, destination),
+        imageUrl,
+      };
+    })
+  );
+
+  const imageCount = recommendations.reduce(
+    (count, recommendation) => (recommendation.imageUrl ? count + 1 : count),
+    0
+  );
+  console.info("[recommendations] Google Places image enrichment complete", {
+    destination,
+    category,
+    resolvedImages: imageCount,
+    totalPlaces: recommendations.length,
+  });
+
+  return recommendations
     .filter((place) => place.name);
 }
 
@@ -784,6 +922,7 @@ async function fetchGooglePlacesRecommendations({
   timeoutMs,
   enrichRecommendationImages,
 }) {
+  const photoUrlCache = new Map();
   const [hotels, restaurants] = await Promise.all([
     searchGooglePlacesCategory({
       destination,
@@ -792,6 +931,7 @@ async function fetchGooglePlacesRecommendations({
       fetchImpl,
       limit,
       timeoutMs,
+      photoUrlCache,
     }),
     searchGooglePlacesCategory({
       destination,
@@ -800,6 +940,7 @@ async function fetchGooglePlacesRecommendations({
       fetchImpl,
       limit,
       timeoutMs,
+      photoUrlCache,
     }),
   ]);
   const enrichedRecommendations = await enrichRecommendationImages({
