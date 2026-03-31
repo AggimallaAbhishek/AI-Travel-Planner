@@ -29,6 +29,10 @@ test("destination recommendation service caches live provider responses by desti
     now: () => currentTime,
     cacheTtlMs: 10_000,
     resolveApiKey: () => "test-key",
+    enrichRecommendationImages: async ({ hotels, restaurants }) => ({
+      hotels,
+      restaurants,
+    }),
     fetchImpl: async (_url, options) => {
       fetchCalls += 1;
       const request = JSON.parse(options.body);
@@ -81,6 +85,10 @@ test("destination recommendation service uses OpenStreetMap when Google Places i
   const service = createDestinationRecommendationService({
     resolveApiKey: () => "",
     nominatimMinIntervalMs: 0,
+    enrichRecommendationImages: async ({ hotels, restaurants }) => ({
+      hotels,
+      restaurants,
+    }),
     fetchImpl: async (url, options = {}) => {
       requests.push({ url, options });
 
@@ -156,6 +164,10 @@ test("destination recommendation service falls back to mock data when live provi
   const service = createDestinationRecommendationService({
     resolveApiKey: () => "test-key",
     nominatimMinIntervalMs: 0,
+    enrichRecommendationImages: async ({ hotels, restaurants }) => ({
+      hotels,
+      restaurants,
+    }),
     fetchImpl: async () => {
       throw new Error("network failure");
     },

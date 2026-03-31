@@ -1,5 +1,6 @@
 import { buildGoogleMapsSearchUrl } from "../../shared/maps.js";
 import { normalizeDestinationRecommendations } from "../../shared/recommendations.js";
+import { enrichDestinationRecommendationImages } from "./recommendationImages.js";
 
 const GOOGLE_PLACES_TEXT_SEARCH_URL =
   "https://places.googleapis.com/v1/places:searchText";
@@ -624,6 +625,9 @@ function mapOpenStreetMapElementToRecommendation({
       coordinates: geoCoordinates,
     }),
     typeLabel: buildOpenStreetMapTypeLabel(tags, category),
+    sourceImageUrl: normalizeText(tags.image),
+    wikidataId: normalizeText(tags.wikidata),
+    wikimediaCommonsTitle: normalizeText(tags.wikimedia_commons),
     geoCoordinates,
     category,
     distanceMeters,
@@ -763,6 +767,7 @@ async function fetchGooglePlacesRecommendations({
   fetchImpl,
   limit,
   timeoutMs,
+  enrichRecommendationImages,
 }) {
   const [hotels, restaurants] = await Promise.all([
     searchGooglePlacesCategory({
@@ -782,11 +787,16 @@ async function fetchGooglePlacesRecommendations({
       timeoutMs,
     }),
   ]);
-
-  return normalizeDestinationRecommendations({
+  const enrichedRecommendations = await enrichRecommendationImages({
     destination,
     hotels,
     restaurants,
+  });
+
+  return normalizeDestinationRecommendations({
+    destination,
+    hotels: enrichedRecommendations.hotels,
+    restaurants: enrichedRecommendations.restaurants,
     provider: "google-places",
     fetchedAt: new Date().toISOString(),
   });
@@ -802,6 +812,7 @@ async function fetchOpenStreetMapRecommendations({
   overpassApiUrl,
   radiusMeters,
   minIntervalMs,
+  enrichRecommendationImages,
 }) {
   const center = await geocodeDestinationWithNominatim({
     destination,
@@ -868,11 +879,16 @@ async function fetchOpenStreetMapRecommendations({
   const warning = failures.length > 0
     ? `${buildOpenStreetMapNote()} Some categories could not be loaded right now, so available live results are shown.`
     : buildOpenStreetMapNote();
-
-  return normalizeDestinationRecommendations({
+  const enrichedRecommendations = await enrichRecommendationImages({
     destination,
     hotels,
     restaurants,
+  });
+
+  return normalizeDestinationRecommendations({
+    destination,
+    hotels: enrichedRecommendations.hotels,
+    restaurants: enrichedRecommendations.restaurants,
     provider: "openstreetmap",
     warning,
     fetchedAt: new Date().toISOString(),
@@ -963,6 +979,7 @@ export function createDestinationRecommendationService({
   osmUserAgent = resolveOpenStreetMapUserAgent(),
   radiusMeters = resolveRecommendationRadiusMeters(),
   nominatimMinIntervalMs = DEFAULT_NOMINATIM_MIN_INTERVAL_MS,
+  enrichRecommendationImages = enrichDestinationRecommendationImages,
 } = {}) {
   async function getRecommendationsForDestination({
     destination,
@@ -1007,6 +1024,7 @@ export function createDestinationRecommendationService({
         overpassApiUrl,
         radiusMeters,
         minIntervalMs: nominatimMinIntervalMs,
+        enrichRecommendationImages,
       });
     }
 
@@ -1018,6 +1036,7 @@ export function createDestinationRecommendationService({
           fetchImpl,
           limit,
           timeoutMs,
+          enrichRecommendationImages,
         });
       } catch (error) {
         console.error("[recommendations] Google Places failed, trying OpenStreetMap", {
