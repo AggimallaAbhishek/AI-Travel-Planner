@@ -247,6 +247,7 @@ npm run server
 Deploy this repository from the repository root, not from `Travel Planner/`.
 
 - `Root Directory`: `.`
+- `Node.js Version`: `22.x`
 - `Install Command`: use [vercel.json](/Users/aggimallaabhishek/Documents/AI-Travel-Planner/vercel.json)
 - `Build Command`: use [vercel.json](/Users/aggimallaabhishek/Documents/AI-Travel-Planner/vercel.json)
 - `Output Directory`: use [vercel.json](/Users/aggimallaabhishek/Documents/AI-Travel-Planner/vercel.json)
@@ -254,8 +255,11 @@ Deploy this repository from the repository root, not from `Travel Planner/`.
 Required deployment notes:
 
 - Keep `VITE_API_BASE_URL` blank so the frontend calls the same-origin `/api` routes in production.
+- Do not set the Vercel project `Root Directory` to `Travel Planner`, or the configured install/build commands will run from the wrong workspace.
 - Add `CORS_ALLOWED_ORIGINS` for any non-same-origin frontend domains you intentionally allow.
-- Provide server-side secrets in Vercel project environment variables: `GOOGLE_GEMINI_API_KEY`, `GOOGLE_PLACES_API_KEY`, `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`, `GOOGLE_CLIENT_ID`, and `GOOGLE_SECRET_KEY`.
+- Provide frontend env vars in Vercel: `VITE_FIREBASE_*` and `VITE_GOOGLE_MAPS_BROWSER_KEY`.
+- Provide server-side secrets in Vercel project environment variables: `GOOGLE_GEMINI_API_KEY`, `GOOGLE_PLACES_API_KEY`, optional `GOOGLE_MAPS_API_KEY`, `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`, `GOOGLE_CLIENT_ID`, and `GOOGLE_SECRET_KEY`.
+- Keep `PYTHON_ROUTE_OPTIMIZER_ENABLED=false` on Vercel unless the Python optimizer is moved to a separate runtime or service.
 - The serverless API entrypoint is [api/[...all].js](/Users/aggimallaabhishek/Documents/AI-Travel-Planner/api/%5B...all%5D.js).
 
 ## Current Constraints

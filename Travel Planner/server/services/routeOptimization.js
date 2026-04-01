@@ -1,6 +1,3 @@
-import { spawn } from "node:child_process";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import {
   buildGoogleMapsDirectionsUrl,
   buildGoogleMapsSearchUrl,
@@ -12,9 +9,6 @@ import {
   normalizeTripObjective,
 } from "../../shared/trips.js";
 import { createMemoryCacheStore } from "./cacheStore.js";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const GOOGLE_PLACES_TEXT_SEARCH_URL =
   "https://places.googleapis.com/v1/places:searchText";
@@ -50,7 +44,7 @@ const DEFAULT_LOCAL_VIEWPORT_PADDING_RATIO = 0.22;
 const DEFAULT_LOCAL_VIEWPORT_MIN_SPAN = 0.018;
 const DEFAULT_LOCAL_CLUSTER_RADIUS_METERS = 8_000;
 const MAX_LOCAL_CLUSTER_RADIUS_METERS = 22_000;
-const ROUTE_CACHE_SCHEMA_VERSION = "v2-city-fallback-routes";
+const ROUTE_CACHE_SCHEMA_VERSION = "v3-local-city-map-routes";
 const OBJECTIVE_PROFILES = [
   "fastest",
   "cheapest",
@@ -331,7 +325,7 @@ function isStreetLikeAddressPart(value = "") {
 
   return (
     /\d/.test(text) ||
-    /\b(?:street|st|road|rd|avenue|ave|lane|ln|boulevard|blvd|drive|dr|jalan|jl|jln|gang|gg)\b/i.test(
+    /\b(?:street|st|road|rd|avenue|ave|lane|ln|boulevard|blvd|drive|dr|rue|place|plaza|square|piazza|via|jalan|jl|jln|gang|gg)\b/i.test(
       text
     )
   );
@@ -360,6 +354,31 @@ function extractLocalityLabel(address = "", destination = "") {
   const destinationCountry = normalizeText(splitAddressParts(destination).at(-1));
   const destinationPrimaryKey = normalizeLabelKey(destinationPrimary);
   const destinationCountryKey = normalizeLabelKey(destinationCountry);
+  const destinationMatch = parts.find(
+    (part) =>
+      normalizeLabelKey(part) === destinationPrimaryKey &&
+      !isStreetLikeAddressPart(part)
+  );
+  const firstSpecificPart = parts.find(
+    (part) => normalizeLabelKey(part) !== destinationCountryKey
+  );
+
+  if (firstSpecificPart && destinationMatch) {
+    if (isStreetLikeAddressPart(firstSpecificPart)) {
+      return formatLocalityLabel(destinationMatch);
+    }
+
+    if (
+      /\b(?:city|ward|district|regency|village|prefecture|county|province|municipality|region)\b/i.test(
+        firstSpecificPart
+      ) ||
+      firstSpecificPart.split(" ").length === 1
+    ) {
+      return formatLocalityLabel(firstSpecificPart);
+    }
+
+    return formatLocalityLabel(destinationMatch);
+  }
 
   const moreSpecificLocality = parts.find((part) => {
     const key = normalizeLabelKey(part);
@@ -375,12 +394,6 @@ function extractLocalityLabel(address = "", destination = "") {
   if (moreSpecificLocality) {
     return formatLocalityLabel(moreSpecificLocality);
   }
-
-  const destinationMatch = parts.find(
-    (part) =>
-      normalizeLabelKey(part) === destinationPrimaryKey &&
-      !isStreetLikeAddressPart(part)
-  );
 
   if (destinationMatch) {
     return formatLocalityLabel(destinationMatch);
@@ -1481,15 +1494,14 @@ function runDijkstraFastestOptimizer({
     visitOrder.push(destinationIndex);
   }
 
+  const normalizedVisitOrder =
+    normalizeVisitOrder(visitOrder, weightMatrix.length, originIndex, destinationIndex) ??
+    visitOrder;
+
   return {
     algorithm: "dijkstra-fastest",
-    visitOrder: normalizeVisitOrder(
-      visitOrder,
-      weightMatrix.length,
-      originIndex,
-      destinationIndex
-    ) ?? visitOrder,
-    totalWeight: calculatePathWeight(weightMatrix, visitOrder),
+    visitOrder: normalizedVisitOrder,
+    totalWeight: calculatePathWeight(weightMatrix, normalizedVisitOrder),
     shortestPathsFromOrigin: shortestPathsFromOrigin.distances,
     previous: shortestPathsFromOrigin.previous,
     mst,
@@ -1522,87 +1534,6 @@ function runLocalRouteOptimizerOnWeightMatrix({
     previous: shortestPaths.previous,
     mst,
   };
-}
-
-function runLocalRouteOptimizer({
-  routeMatrix,
-  optimizeFor,
-  originIndex,
-  destinationIndex,
-}) {
-  const weightKey =
-    optimizeFor === "distance" ? "distanceMeters" : "durationSeconds";
-  const weightMatrix = createWeightMatrix(routeMatrix, weightKey);
-
-  return runLocalRouteOptimizerOnWeightMatrix({
-    weightMatrix,
-    algorithm: "js-nearest-neighbor-2opt",
-    originIndex,
-    destinationIndex,
-  });
-}
-
-async function runPythonRouteOptimizer({
-  routeMatrix,
-  optimizeFor,
-  originIndex,
-  destinationIndex,
-}) {
-  if (process.env.PYTHON_ROUTE_OPTIMIZER_ENABLED !== "true") {
-    return null;
-  }
-
-  const pythonExecutable = normalizeText(
-    process.env.PYTHON_EXECUTABLE,
-    "python3"
-  );
-  const scriptPath = path.resolve(__dirname, "..", "..", "..", "route_optimizer.py");
-  const weightKey =
-    optimizeFor === "distance" ? "distanceMeters" : "durationSeconds";
-  const payload = {
-    matrix: routeMatrix.map((row) =>
-      row.map((cell) =>
-        Number.isFinite(cell?.[weightKey]) ? cell[weightKey] : null
-      )
-    ),
-    originIndex,
-    destinationIndex,
-  };
-
-  return new Promise((resolve, reject) => {
-    const child = spawn(pythonExecutable, [scriptPath], {
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-    let stdout = "";
-    let stderr = "";
-
-    child.stdout.on("data", (chunk) => {
-      stdout += String(chunk);
-    });
-    child.stderr.on("data", (chunk) => {
-      stderr += String(chunk);
-    });
-    child.on("error", reject);
-    child.on("close", (code) => {
-      if (code !== 0) {
-        reject(
-          new Error(
-            normalizeText(stderr, `Python optimizer exited with code ${code}.`)
-          )
-        );
-        return;
-      }
-
-      try {
-        resolve(JSON.parse(stdout));
-      } catch (error) {
-        reject(error);
-      }
-    });
-
-    child.stdin.write(JSON.stringify(payload));
-    child.stdin.end();
-  });
 }
 
 async function parseErrorResponse(response) {
@@ -2322,7 +2253,6 @@ export function createTripRouteService({
   resolvePlacesKey = resolvePlacesApiKey,
   resolveRoutesKey = resolveRoutesApiKey,
   maxStopsPerDay = resolveMaxStopsPerDay(),
-  pythonRouteOptimizer = runPythonRouteOptimizer,
 } = {}) {
   const localCacheStore =
     cacheStore ??
@@ -2435,13 +2365,19 @@ export function createTripRouteService({
       let usedFallbackPlaces = false;
 
       if (dayStops.length < 2) {
-        const fallbackStops = await fetchFallbackStopsForDay({
-          day,
-          aiPlanDay,
+        const fallbackStops = filterLocalizedFallbackStops({
+          fallbackStops: await fetchFallbackStopsForDay({
+            day,
+            aiPlanDay,
+            destination,
+            apiKey: placesApiKey,
+            fetchImpl,
+            timeoutMs,
+            maxStops: maxStopsPerDay,
+          }),
+          resolvedStops: [],
+          cityBounds,
           destination,
-          apiKey: placesApiKey,
-          fetchImpl,
-          timeoutMs,
           maxStops: maxStopsPerDay,
         });
 
@@ -2458,6 +2394,12 @@ export function createTripRouteService({
       }
 
       if (dayStops.length < 2) {
+        const dayMapContext = buildDayMapContext({
+          stops: dayStops,
+          destination,
+          fallbackBounds: cityBounds,
+        });
+
         routeDays.push({
           dayNumber: day.dayNumber,
           title: normalizeText(day.title, `Day ${day.dayNumber}`),
@@ -2487,7 +2429,20 @@ export function createTripRouteService({
             },
           },
           shortestPathsFromStart: [],
+          routeGraph: {
+            algorithm: "not-applicable",
+            weightMetric: "duration_seconds",
+            totalWeight: 0,
+            shortestPaths: [],
+            previous: [],
+          },
           mst: { totalWeight: 0, edges: [] },
+          segmentsDetailed: [],
+          inferredStopCount: countInferredStops(dayStops),
+          localityLabel: dayMapContext.localityLabel,
+          mapViewport: dayMapContext.mapViewport,
+          mapCenter: dayMapContext.mapCenter,
+          viewportSource: dayMapContext.viewportSource,
           directionsUrl: dayStops.length === 1
             ? buildGoogleMapsSearchUrl({
                 name: dayStops[0].name,
@@ -2558,15 +2513,21 @@ export function createTripRouteService({
       }
 
       if (resolvedStops.length < 2) {
-        const fallbackStops = (await fetchFallbackStopsForDay({
-          day,
-          aiPlanDay,
+        const fallbackStops = filterLocalizedFallbackStops({
+          fallbackStops: await fetchFallbackStopsForDay({
+            day,
+            aiPlanDay,
+            destination,
+            apiKey: placesApiKey,
+            fetchImpl,
+            timeoutMs,
+            maxStops: maxStopsPerDay,
+          }),
+          resolvedStops,
+          cityBounds,
           destination,
-          apiKey: placesApiKey,
-          fetchImpl,
-          timeoutMs,
           maxStops: maxStopsPerDay,
-        })).filter((stop) => isWithinBounds(stop.geoCoordinates, cityBounds));
+        });
 
         const mergedResolvedStops = mergeStopsWithPreference(
           resolvedStops,
@@ -2586,6 +2547,12 @@ export function createTripRouteService({
       }
 
       if (resolvedStops.length < 2) {
+        const dayMapContext = buildDayMapContext({
+          stops: resolvedStops,
+          destination,
+          fallbackBounds: cityBounds,
+        });
+
         routeDays.push({
           dayNumber: day.dayNumber,
           title: normalizeText(day.title, `Day ${day.dayNumber}`),
@@ -2615,7 +2582,20 @@ export function createTripRouteService({
             },
           },
           shortestPathsFromStart: [],
+          routeGraph: {
+            algorithm: "not-applicable",
+            weightMetric: "duration_seconds",
+            totalWeight: 0,
+            shortestPaths: [],
+            previous: [],
+          },
           mst: { totalWeight: 0, edges: [] },
+          segmentsDetailed: [],
+          inferredStopCount: countInferredStops(resolvedStops),
+          localityLabel: dayMapContext.localityLabel,
+          mapViewport: dayMapContext.mapViewport,
+          mapCenter: dayMapContext.mapCenter,
+          viewportSource: dayMapContext.viewportSource,
           directionsUrl: "",
           polyline: "",
           warning: formatRouteWarning({
@@ -2643,41 +2623,11 @@ export function createTripRouteService({
         let optimizerResult = null;
 
         if (profile === "fastest") {
-          const optimizerInput = {
+          optimizerResult = runDijkstraFastestOptimizer({
             routeMatrix: matrixResult.routeMatrix,
-            optimizeFor: "duration",
             originIndex: 0,
             destinationIndex: null,
-          };
-
-          try {
-            optimizerResult =
-              typeof pythonRouteOptimizer === "function"
-                ? await pythonRouteOptimizer(optimizerInput)
-                : null;
-          } catch (error) {
-            console.warn("[routes] Python route optimizer failed, using JS fallback", {
-              message: error instanceof Error ? error.message : String(error),
-            });
-          }
-
-          if (!optimizerResult) {
-            optimizerResult = runLocalRouteOptimizer(optimizerInput);
-          } else {
-            const normalizedVisitOrder = normalizeVisitOrder(
-              optimizerResult.visitOrder,
-              resolvedStops.length,
-              0,
-              null
-            );
-
-            optimizerResult = normalizedVisitOrder
-              ? {
-                  ...optimizerResult,
-                  visitOrder: normalizedVisitOrder,
-                }
-              : runLocalRouteOptimizer(optimizerInput);
-          }
+          });
         } else {
           const objectiveWeightMatrix = buildObjectiveWeightMatrix({
             routeMatrix: matrixResult.routeMatrix,
@@ -2718,6 +2668,11 @@ export function createTripRouteService({
             durationSeconds: roundFinite(segment?.durationSeconds),
           });
         }
+        const segmentsDetailed = buildSegmentDetails({
+          orderedStopsWithGraphIndex,
+          routeMatrix: matrixResult.routeMatrix,
+          shortestPaths: optimizerResult.shortestPathsFromOrigin,
+        });
 
         const totalDistanceMeters = segments.reduce(
           (total, segment) => total + (segment.distanceMeters ?? 0),
@@ -2745,6 +2700,7 @@ export function createTripRouteService({
           orderedStops: orderedStopsWithGraphIndex.map((stop) => ({
             id: stop.id,
             name: stop.name,
+            source: normalizeStopSource(stop?.source),
             location: stop.location,
             description: stop.description,
             category: stop.category,
@@ -2752,10 +2708,20 @@ export function createTripRouteService({
             mapsUrl: stop.mapsUrl,
           })),
           segments,
+          segmentsDetailed,
           totalDistanceMeters: roundFinite(totalDistanceMeters),
           totalDurationSeconds: roundFinite(totalDurationSeconds),
           estimatedCost: estimatedCost ?? 0,
           experienceScore,
+          routeGraph: buildRouteGraphPayload({
+            optimizerResult,
+            weightMetric:
+              profile === "fastest"
+                ? "duration_seconds"
+                : profile === "cheapest"
+                  ? "objective_cost"
+                  : "objective_experience",
+          }),
         });
       }
 
@@ -2803,6 +2769,17 @@ export function createTripRouteService({
         selectedAlternative,
         baselineFastest
       );
+      const dayMapContext = buildDayMapContext({
+        stops: selectedAlternative.orderedStops,
+        destination,
+        fallbackBounds: cityBounds,
+      });
+      console.info("[routes] Localized day map context", {
+        dayNumber: day.dayNumber,
+        localityLabel: dayMapContext.localityLabel,
+        viewportSource: dayMapContext.viewportSource,
+        inferredStopCount: countInferredStops(selectedAlternative.orderedStops),
+      });
       const selectedExplanation = `Selected ${
         selectedAlternative.objectiveLabel
       } route balancing travel time ${formatDurationLabelForExplanation(
@@ -2827,6 +2804,7 @@ export function createTripRouteService({
         orderedStops: selectedAlternative.orderedStops,
         markers: buildMarkersFromOrderedStops(selectedAlternative.orderedStops),
         segments: selectedAlternative.segments,
+        segmentsDetailed: selectedAlternative.segmentsDetailed,
         alternatives: scoredAlternatives
           .slice(0, normalizedAlternativesCount)
           .map((alternative, index) => ({
@@ -2856,10 +2834,16 @@ export function createTripRouteService({
         )
           ? selectedAlternative.optimizerResult.shortestPathsFromOrigin.map(roundFinite)
           : [],
+        routeGraph: selectedAlternative.routeGraph,
         mst: formatMstWithStopNames(
           selectedAlternative.optimizerResult.mst,
           resolvedStops
         ),
+        inferredStopCount: countInferredStops(selectedAlternative.orderedStops),
+        localityLabel: dayMapContext.localityLabel,
+        mapViewport: dayMapContext.mapViewport,
+        mapCenter: dayMapContext.mapCenter,
+        viewportSource: dayMapContext.viewportSource,
         directionsUrl: buildGoogleMapsDirectionsUrl({
           origin: selectedAlternative.orderedStopsWithGraphIndex[0],
           destination:
@@ -2891,6 +2875,7 @@ export function createTripRouteService({
     const result = {
       tripId: normalizeText(trip?.id),
       destination,
+      defaultObjective: "fastest",
       optimizeFor: normalizedOptimizeFor,
       objective: normalizedObjective,
       constraints: normalizedConstraints,

@@ -232,7 +232,7 @@ test("trip route service geocodes stops and uses Google route data when availabl
   });
 
   assert.equal(routes.days[0].routeProvider, "google-routes-matrix");
-  assert.equal(routes.days[0].algorithm, "python-nearest-neighbor-2opt");
+  assert.equal(routes.days[0].algorithm, "dijkstra-fastest");
   assert.deepEqual(
     routes.days[0].orderedStops.map((stop) => stop.name),
     ["Louvre Museum", "Eiffel Tower", "Arc de Triomphe"]

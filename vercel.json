@@ -1,6 +1,6 @@
 {
-  "installCommand": "cd \"Travel Planner\" && npm install",
-  "buildCommand": "cd \"Travel Planner\" && npm run build",
+  "installCommand": "npm install --prefix \"Travel Planner\"",
+  "buildCommand": "npm run build --prefix \"Travel Planner\"",
   "outputDirectory": "Travel Planner/dist",
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },

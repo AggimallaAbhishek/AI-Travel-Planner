@@ -13,10 +13,22 @@ test("deployment config keeps a single root Vercel configuration", () => {
   const rootVercelConfigPath = path.join(repoRoot, "vercel.json");
   const legacyNestedVercelConfigPath = path.join(appRoot, "vercel.json");
   const rootApiHandlerPath = path.join(repoRoot, "api", "[...all].js");
+  const rootVercelConfig = JSON.parse(
+    fs.readFileSync(rootVercelConfigPath, "utf8")
+  );
 
   assert.equal(fs.existsSync(rootVercelConfigPath), true);
   assert.equal(fs.existsSync(rootApiHandlerPath), true);
   assert.equal(fs.existsSync(legacyNestedVercelConfigPath), false);
+  assert.equal(
+    rootVercelConfig.installCommand,
+    'npm install --prefix "Travel Planner"'
+  );
+  assert.equal(
+    rootVercelConfig.buildCommand,
+    'npm run build --prefix "Travel Planner"'
+  );
+  assert.equal(rootVercelConfig.outputDirectory, "Travel Planner/dist");
 });
 
 test(".env.example keeps production API base URL blank for same-origin deploys", () => {
@@ -25,4 +37,11 @@ test(".env.example keeps production API base URL blank for same-origin deploys",
 
   assert.match(envExample, /^VITE_API_BASE_URL=$/m);
   assert.doesNotMatch(envExample, /^VITE_API_BASE_URL=http:\/\/localhost:3001$/m);
+});
+
+test("package.json declares the Vercel-safe Node 22 runtime", () => {
+  const packageJsonPath = path.join(appRoot, "package.json");
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
+
+  assert.equal(packageJson.engines?.node, "22.x");
 });
