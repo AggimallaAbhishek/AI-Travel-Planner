@@ -82,6 +82,173 @@ function normalizeStringArray(values, maxItems = 8) {
   return normalized;
 }
 
+export const TRIP_OBJECTIVE_OPTIONS = [
+  "fastest",
+  "cheapest",
+  "best_experience",
+];
+export const TRIP_DISRUPTION_TYPES = [
+  "poi_closed",
+  "traffic_delay",
+  "weather_change",
+  "user_skip",
+];
+const DEFAULT_TRIP_OBJECTIVE = "best_experience";
+const DEFAULT_DAILY_TIME_LIMIT_HOURS = 10;
+const DEFAULT_ALTERNATIVES_COUNT = 3;
+
+function normalizeNumber(value, fallback = null) {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function normalizeLowerText(value, fallback = "") {
+  return normalizeText(value, fallback).toLowerCase();
+}
+
+function normalizeMealPreferences(value) {
+  if (Array.isArray(value)) {
+    return normalizeStringArray(value, 8);
+  }
+
+  if (typeof value === "string") {
+    return normalizeStringArray(
+      value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean),
+      8
+    );
+  }
+
+  return [];
+}
+
+export function normalizeTripObjective(value) {
+  const normalized = normalizeLowerText(value);
+  if (TRIP_OBJECTIVE_OPTIONS.includes(normalized)) {
+    return normalized;
+  }
+
+  if (normalized === "duration") {
+    return "fastest";
+  }
+
+  if (normalized === "distance") {
+    return "cheapest";
+  }
+
+  return DEFAULT_TRIP_OBJECTIVE;
+}
+
+export function normalizeAlternativesCount(value) {
+  return clampInteger(value, 1, 5, DEFAULT_ALTERNATIVES_COUNT);
+}
+
+export function normalizeTripConstraints(input = {}) {
+  const source = input && typeof input === "object" ? input : {};
+  const rawDailyTimeLimit =
+    source.dailyTimeLimitHours ?? source.daily_time_limit ?? source.dailyTimeLimit;
+  const dailyTimeLimitHours = clampInteger(
+    rawDailyTimeLimit,
+    4,
+    16,
+    DEFAULT_DAILY_TIME_LIMIT_HOURS
+  );
+  const rawBudgetCap = source.budgetCap ?? source.budget_cap;
+  const budgetCap = rawBudgetCap === undefined || rawBudgetCap === null || rawBudgetCap === ""
+    ? null
+    : clampInteger(rawBudgetCap, 50, 100_000, 50);
+
+  return {
+    dailyTimeLimitHours,
+    budgetCap,
+    mobilityPref: normalizeText(
+      source.mobilityPref ?? source.mobility_pref,
+      "balanced"
+    ),
+    mealPrefs: normalizeMealPreferences(
+      source.mealPrefs ?? source.meal_prefs
+    ),
+  };
+}
+
+export function sanitizePromptValue(value, fallback = "") {
+  const text = normalizeText(String(value ?? ""), fallback);
+  if (!text) {
+    return fallback;
+  }
+
+  return text
+    .replace(/[{}<>]/g, " ")
+    .replace(/[^\p{L}\p{N}\s,.'+&:/()-]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizeDisruptionType(value) {
+  const type = normalizeLowerText(value);
+  return TRIP_DISRUPTION_TYPES.includes(type) ? type : "user_skip";
+}
+
+function normalizeDisruptionItem(item = {}) {
+  const normalizedItem = item && typeof item === "object" ? item : {};
+
+  return {
+    type: normalizeDisruptionType(normalizedItem.type),
+    dayNumber: clampInteger(
+      normalizedItem.dayNumber ?? normalizedItem.day ?? 1,
+      1,
+      30,
+      1
+    ),
+    placeName: normalizeText(normalizedItem.placeName ?? normalizedItem.place),
+    reason: normalizeText(normalizedItem.reason, ""),
+    severity: normalizeText(normalizedItem.severity, "medium").toLowerCase(),
+  };
+}
+
+export function normalizeTripDisruptions(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.map(normalizeDisruptionItem).slice(0, 12);
+}
+
+export function getTripDisruptionErrors(value) {
+  if (!Array.isArray(value)) {
+    return ["Disruptions must be an array."];
+  }
+
+  const errors = [];
+
+  value.slice(0, 12).forEach((disruption, index) => {
+    const row = index + 1;
+    const normalized = normalizeDisruptionItem(disruption);
+
+    if (!TRIP_DISRUPTION_TYPES.includes(normalized.type)) {
+      errors.push(`Disruption ${row} has an unsupported type.`);
+    }
+
+    if (
+      !Number.isInteger(normalized.dayNumber) ||
+      normalized.dayNumber < 1 ||
+      normalized.dayNumber > 30
+    ) {
+      errors.push(`Disruption ${row} must target a day between 1 and 30.`);
+    }
+
+    if (!normalized.placeName && normalized.type !== "weather_change") {
+      errors.push(
+        `Disruption ${row} requires a place name unless type is weather_change.`
+      );
+    }
+  });
+
+  return errors;
+}
+
 function normalizeDayNumber(rawDay, index) {
   if (typeof rawDay === "number" && rawDay > 0) {
     return rawDay;
@@ -332,24 +499,41 @@ export function normalizeLocation(input) {
 }
 
 export function normalizeUserSelection(input = {}) {
+  const source = input && typeof input === "object" ? input : {};
   const rawTravelerCount =
-    input.travelerCount ?? input.numberOfTravelers ?? input.travelersCount;
+    source.travelerCount ?? source.numberOfTravelers ?? source.travelersCount;
   const travelerCount =
     rawTravelerCount === undefined || rawTravelerCount === null || rawTravelerCount === ""
       ? null
       : normalizeInteger(rawTravelerCount, 0);
+  const constraints = normalizeTripConstraints(
+    source.constraints ?? {
+      dailyTimeLimitHours:
+        source.dailyTimeLimitHours ?? source.daily_time_limit,
+      budgetCap: source.budgetCap ?? source.budget_cap,
+      mobilityPref: source.mobilityPref ?? source.mobility_pref,
+      mealPrefs: source.mealPrefs ?? source.meal_prefs,
+    }
+  );
 
   return {
-    location: normalizeLocation(input.location ?? input.destination),
-    days: normalizeInteger(input.days ?? input.noOfDays, 1),
-    budget: normalizeChoice(input.budget),
+    location: normalizeLocation(source.location ?? source.destination),
+    days: normalizeInteger(source.days ?? source.noOfDays, 1),
+    budget: normalizeChoice(source.budget),
     travelers: normalizeChoice(
-      input.travelers ?? input.travelWith ?? input.traveler
+      source.travelers ?? source.travelWith ?? source.traveler
     ),
     travelType: normalizeChoice(
-      input.travelType ?? input.tripType ?? input.travelStyle
+      source.travelType ?? source.tripType ?? source.travelStyle
     ),
     travelerCount,
+    objective: normalizeTripObjective(
+      source.objective ?? source.optimizeFor ?? source.optimize_for
+    ),
+    constraints,
+    alternativesCount: normalizeAlternativesCount(
+      source.alternativesCount ?? source.alternatives_count
+    ),
   };
 }
 
@@ -399,6 +583,46 @@ export function getUserSelectionErrors(input = {}) {
       selection.travelerCount > 50)
   ) {
     errors.push("Traveler count must be between 1 and 50.");
+  }
+
+  if (!TRIP_OBJECTIVE_OPTIONS.includes(selection.objective)) {
+    errors.push("Objective must be fastest, cheapest, or best_experience.");
+  }
+
+  if (
+    !Number.isInteger(selection.constraints.dailyTimeLimitHours) ||
+    selection.constraints.dailyTimeLimitHours < 4 ||
+    selection.constraints.dailyTimeLimitHours > 16
+  ) {
+    errors.push("Daily time limit must be between 4 and 16 hours.");
+  }
+
+  if (
+    selection.constraints.budgetCap !== null &&
+    (!Number.isInteger(selection.constraints.budgetCap) ||
+      selection.constraints.budgetCap < 50 ||
+      selection.constraints.budgetCap > 100_000)
+  ) {
+    errors.push("Budget cap must be between 50 and 100000 when provided.");
+  }
+
+  if (
+    selection.constraints.mobilityPref &&
+    selection.constraints.mobilityPref.length > MAX_CHOICE_LENGTH
+  ) {
+    errors.push("Mobility preference must be 40 characters or fewer.");
+  }
+
+  if (selection.constraints.mealPrefs.some((meal) => meal.length > MAX_CHOICE_LENGTH)) {
+    errors.push("Meal preferences must be 40 characters or fewer.");
+  }
+
+  if (
+    !Number.isInteger(selection.alternativesCount) ||
+    selection.alternativesCount < 1 ||
+    selection.alternativesCount > 5
+  ) {
+    errors.push("Alternatives count must be between 1 and 5.");
   }
 
   return errors;
@@ -595,6 +819,80 @@ function normalizeCreatedAt(value) {
   return null;
 }
 
+function normalizeFiniteNumber(value, fallback = null) {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
+function normalizeSerializableObject(value, fallback = {}) {
+  if (!value || typeof value !== "object") {
+    return fallback;
+  }
+
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch (_error) {
+    return fallback;
+  }
+}
+
+function normalizeLatencyBreakdown(value = {}) {
+  const source = value && typeof value === "object" ? value : {};
+
+  return {
+    total: normalizeFiniteNumber(source.total, 0),
+    planner: normalizeFiniteNumber(source.planner, 0),
+    critic: normalizeFiniteNumber(source.critic, 0),
+    repair: normalizeFiniteNumber(source.repair, 0),
+    optimize: normalizeFiniteNumber(source.optimize, 0),
+    fusion: normalizeFiniteNumber(source.fusion, 0),
+    persist: normalizeFiniteNumber(source.persist, 0),
+  };
+}
+
+function normalizeConstraintReport(value = {}) {
+  const source = value && typeof value === "object" ? value : {};
+  const hardViolations = Array.isArray(source.hardViolations)
+    ? source.hardViolations.map((violation) => normalizeText(String(violation))).filter(Boolean)
+    : [];
+  const softViolations = Array.isArray(source.softViolations)
+    ? source.softViolations.map((violation) => normalizeText(String(violation))).filter(Boolean)
+    : [];
+
+  return {
+    valid: source.valid !== false && hardViolations.length === 0,
+    hardViolations,
+    softViolations,
+    stats: normalizeSerializableObject(source.stats, {}),
+  };
+}
+
+function normalizeSourceProvenance(value = {}) {
+  const source = value && typeof value === "object" ? value : {};
+
+  return {
+    primaryProvider: normalizeText(source.primaryProvider, ""),
+    sources: Array.isArray(source.sources)
+      ? source.sources
+          .map((item) => normalizeSerializableObject(item, null))
+          .filter(Boolean)
+      : [],
+    cache: normalizeSerializableObject(source.cache, {}),
+  };
+}
+
+function normalizeOptimizationMeta(value = {}) {
+  const source = value && typeof value === "object" ? value : {};
+
+  return {
+    objective: normalizeTripObjective(source.objective),
+    alternativesCount: normalizeAlternativesCount(source.alternativesCount),
+    method: normalizeText(source.method, "multi-objective-graph"),
+    generatedAt: normalizeText(source.generatedAt, new Date().toISOString()),
+    constraints: normalizeTripConstraints(source.constraints),
+  };
+}
+
 export function buildStoredTrip({
   id,
   ownerId,
@@ -602,6 +900,13 @@ export function buildStoredTrip({
   userSelection,
   generatedTrip,
   createdAt = new Date().toISOString(),
+  updatedAt = new Date().toISOString(),
+  llmArtifacts = {},
+  optimizationMeta = {},
+  constraintReport = {},
+  sourceProvenance = {},
+  latencyBreakdownMs = {},
+  routeAlternatives = [],
 }) {
   const normalizedGeneratedTrip = normalizeGeneratedTrip(generatedTrip, {
     userSelection,
@@ -612,10 +917,32 @@ export function buildStoredTrip({
     ownerId,
     ownerEmail: normalizeText(ownerEmail),
     createdAt,
+    updatedAt,
     userSelection: normalizeUserSelection(userSelection),
     hotels: normalizedGeneratedTrip.hotels,
     itinerary: normalizedGeneratedTrip.itinerary,
     aiPlan: normalizedGeneratedTrip.aiPlan,
+    llmArtifacts: normalizeSerializableObject(
+      generatedTrip?.llmArtifacts ?? llmArtifacts,
+      {}
+    ),
+    optimizationMeta: normalizeOptimizationMeta(
+      generatedTrip?.optimizationMeta ?? optimizationMeta
+    ),
+    constraintReport: normalizeConstraintReport(
+      generatedTrip?.constraintReport ?? constraintReport
+    ),
+    sourceProvenance: normalizeSourceProvenance(
+      generatedTrip?.sourceProvenance ?? sourceProvenance
+    ),
+    latencyBreakdownMs: normalizeLatencyBreakdown(
+      generatedTrip?.latencyBreakdownMs ?? latencyBreakdownMs
+    ),
+    routeAlternatives: Array.isArray(generatedTrip?.routeAlternatives)
+      ? generatedTrip.routeAlternatives
+      : Array.isArray(routeAlternatives)
+        ? routeAlternatives
+        : [],
   };
 }
 
@@ -643,8 +970,21 @@ export function normalizeStoredTrip(input = {}) {
         input.travelTips ??
         input.travel_tips ??
         input.tripData?.travel_tips,
+      llmArtifacts: input.llmArtifacts,
+      optimizationMeta: input.optimizationMeta,
+      constraintReport: input.constraintReport,
+      sourceProvenance: input.sourceProvenance,
+      latencyBreakdownMs: input.latencyBreakdownMs,
+      routeAlternatives: input.routeAlternatives,
     },
     createdAt: normalizeCreatedAt(input.createdAt) ?? new Date().toISOString(),
+    updatedAt: normalizeCreatedAt(input.updatedAt) ?? new Date().toISOString(),
+    llmArtifacts: input.llmArtifacts,
+    optimizationMeta: input.optimizationMeta,
+    constraintReport: input.constraintReport,
+    sourceProvenance: input.sourceProvenance,
+    latencyBreakdownMs: input.latencyBreakdownMs,
+    routeAlternatives: input.routeAlternatives,
   });
 
   if (!normalizedTrip.id && input?.id) {
@@ -664,14 +1004,16 @@ export function sortTripsNewestFirst(trips = []) {
 
 export function buildTripPrompt(input = {}) {
   const selection = normalizeUserSelection(input);
-  const destination = normalizeText(selection.location.label, "Not provided");
-  const budget = normalizeText(selection.budget, "Not provided");
-  const travelers = normalizeText(selection.travelers, "Not provided");
-  const travelType = normalizeText(
+  const destination = sanitizePromptValue(selection.location.label, "Not provided");
+  const budget = sanitizePromptValue(selection.budget, "Not provided");
+  const travelers = sanitizePromptValue(selection.travelers, "Not provided");
+  const travelType = sanitizePromptValue(
     selection.travelType,
     selection.travelers || "General"
   );
   const travelerCount = selection.travelerCount ?? "Not specified";
+  const objective = selection.objective;
+  const constraints = selection.constraints;
 
   return `You are a travel expert planner.
 
@@ -685,6 +1027,11 @@ Trip request:
 - Travel Type: ${travelType}
 - Number of Travelers: ${travelerCount}
 - Traveler Profile: ${travelers}
+- Optimization objective: ${objective}
+- Daily time limit (hours): ${constraints.dailyTimeLimitHours}
+- Budget cap (optional): ${constraints.budgetCap ?? "Not specified"}
+- Mobility preference: ${sanitizePromptValue(constraints.mobilityPref, "balanced")}
+- Meal preferences: ${constraints.mealPrefs.join(", ") || "Flexible"}
 
 Return JSON with this exact shape:
 {
@@ -706,6 +1053,9 @@ Rules:
 - The "days" array length must exactly match requested Duration.
 - "day" values must be sequential starting at 1.
 - Each day should have 3-5 concise activities.
+- Keep travel segments realistic for the daily time limit.
+- Respect budget style and optional budget cap when estimating costs.
+- Prefer activities matching the optimization objective.
 - Keep tips actionable and specific to the destination.
 - Use plain text cost ranges when exact costs are unknown.
 - Output JSON only.`;
