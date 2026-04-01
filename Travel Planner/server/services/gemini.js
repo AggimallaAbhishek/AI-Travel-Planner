@@ -13,6 +13,7 @@ import {
   evaluateTripConstraints,
 } from "./constraints.js";
 import { buildTripFusionIndex, findLowConfidenceActivities } from "./dataFusion.js";
+import { resolveExternalTimeoutMs, runExternalRequest } from "./externalRequest.js";
 import { getRecommendationsForDestination } from "./recommendations.js";
 import { listDestinationPois } from "./worldPoiIndex.js";
 
@@ -32,10 +33,12 @@ export function resolveGeminiModelName() {
 }
 
 function resolveGeminiTimeoutMs() {
-  const timeoutMs = Number.parseInt(process.env.GEMINI_TIMEOUT_MS ?? "", 10);
-  return Number.isFinite(timeoutMs) && timeoutMs >= 5_000
-    ? timeoutMs
-    : DEFAULT_TIMEOUT_MS;
+  return resolveExternalTimeoutMs({
+    envVar: "GEMINI_TIMEOUT_MS",
+    fallbackMs: DEFAULT_TIMEOUT_MS,
+    minMs: 5_000,
+    maxMs: 60_000,
+  });
 }
 
 function resolveGeminiMaxRetries() {
@@ -46,10 +49,12 @@ function resolveGeminiMaxRetries() {
 }
 
 function resolveFusionTimeoutMs() {
-  const timeoutMs = Number.parseInt(process.env.FUSION_TIMEOUT_MS ?? "", 10);
-  return Number.isFinite(timeoutMs) && timeoutMs >= 1_500
-    ? timeoutMs
-    : DEFAULT_FUSION_TIMEOUT_MS;
+  return resolveExternalTimeoutMs({
+    envVar: "FUSION_TIMEOUT_MS",
+    fallbackMs: DEFAULT_FUSION_TIMEOUT_MS,
+    minMs: 1_500,
+    maxMs: 20_000,
+  });
 }
 
 function resolveMinFusionConfidence() {
@@ -79,19 +84,6 @@ function getGeminiModel() {
   }
 
   return model;
-}
-
-function withTimeout(promise, timeoutMs) {
-  return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      reject(new Error(`Gemini request timed out after ${timeoutMs}ms.`));
-    }, timeoutMs);
-
-    promise
-      .then(resolve)
-      .catch(reject)
-      .finally(() => clearTimeout(timeout));
-  });
 }
 
 function normalizeText(value, fallback = "") {
@@ -258,19 +250,24 @@ async function requestGeminiJson({
   temperature = 0.5,
   maxOutputTokens = 3072,
 }) {
-  const result = await withTimeout(
-    getGeminiModel().generateContent({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature,
-        topP: 0.9,
-        topK: 32,
-        maxOutputTokens,
-        responseMimeType: "application/json",
-      },
-    }),
-    timeoutMs
-  );
+  const result = await runExternalRequest({
+    provider: "gemini",
+    operation: "generate-json",
+    timeoutMs,
+    retries: 0,
+    fallbackPath: "trip generation fails fast",
+    execute: () =>
+      getGeminiModel().generateContent({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature,
+          topP: 0.9,
+          topK: 32,
+          maxOutputTokens,
+          responseMimeType: "application/json",
+        },
+      }),
+  });
 
   return parseAiTripPayload(result.response.text());
 }
@@ -282,13 +279,18 @@ async function loadFusionRecommendationsWithTimeout({
   const fusionTimeoutMs = resolveFusionTimeoutMs();
 
   try {
-    const recommendations = await withTimeout(
-      getRecommendationsForDestination({
-        destination,
-        userSelection,
-      }),
-      fusionTimeoutMs
-    );
+    const recommendations = await runExternalRequest({
+      provider: "fusion-recommendations",
+      operation: "load-destination-data",
+      timeoutMs: fusionTimeoutMs,
+      retries: 0,
+      fallbackPath: "continue without fusion recommendations",
+      execute: () =>
+        getRecommendationsForDestination({
+          destination,
+          userSelection,
+        }),
+    });
     return recommendations;
   } catch (error) {
     console.warn("[gemini] Fusion recommendation lookup failed", {

@@ -2,6 +2,12 @@ import { buildGoogleMapsSearchUrl } from "../../shared/maps.js";
 import { normalizeDestinationRecommendations } from "../../shared/recommendations.js";
 import { enrichDestinationRecommendationImages } from "./recommendationImages.js";
 import { createMemoryCacheStore } from "./cacheStore.js";
+import {
+  fetchWithExternalRequest,
+  parseExternalErrorResponse as parseErrorResponse,
+  resolveExternalReadRetries,
+  resolveExternalTimeoutMs,
+} from "./externalRequest.js";
 
 const GOOGLE_PLACES_TEXT_SEARCH_URL =
   "https://places.googleapis.com/v1/places:searchText";
@@ -131,16 +137,6 @@ function sleep(durationMs) {
   return new Promise((resolve) => {
     setTimeout(resolve, durationMs);
   });
-}
-
-function buildTimedFetchOptions(options = {}, timeoutMs) {
-  return {
-    ...options,
-    ...(typeof AbortSignal !== "undefined" &&
-    typeof AbortSignal.timeout === "function"
-      ? { signal: AbortSignal.timeout(timeoutMs) }
-      : {}),
-  };
 }
 
 function formatCuisineLabel(value) {
@@ -374,16 +370,21 @@ function resolveMockRecommendationCacheTtlMs(cacheTtlMs) {
 }
 
 function resolveRequestTimeoutMs() {
-  const parsed = Number.parseInt(
-    process.env.DESTINATION_RECOMMENDATION_TIMEOUT_MS ?? "",
-    10
-  );
+  return resolveExternalTimeoutMs({
+    envVar: "DESTINATION_RECOMMENDATION_TIMEOUT_MS",
+    fallbackMs: DEFAULT_REQUEST_TIMEOUT_MS,
+    minMs: 2_000,
+    maxMs: 30_000,
+  });
+}
 
-  if (Number.isInteger(parsed) && parsed >= 2_000 && parsed <= 30_000) {
-    return parsed;
-  }
-
-  return DEFAULT_REQUEST_TIMEOUT_MS;
+function resolveGooglePlacePhotoTimeoutMs() {
+  return resolveExternalTimeoutMs({
+    envVar: "GOOGLE_PLACE_PHOTO_TIMEOUT_MS",
+    fallbackMs: DEFAULT_GOOGLE_PLACE_PHOTO_TIMEOUT_MS,
+    minMs: 1_500,
+    maxMs: 15_000,
+  });
 }
 
 function resolveRecommendationRadiusMeters() {
@@ -404,6 +405,7 @@ function buildSourceProvenance({
   provider,
   fetchedAt,
   cacheStatus,
+  fallbackReason = "",
 }) {
   return {
     primaryProvider: provider,
@@ -418,6 +420,7 @@ function buildSourceProvenance({
     cache: {
       status: cacheStatus,
     },
+    fallbackReason: normalizeText(fallbackReason),
   };
 }
 
@@ -553,6 +556,7 @@ async function resolveGooglePlacePhotoUrl({
   apiKey,
   fetchImpl,
   timeoutMs = DEFAULT_GOOGLE_PLACE_PHOTO_TIMEOUT_MS,
+  retries = 0,
   maxWidthPx = DEFAULT_GOOGLE_PLACE_PHOTO_MAX_WIDTH_PX,
   maxHeightPx = DEFAULT_GOOGLE_PLACE_PHOTO_MAX_HEIGHT_PX,
   photoUrlCache = new Map(),
@@ -570,28 +574,25 @@ async function resolveGooglePlacePhotoUrl({
   }
 
   const lookupPromise = (async () => {
-    const response = await fetchImpl(
-      buildGooglePlacePhotoMetadataUrl({
+    const response = await fetchWithExternalRequest({
+      provider: "google-places-photo",
+      operation: "resolve-photo-uri",
+      url: buildGooglePlacePhotoMetadataUrl({
         photoName: normalizedPhotoName,
         apiKey: normalizedApiKey,
         maxWidthPx,
         maxHeightPx,
       }),
-      buildTimedFetchOptions(
-        {
-          headers: {
-            Accept: "application/json",
-          },
+      fetchImpl,
+      timeoutMs,
+      retries,
+      fallbackPath: "continue without a place photo",
+      request: {
+        headers: {
+          Accept: "application/json",
         },
-        timeoutMs
-      )
-    );
-
-    if (!response.ok) {
-      throw new Error(
-        `Google Places photo lookup failed with status ${response.status}.`
-      );
-    }
+      },
+    });
 
     const contentType = response.headers?.get?.("content-type") ?? "";
     if (contentType.includes("application/json")) {
@@ -606,6 +607,7 @@ async function resolveGooglePlacePhotoUrl({
         photoName: normalizedPhotoName,
         message: error instanceof Error ? error.message : String(error),
       });
+      photoUrlCache.delete(cacheKey);
       return "";
     });
 
@@ -658,26 +660,11 @@ function mapGooglePlaceToRecommendation(place, category, destination) {
 
 let nextNominatimRequestAt = 0;
 
-async function parseErrorResponse(response) {
-  const contentType = response.headers.get("content-type") ?? "";
-
-  if (contentType.includes("application/json")) {
-    const payload = await response.json();
-    return (
-      payload?.error?.message ??
-      payload?.message ??
-      `HTTP ${response.status}`
-    );
-  }
-
-  const text = await response.text();
-  return normalizeText(text, `HTTP ${response.status}`);
-}
-
 async function geocodeDestinationWithNominatim({
   destination,
   fetchImpl,
   timeoutMs,
+  retries = 0,
   userAgent,
   searchUrl,
   minIntervalMs,
@@ -707,26 +694,22 @@ async function geocodeDestinationWithNominatim({
     destination,
   });
 
-  const response = await fetchImpl(
-    requestUrl,
-    buildTimedFetchOptions(
-      {
-        headers: {
-          Accept: "application/json",
-          "Accept-Language": "en",
-          "User-Agent": userAgent,
-        },
+  const response = await fetchWithExternalRequest({
+    provider: "nominatim",
+    operation: "geocode-destination",
+    url: requestUrl,
+    fetchImpl,
+    timeoutMs,
+    retries,
+    fallbackPath: "fallback to other recommendation providers",
+    request: {
+      headers: {
+        Accept: "application/json",
+        "Accept-Language": "en",
+        "User-Agent": userAgent,
       },
-      timeoutMs
-    )
-  );
-
-  if (!response.ok) {
-    const message = await parseErrorResponse(response);
-    throw new Error(
-      `Nominatim geocoding failed with status ${response.status}: ${message}`
-    );
-  }
+    },
+  });
 
   const results = await response.json();
   const bestMatch = Array.isArray(results) ? results[0] : null;
@@ -798,6 +781,7 @@ async function searchOpenStreetMapCategory({
   fetchImpl,
   limit,
   timeoutMs,
+  retries = 0,
   userAgent,
   overpassApiUrl,
   radiusMeters,
@@ -818,30 +802,26 @@ async function searchOpenStreetMapCategory({
     radiusMeters,
   });
 
-  const response = await fetchImpl(
-    overpassApiUrl,
-    buildTimedFetchOptions(
-      {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-          "User-Agent": userAgent,
-        },
-        body: new URLSearchParams({
-          data: query,
-        }),
+  const response = await fetchWithExternalRequest({
+    provider: "openstreetmap-overpass",
+    operation: `${category}-recommendations`,
+    url: overpassApiUrl,
+    fetchImpl,
+    timeoutMs,
+    retries,
+    fallbackPath: "fallback to mock recommendations if live data stays unavailable",
+    request: {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+        "User-Agent": userAgent,
       },
-      timeoutMs
-    )
-  );
-
-  if (!response.ok) {
-    const message = await parseErrorResponse(response);
-    throw new Error(
-      `OpenStreetMap ${category} search failed with status ${response.status}: ${message}`
-    );
-  }
+      body: new URLSearchParams({
+        data: query,
+      }),
+    },
+  });
 
   const payload = await response.json();
   const elements = Array.isArray(payload?.elements) ? payload.elements : [];
@@ -868,6 +848,8 @@ async function searchGooglePlacesCategory({
   fetchImpl,
   limit,
   timeoutMs,
+  retries = 0,
+  photoTimeoutMs = DEFAULT_GOOGLE_PLACE_PHOTO_TIMEOUT_MS,
   photoUrlCache,
 }) {
   const textQuery =
@@ -881,35 +863,33 @@ async function searchGooglePlacesCategory({
     limit,
   });
 
-  const response = await fetchImpl(GOOGLE_PLACES_TEXT_SEARCH_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Goog-Api-Key": apiKey,
-      "X-Goog-FieldMask": GOOGLE_PLACES_FIELD_MASK,
+  const response = await fetchWithExternalRequest({
+    provider: "google-places",
+    operation: `${category}-recommendations`,
+    url: GOOGLE_PLACES_TEXT_SEARCH_URL,
+    fetchImpl,
+    timeoutMs,
+    retries,
+    fallbackPath: "fallback to OpenStreetMap or mock recommendations",
+    request: {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": apiKey,
+        "X-Goog-FieldMask": GOOGLE_PLACES_FIELD_MASK,
+      },
+      body: JSON.stringify({
+        textQuery,
+        languageCode: "en",
+        includedType: category === "hotel" ? "lodging" : "restaurant",
+        strictTypeFiltering: true,
+        minRating: 3.8,
+        maxResultCount: limit,
+        openNow: false,
+        rankPreference: "RELEVANCE",
+      }),
     },
-    body: JSON.stringify({
-      textQuery,
-      languageCode: "en",
-      includedType: category === "hotel" ? "lodging" : "restaurant",
-      strictTypeFiltering: true,
-      minRating: 3.8,
-      maxResultCount: limit,
-      openNow: false,
-      rankPreference: "RELEVANCE",
-    }),
-    ...(typeof AbortSignal !== "undefined" &&
-    typeof AbortSignal.timeout === "function"
-      ? { signal: AbortSignal.timeout(timeoutMs) }
-      : {}),
   });
-
-  if (!response.ok) {
-    const message = await parseErrorResponse(response);
-    throw new Error(
-      `Google Places ${category} search failed with status ${response.status}: ${message}`
-    );
-  }
 
   const data = await response.json();
   const places = Array.isArray(data.places) ? data.places : [];
@@ -924,7 +904,8 @@ async function searchGooglePlacesCategory({
           photoName,
           apiKey,
           fetchImpl,
-          timeoutMs: Math.min(timeoutMs, DEFAULT_GOOGLE_PLACE_PHOTO_TIMEOUT_MS),
+          timeoutMs: Math.min(timeoutMs, photoTimeoutMs),
+          retries,
           photoUrlCache,
         });
       }
@@ -957,6 +938,8 @@ async function fetchGooglePlacesRecommendations({
   fetchImpl,
   limit,
   timeoutMs,
+  retries = 0,
+  photoTimeoutMs = DEFAULT_GOOGLE_PLACE_PHOTO_TIMEOUT_MS,
   enrichRecommendationImages,
 }) {
   const photoUrlCache = new Map();
@@ -968,6 +951,8 @@ async function fetchGooglePlacesRecommendations({
       fetchImpl,
       limit,
       timeoutMs,
+      retries,
+      photoTimeoutMs,
       photoUrlCache,
     }),
     searchGooglePlacesCategory({
@@ -977,6 +962,8 @@ async function fetchGooglePlacesRecommendations({
       fetchImpl,
       limit,
       timeoutMs,
+      retries,
+      photoTimeoutMs,
       photoUrlCache,
     }),
   ]);
@@ -1093,6 +1080,7 @@ export function buildMockDestinationRecommendations({
   userSelection = {},
   limit = DEFAULT_RESULT_LIMIT,
   warning = "",
+  fallbackReason = "",
 }) {
   const normalizedDestination = normalizeText(destination, "Unknown destination");
   const seed = createSeed(normalizedDestination);
@@ -1155,6 +1143,7 @@ export function buildMockDestinationRecommendations({
     restaurants,
     provider: "mock",
     warning,
+    fallbackReason: normalizeText(fallbackReason),
     fetchedAt: new Date().toISOString(),
   });
 }
@@ -1228,6 +1217,8 @@ export function createDestinationRecommendationService({
   staleCacheTtlMs = resolveRecommendationStaleCacheTtlMs(cacheTtlMs),
   limit = resolveRecommendationLimit(),
   timeoutMs = resolveRequestTimeoutMs(),
+  photoTimeoutMs = resolveGooglePlacePhotoTimeoutMs(),
+  readRetries = resolveExternalReadRetries(),
   resolveApiKey = resolveGooglePlacesApiKey,
   nominatimSearchUrl = resolveNominatimSearchUrl(),
   overpassApiUrl = resolveOverpassApiUrl(),
@@ -1258,12 +1249,21 @@ export function createDestinationRecommendationService({
     const apiKey = normalizeText(resolveApiKey());
     let recommendations = null;
 
+    console.info("[recommendations] Runtime diagnostics", {
+      destination: normalizedDestination,
+      hasPlacesKey: Boolean(apiKey),
+      timeoutMs,
+      photoTimeoutMs,
+      readRetries,
+    });
+
     async function loadOpenStreetMapRecommendations() {
       return fetchOpenStreetMapRecommendations({
         destination: normalizedDestination,
         fetchImpl,
         limit,
         timeoutMs,
+        retries: readRetries,
         userAgent: osmUserAgent,
         nominatimSearchUrl,
         overpassApiUrl,
@@ -1281,6 +1281,8 @@ export function createDestinationRecommendationService({
           fetchImpl,
           limit,
           timeoutMs,
+          retries: readRetries,
+          photoTimeoutMs,
           enrichRecommendationImages,
         });
       } catch (error) {
@@ -1290,6 +1292,10 @@ export function createDestinationRecommendationService({
         });
         try {
           recommendations = await loadOpenStreetMapRecommendations();
+          recommendations = {
+            ...recommendations,
+            fallbackReason: "google_places_unavailable",
+          };
         } catch (fallbackError) {
           console.error("[recommendations] OpenStreetMap fallback failed, using mock data", {
             destination: normalizedDestination,
@@ -1304,6 +1310,7 @@ export function createDestinationRecommendationService({
             limit,
             warning:
               "Live destination data is temporarily unavailable, so curated sample recommendations are being shown instead.",
+            fallbackReason: "live_provider_unavailable",
           });
           recommendations = normalizeDestinationRecommendations({
             ...recommendations,
@@ -1323,6 +1330,10 @@ export function createDestinationRecommendationService({
       });
       try {
         recommendations = await loadOpenStreetMapRecommendations();
+        recommendations = {
+          ...recommendations,
+          fallbackReason: "google_places_not_configured",
+        };
       } catch (error) {
         console.error("[recommendations] OpenStreetMap failed, using mock data", {
           destination: normalizedDestination,
@@ -1334,6 +1345,7 @@ export function createDestinationRecommendationService({
           limit,
           warning:
             "Live destination data is not configured, so curated sample recommendations are being shown.",
+          fallbackReason: "live_provider_not_configured",
         });
         recommendations = normalizeDestinationRecommendations({
           ...recommendations,
@@ -1374,6 +1386,7 @@ export function createDestinationRecommendationService({
           provider: recommendations.provider,
           fetchedAt: recommendations.fetchedAt,
           cacheStatus,
+          fallbackReason: recommendations.fallbackReason,
         }),
       });
 
@@ -1427,6 +1440,9 @@ export function createDestinationRecommendationService({
             provider: cached.value?.provider ?? "unknown",
             fetchedAt: cached.value?.fetchedAt ?? new Date().toISOString(),
             cacheStatus: "fresh",
+            fallbackReason:
+              cached.value?.sourceProvenance?.fallbackReason ??
+              cached.value?.fallbackReason,
           }),
         });
       }
@@ -1458,6 +1474,9 @@ export function createDestinationRecommendationService({
             provider: cached.value?.provider ?? "unknown",
             fetchedAt: cached.value?.fetchedAt ?? new Date().toISOString(),
             cacheStatus: "stale",
+            fallbackReason:
+              cached.value?.sourceProvenance?.fallbackReason ??
+              "live_refresh_pending",
           }),
         });
       }
