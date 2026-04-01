@@ -6,7 +6,6 @@ import {
   FaCompass,
   FaMapMarkedAlt,
   FaMapPin,
-  FaRoute,
   FaRoad,
   FaStar,
 } from "react-icons/fa";
@@ -238,86 +237,6 @@ function LoadingLayout() {
   );
 }
 
-function ObjectiveToolbar({
-  objective,
-  onObjectiveChange,
-  alternativesCount,
-  onAlternativesCountChange,
-  defaultObjective,
-}) {
-  const activeMeta = resolveObjectiveMeta(objective);
-
-  return (
-    <div className="voy-route-toolbar">
-      <div className="voy-route-toolbar-main">
-        <p className="voy-route-toolbar-label">Route Profiles</p>
-        <div className="voy-route-tabs" role="tablist" aria-label="Route objective profiles">
-          {OBJECTIVE_OPTIONS.map((option) => {
-            const isActive = option.value === objective;
-
-            return (
-              <button
-                key={option.value}
-                type="button"
-                role="tab"
-                aria-selected={isActive}
-                className={`voy-route-tab ${isActive ? "is-active" : ""}`}
-                onClick={() => {
-                  if (option.value === objective) {
-                    return;
-                  }
-
-                  console.info("[optimized-routes] Objective selected", {
-                    objective: option.value,
-                  });
-                  onObjectiveChange?.(option.value);
-                }}
-              >
-                <span className="voy-route-tab-title">{option.shortLabel}</span>
-                <span className="voy-route-tab-hint">{option.hint}</span>
-              </button>
-            );
-          })}
-        </div>
-        <p className="voy-route-toolbar-note">
-          Default visible profile:{" "}
-          <strong>{resolveObjectiveMeta(defaultObjective).shortLabel}</strong>. Current map
-          view: <strong>{activeMeta.shortLabel}</strong>.
-        </p>
-      </div>
-
-      <div className="voy-route-toolbar-side">
-        <label className="voy-route-select-label" htmlFor="route-alt-count">
-          Alternatives to compare
-        </label>
-        <select
-          id="route-alt-count"
-          className="voy-route-select"
-          value={alternativesCount}
-          onChange={(event) => {
-            const nextValue = Number.parseInt(event.target.value, 10);
-
-            if (!Number.isInteger(nextValue) || nextValue === alternativesCount) {
-              return;
-            }
-
-            console.info("[optimized-routes] Alternatives count changed", {
-              alternativesCount: nextValue,
-            });
-            onAlternativesCountChange?.(nextValue);
-          }}
-        >
-          {[1, 2, 3, 4, 5].map((value) => (
-            <option key={value} value={value}>
-              Top {value}
-            </option>
-          ))}
-        </select>
-      </div>
-    </div>
-  );
-}
-
 function DaySelector({ dayRoutes, activeDayNumber, onSelectDay }) {
   return (
     <div className="voy-route-card voy-route-rail-card">
@@ -419,7 +338,7 @@ function SummaryCards({ dayRoute }) {
   );
 }
 
-function AlternativeCards({ alternatives = [], objective, onObjectiveChange }) {
+function AlternativeCards({ alternatives = [], objective }) {
   if (!Array.isArray(alternatives) || alternatives.length === 0) {
     return null;
   }
@@ -438,11 +357,9 @@ function AlternativeCards({ alternatives = [], objective, onObjectiveChange }) {
           const isActive = alternative.objective === objective;
 
           return (
-            <button
+            <div
               key={alternative.objective}
-              type="button"
               className={`voy-route-alternative-card ${isActive ? "is-active" : ""}`}
-              onClick={() => onObjectiveChange?.(alternative.objective)}
             >
               <div className="voy-route-alternative-top">
                 <div>
@@ -468,7 +385,7 @@ function AlternativeCards({ alternatives = [], objective, onObjectiveChange }) {
               <p className="voy-route-alternative-delta">
                 {formatTradeoffDelta(alternative.tradeoffDelta)}
               </p>
-            </button>
+            </div>
           );
         })}
       </div>
@@ -595,7 +512,6 @@ function ActiveDayDetails({
   dayRoute,
   destination,
   objective,
-  onObjectiveChange,
   highlightedStopId,
   onHighlightStop,
 }) {
@@ -699,7 +615,6 @@ function ActiveDayDetails({
       <AlternativeCards
         alternatives={dayRoute.alternatives}
         objective={objective}
-        onObjectiveChange={onObjectiveChange}
       />
 
       <div className="voy-route-detail-grid">
@@ -716,10 +631,6 @@ function ActiveDayDetails({
 
 function OptimizedRouteSection({
   routes,
-  objective = "fastest",
-  onObjectiveChange,
-  alternativesCount = 3,
-  onAlternativesCountChange,
   isLoading = false,
   errorMessage = "",
   onRetry,
@@ -748,7 +659,7 @@ function OptimizedRouteSection({
 
   useEffect(() => {
     setHighlightedStopId(null);
-  }, [activeDayNumber, objective]);
+  }, [activeDayNumber, routes?.objective, routes?.defaultObjective]);
 
   const activeDayRoute =
     dayRoutes.find((dayRoute) => dayRoute.dayNumber === activeDayNumber) ??
@@ -756,7 +667,7 @@ function OptimizedRouteSection({
     null;
   const pendingRouteDays = dayRoutes.filter((dayRoute) => dayRoute.routeReady === false);
   const resolvedObjective =
-    objective || routes?.objective || routes?.defaultObjective || "fastest";
+    routes?.objective || routes?.defaultObjective || "fastest";
   const activeObjectiveMeta = resolveObjectiveMeta(resolvedObjective);
 
   const handleSelectDay = (dayNumber) => {
@@ -777,15 +688,10 @@ function OptimizedRouteSection({
             destination region. Switch days to see localized pins, route tradeoffs, and the{" "}
             <strong>{activeObjectiveMeta.shortLabel}</strong> path in sync.
           </p>
+          <p className="voy-route-subtitle">
+            Route preferences shown here come from the options selected during trip generation.
+          </p>
         </div>
-
-        <ObjectiveToolbar
-          objective={resolvedObjective}
-          onObjectiveChange={onObjectiveChange}
-          alternativesCount={alternativesCount}
-          onAlternativesCountChange={onAlternativesCountChange}
-          defaultObjective={routes?.defaultObjective ?? "fastest"}
-        />
 
         {isLoading ? <LoadingLayout /> : null}
 
@@ -834,7 +740,6 @@ function OptimizedRouteSection({
                 dayRoute={activeDayRoute}
                 destination={routes?.destination ?? ""}
                 objective={resolvedObjective}
-                onObjectiveChange={onObjectiveChange}
                 highlightedStopId={highlightedStopId}
                 onHighlightStop={setHighlightedStopId}
               />

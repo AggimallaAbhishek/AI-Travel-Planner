@@ -49,8 +49,6 @@ function Viewtrip() {
     INITIAL_RECOMMENDATION_STATE
   );
   const [routes, setRoutes] = useState(INITIAL_ROUTE_STATE);
-  const [routeObjective, setRouteObjective] = useState("fastest");
-  const [alternativesCount, setAlternativesCount] = useState(3);
   const [disruptionDraft, setDisruptionDraft] = useState({
     type: "traffic_delay",
     dayNumber: 1,
@@ -112,16 +110,6 @@ function Viewtrip() {
       return;
     }
 
-    setRouteObjective("fastest");
-    const selectionAlternatives = Number.parseInt(
-      trip.userSelection.alternativesCount ?? 3,
-      10
-    );
-    setAlternativesCount(
-      Number.isInteger(selectionAlternatives)
-        ? Math.min(5, Math.max(1, selectionAlternatives))
-        : 3
-    );
     setDisruptionDraft((previous) => ({
       ...previous,
       dayNumber: firstItineraryDayNumber,
@@ -149,9 +137,6 @@ function Viewtrip() {
       try {
         const response = await fetchTripRoutes(trip.id, {
           signal: controller.signal,
-          objective: routeObjective,
-          alternativesCount,
-          constraints: trip?.userSelection?.constraints,
           force: routeReloadToken > 0,
         });
 
@@ -187,12 +172,10 @@ function Viewtrip() {
     return () => controller.abort();
   }, [
     trip?.id,
+    trip?.updatedAt,
     trip?.userSelection?.location?.label,
-    trip?.userSelection?.constraints,
     user,
     routeReloadToken,
-    routeObjective,
-    alternativesCount,
   ]);
 
   useEffect(() => {
@@ -454,10 +437,6 @@ function Viewtrip() {
         </section>
         <OptimizedRouteSection
           routes={routes}
-          objective={routeObjective}
-          onObjectiveChange={setRouteObjective}
-          alternativesCount={alternativesCount}
-          onAlternativesCountChange={setAlternativesCount}
           isLoading={routes.loading}
           errorMessage={routes.errorMessage}
           onRetry={handleRetryRoutes}
