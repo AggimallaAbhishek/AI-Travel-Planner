@@ -535,6 +535,170 @@ function CreateTrip() {
               ) : null}
             </div>
 
+            <div className="voy-create-section">
+              <div className="voy-create-section-head">
+                <div className="voy-create-section-icon">
+                  <Route size={18} />
+                </div>
+                <div>
+                  <h3>Optimization Objective</h3>
+                  <p>Choose how the itinerary should prioritize routing tradeoffs.</p>
+                </div>
+              </div>
+              <div className="voy-create-choice-grid">
+                {OBJECTIVE_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className={`voy-create-choice ${
+                      formData?.objective === option.value ? "active" : ""
+                    }`}
+                    onClick={() => handleInputChange("objective", option.value)}
+                    aria-pressed={formData?.objective === option.value}
+                  >
+                    <span className="voy-create-choice-icon" aria-hidden="true">
+                      {option.icon}
+                    </span>
+                    <div className="voy-create-choice-copy">
+                      <b>{option.label}</b>
+                      <small>{option.description}</small>
+                    </div>
+                    <span className="voy-create-choice-accent" aria-hidden="true" />
+                  </button>
+                ))}
+              </div>
+              {fieldErrors.objective ? (
+                <p className="voy-inline-error">{fieldErrors.objective}</p>
+              ) : null}
+            </div>
+
+            <div className="voy-create-section">
+              <div className="voy-create-section-head">
+                <div className="voy-create-section-icon">
+                  <SlidersHorizontal size={18} />
+                </div>
+                <div>
+                  <h3>Constraint Controls</h3>
+                  <p>Set hard limits for daily time, budget cap, and mobility preferences.</p>
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label htmlFor="voy-create-daily-limit" className="block text-sm text-[var(--voy-text-muted)]">
+                    Daily time limit (hours)
+                  </label>
+                  <div className="voy-create-field-shell mt-2">
+                    <Timer size={16} className="voy-create-field-icon" />
+                    <input
+                      id="voy-create-daily-limit"
+                      type="number"
+                      min={4}
+                      max={16}
+                      className="voy-create-field"
+                      value={formData?.constraints?.dailyTimeLimitHours ?? 10}
+                      onChange={(event) =>
+                        handleConstraintChange("dailyTimeLimitHours", event.target.value)
+                      }
+                    />
+                  </div>
+                  {fieldErrors.dailyTimeLimitHours ? (
+                    <p className="voy-inline-error">{fieldErrors.dailyTimeLimitHours}</p>
+                  ) : null}
+                </div>
+
+                <div>
+                  <label htmlFor="voy-create-budget-cap" className="block text-sm text-[var(--voy-text-muted)]">
+                    Budget cap (optional)
+                  </label>
+                  <div className="voy-create-field-shell mt-2">
+                    <WalletCards size={16} className="voy-create-field-icon" />
+                    <input
+                      id="voy-create-budget-cap"
+                      type="number"
+                      min={50}
+                      step={10}
+                      className="voy-create-field"
+                      placeholder="Ex. 1800"
+                      value={formData?.constraints?.budgetCap ?? ""}
+                      onChange={(event) =>
+                        handleConstraintChange("budgetCap", event.target.value)
+                      }
+                    />
+                  </div>
+                  {fieldErrors.budgetCap ? (
+                    <p className="voy-inline-error">{fieldErrors.budgetCap}</p>
+                  ) : null}
+                </div>
+
+                <div>
+                  <label htmlFor="voy-create-mobility-pref" className="block text-sm text-[var(--voy-text-muted)]">
+                    Mobility preference
+                  </label>
+                  <select
+                    id="voy-create-mobility-pref"
+                    className="voy-create-field mt-2 w-full"
+                    value={formData?.constraints?.mobilityPref ?? "balanced"}
+                    onChange={(event) =>
+                      handleConstraintChange("mobilityPref", event.target.value)
+                    }
+                  >
+                    <option value="balanced">Balanced</option>
+                    <option value="walk-heavy">Walk-heavy</option>
+                    <option value="minimal-walking">Minimal walking</option>
+                    <option value="transit-first">Transit-first</option>
+                  </select>
+                  {fieldErrors.mobilityPref ? (
+                    <p className="voy-inline-error">{fieldErrors.mobilityPref}</p>
+                  ) : null}
+                </div>
+
+                <div>
+                  <label htmlFor="voy-create-alternative-count" className="block text-sm text-[var(--voy-text-muted)]">
+                    Route alternatives (1-5)
+                  </label>
+                  <div className="voy-create-field-shell mt-2">
+                    <Compass size={16} className="voy-create-field-icon" />
+                    <input
+                      id="voy-create-alternative-count"
+                      type="number"
+                      min={1}
+                      max={5}
+                      className="voy-create-field"
+                      value={formData?.alternativesCount ?? 3}
+                      onChange={(event) =>
+                        handleInputChange("alternativesCount", event.target.value)
+                      }
+                    />
+                  </div>
+                  {fieldErrors.alternativesCount ? (
+                    <p className="voy-inline-error">{fieldErrors.alternativesCount}</p>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <label htmlFor="voy-create-meal-prefs" className="block text-sm text-[var(--voy-text-muted)]">
+                  Meal preferences (comma separated)
+                </label>
+                <div className="voy-create-field-shell mt-2">
+                  <UtensilsCrossed size={16} className="voy-create-field-icon" />
+                  <input
+                    id="voy-create-meal-prefs"
+                    className="voy-create-field"
+                    placeholder="Ex. Vegetarian, Seafood"
+                    value={formData?.constraints?.mealPrefs ?? ""}
+                    onChange={(event) =>
+                      handleConstraintChange("mealPrefs", event.target.value)
+                    }
+                  />
+                </div>
+                {fieldErrors.mealPrefs ? (
+                  <p className="voy-inline-error">{fieldErrors.mealPrefs}</p>
+                ) : null}
+              </div>
+            </div>
+
             <div className="voy-create-actions">
               <Button
                 disabled={loading}

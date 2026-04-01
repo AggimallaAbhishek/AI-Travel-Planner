@@ -9,7 +9,11 @@ import { toast } from "react-toastify";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/lib/api";
 import { fetchTripRecommendations } from "@/lib/tripRecommendations";
-import { fetchTripRoutes } from "@/lib/tripRoutes";
+import {
+  fetchTripRouteAlternatives,
+  fetchTripRoutes,
+  replanTrip,
+} from "@/lib/tripRoutes";
 import { Button } from "@/components/ui/button";
 import { buildLoginPath } from "@/lib/authRedirect";
 
@@ -27,6 +31,18 @@ const INITIAL_ROUTE_STATE = {
   days: [],
   destination: "",
   optimizeFor: "duration",
+  objective: "best_experience",
+  optimizationMeta: null,
+  sourceProvenance: null,
+  loading: false,
+  errorMessage: "",
+};
+
+const INITIAL_ALTERNATIVE_STATE = {
+  days: [],
+  destination: "",
+  objective: "best_experience",
+  alternativesCount: 3,
   loading: false,
   errorMessage: "",
 };
@@ -42,6 +58,15 @@ function Viewtrip() {
     INITIAL_RECOMMENDATION_STATE
   );
   const [routes, setRoutes] = useState(INITIAL_ROUTE_STATE);
+  const [alternatives, setAlternatives] = useState(INITIAL_ALTERNATIVE_STATE);
+  const [routeObjective, setRouteObjective] = useState("best_experience");
+  const [alternativesCount, setAlternativesCount] = useState(3);
+  const [disruptionDraft, setDisruptionDraft] = useState({
+    type: "traffic_delay",
+    dayNumber: 1,
+    placeName: "",
+  });
+  const [replanLoading, setReplanLoading] = useState(false);
   const [recommendationReloadToken, setRecommendationReloadToken] = useState(0);
   const [routeReloadToken, setRouteReloadToken] = useState(0);
   const loginPath = buildLoginPath(`${location.pathname}${location.search}${location.hash}`);
@@ -88,11 +113,43 @@ function Viewtrip() {
   }, [tripId, user]);
 
   useEffect(() => {
+    if (!trip?.userSelection) {
+      return;
+    }
+
+    const selectionObjective = String(
+      trip.userSelection.objective ?? "best_experience"
+    ).toLowerCase();
+    setRouteObjective(
+      ["fastest", "cheapest", "best_experience"].includes(selectionObjective)
+        ? selectionObjective
+        : "best_experience"
+    );
+    const selectionAlternatives = Number.parseInt(
+      trip.userSelection.alternativesCount ?? 3,
+      10
+    );
+    setAlternativesCount(
+      Number.isInteger(selectionAlternatives)
+        ? Math.min(5, Math.max(1, selectionAlternatives))
+        : 3
+    );
+    setDisruptionDraft((previous) => ({
+      ...previous,
+      dayNumber:
+        Array.isArray(trip?.itinerary?.days) && trip.itinerary.days.length > 0
+          ? trip.itinerary.days[0].dayNumber
+          : 1,
+    }));
+  }, [trip?.id, trip?.userSelection]);
+
+  useEffect(() => {
     const controller = new AbortController();
     const destination = trip?.userSelection?.location?.label ?? "";
 
     if (!trip?.id || !user) {
       setRoutes(INITIAL_ROUTE_STATE);
+      setAlternatives(INITIAL_ALTERNATIVE_STATE);
       return () => controller.abort();
     }
 
@@ -108,6 +165,9 @@ function Viewtrip() {
       try {
         const response = await fetchTripRoutes(trip.id, {
           signal: controller.signal,
+          objective: routeObjective,
+          alternativesCount,
+          constraints: trip?.userSelection?.constraints,
           force: routeReloadToken > 0,
         });
 
@@ -141,7 +201,15 @@ function Viewtrip() {
     loadRoutes();
 
     return () => controller.abort();
-  }, [trip?.id, trip?.userSelection?.location?.label, user, routeReloadToken]);
+  }, [
+    trip?.id,
+    trip?.userSelection?.location?.label,
+    trip?.userSelection?.constraints,
+    user,
+    routeReloadToken,
+    routeObjective,
+    alternativesCount,
+  ]);
 
   useEffect(() => {
     const controller = new AbortController();
