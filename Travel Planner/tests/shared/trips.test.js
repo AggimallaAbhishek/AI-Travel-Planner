@@ -231,6 +231,30 @@ test("normalizeStoredTrip preserves persisted place geocodes and map enrichment"
         east: 139.92,
         west: 139.55,
       },
+      markerDays: [
+        {
+          dayNumber: 1,
+          title: "Tokyo intro",
+          places: [
+            {
+              placeName: "Shibuya Crossing",
+              location: "Shibuya City, Tokyo",
+              mapsUrl: "https://maps.google.com/?q=shibuya",
+              geoCoordinates: { latitude: 35.6595, longitude: 139.7005 },
+              geocodeStatus: "resolved",
+              geocodeSource: "google_places",
+            },
+            {
+              placeName: "Shinjuku Gyoen National Garden",
+              location: "Shinjuku City, Tokyo",
+              mapsUrl: "https://maps.google.com/?q=shinjuku+gyoen",
+              geoCoordinates: { latitude: 35.6852, longitude: 139.7101 },
+              geocodeStatus: "resolved",
+              geocodeSource: "fallback_inferred",
+            },
+          ],
+        },
+      ],
     },
   });
 
@@ -255,4 +279,10 @@ test("normalizeStoredTrip preserves persisted place geocodes and map enrichment"
     east: 139.92,
     west: 139.55,
   });
+  assert.equal(trip.mapEnrichment.markerDays.length, 1);
+  assert.equal(trip.mapEnrichment.markerDays[0].places.length, 2);
+  assert.equal(
+    trip.mapEnrichment.markerDays[0].places[1].placeName,
+    "Shinjuku Gyoen National Garden"
+  );
 });

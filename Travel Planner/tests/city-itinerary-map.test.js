@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   buildCityMapDistanceMatrix,
+  buildCityMapFeaturePath,
   calculateGreatCircleDistanceMeters,
   CITY_ITINERARY_MAP_CANVAS,
   createCityMapMarkerLayout,
@@ -156,4 +157,27 @@ test("buildCityMapDistanceMatrix returns diagonal blanks and pairwise labels", (
   assert.ok(Number.isFinite(matrix[0][1].meters));
   assert.equal(matrix[0][1].label.endsWith("km"), true);
   assert.equal(matrix[0][1].label, matrix[1][0].label);
+});
+
+test("buildCityMapFeaturePath converts geographic basemap features into SVG path data", () => {
+  const path = buildCityMapFeaturePath(
+    {
+      closed: true,
+      coordinates: [
+        { latitude: 35.68, longitude: 139.68 },
+        { latitude: 35.69, longitude: 139.7 },
+        { latitude: 35.67, longitude: 139.71 },
+        { latitude: 35.68, longitude: 139.68 },
+      ],
+    },
+    {
+      north: 35.82,
+      south: 35.55,
+      east: 139.92,
+      west: 139.55,
+    }
+  );
+
+  assert.equal(path.startsWith("M"), true);
+  assert.equal(path.endsWith("Z"), true);
 });

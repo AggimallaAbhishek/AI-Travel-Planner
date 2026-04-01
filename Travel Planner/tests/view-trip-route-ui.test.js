@@ -40,6 +40,8 @@ test("city itinerary map renders landscape layout and pairwise distance copy", (
   assert.equal(source.includes("Distance between mapped places"), true);
   assert.equal(source.includes("aspectRatio"), true);
   assert.equal(source.includes("buildCityMapDistanceMatrix"), true);
+  assert.equal(source.includes("fetchTripCityMap"), true);
+  assert.equal(source.includes("OpenStreetMap"), true);
 });
 
 test("create trip page remains the place where route preferences are chosen", () => {

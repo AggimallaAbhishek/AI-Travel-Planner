@@ -90,3 +90,126 @@ test("trip map enrichment persists partial geocode results without failing unres
   });
   assert.deepEqual(requests, ["Unknown Hidden Spot, Tokyo, Japan"]);
 });
+
+test("trip map enrichment derives and resolves extra marker places from ai plan activities", async () => {
+  const requests = [];
+  const serviceResult = await enrichTripWithPersistedGeocodes({
+    apiKey: "places-key",
+    fetchImpl: async (_url, options = {}) => {
+      const query = JSON.parse(options.body).textQuery;
+      requests.push(query);
+
+      if (query === "Tokyo, Japan") {
+        return {
+          ok: true,
+          headers: {
+            get(name) {
+              return name.toLowerCase() === "content-type"
+                ? "application/json"
+                : "";
+            },
+          },
+          async json() {
+            return {
+              places: [
+                {
+                  viewport: {
+                    northEast: { latitude: 35.82, longitude: 139.92 },
+                    southWest: { latitude: 35.55, longitude: 139.55 },
+                  },
+                },
+              ],
+            };
+          },
+        };
+      }
+
+      if (query.includes("Shinjuku Gyoen")) {
+        return {
+          ok: true,
+          headers: {
+            get(name) {
+              return name.toLowerCase() === "content-type"
+                ? "application/json"
+                : "";
+            },
+          },
+          async json() {
+            return {
+              places: [
+                {
+                  displayName: { text: "Shinjuku Gyoen National Garden" },
+                  formattedAddress: "11 Naitocho, Shinjuku City, Tokyo",
+                  location: { latitude: 35.6852, longitude: 139.7101 },
+                  googleMapsUri:
+                    "https://www.google.com/maps/search/?api=1&query=35.6852%2C139.7101",
+                },
+              ],
+            };
+          },
+        };
+      }
+
+      return {
+        ok: true,
+        headers: {
+          get(name) {
+            return name.toLowerCase() === "content-type"
+              ? "application/json"
+              : "";
+          },
+        },
+        async json() {
+          return {
+            places: [],
+          };
+        },
+      };
+    },
+    trip: {
+      id: "trip-inferred-markers",
+      userSelection: {
+        location: { label: "Tokyo, Japan" },
+      },
+      itinerary: {
+        days: [
+          {
+            dayNumber: 1,
+            title: "Arrival & Shinjuku Nightlife",
+            places: [],
+          },
+        ],
+      },
+      aiPlan: {
+        days: [
+          {
+            day: 1,
+            title: "Arrival & Shinjuku Nightlife",
+            activities: [
+              "Explore Shinjuku Gyoen National Garden before the evening skyline views.",
+            ],
+            tips: "Use public transport and keep nearby landmarks grouped.",
+          },
+        ],
+      },
+    },
+  });
+
+  assert.equal(serviceResult.changed, true);
+  assert.equal(serviceResult.stats.hasCityBounds, true);
+  assert.equal(serviceResult.stats.inferredPlaceCount > 0, true);
+  assert.equal(serviceResult.trip.mapEnrichment.markerDays.length, 1);
+  assert.equal(serviceResult.trip.mapEnrichment.markerDays[0].places.length > 0, true);
+  assert.equal(
+    serviceResult.trip.mapEnrichment.markerDays[0].places.some(
+      (place) =>
+        place.placeName === "Shinjuku Gyoen National Garden" &&
+        place.geocodeStatus === "resolved"
+    ),
+    true
+  );
+  assert.equal(
+    requests.includes("Shinjuku Gyoen National Garden, Tokyo, Japan"),
+    true
+  );
+});
