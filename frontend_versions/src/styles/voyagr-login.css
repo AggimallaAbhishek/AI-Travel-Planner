@@ -73,12 +73,17 @@ html[data-theme="light"] .voy-login-left-overlay {
 }
 
 .voy-login-logo {
+  display: inline-block;
+  max-width: 14ch;
   text-decoration: none;
   font-family: "Playfair Display", Georgia, serif;
-  font-size: clamp(2rem, 4vw, 2.9rem);
+  font-size: clamp(1.75rem, 3.4vw, 2.45rem);
+  line-height: 0.95;
   color: var(--voy-gold);
-  letter-spacing: 0.04em;
+  letter-spacing: 0.08em;
   font-weight: 700;
+  text-transform: uppercase;
+  text-wrap: balance;
 }
 
 .voy-login-logo span {
@@ -87,11 +92,12 @@ html[data-theme="light"] .voy-login-left-overlay {
 
 .voy-login-brand p {
   margin-top: 0.55rem;
-  max-width: 340px;
+  max-width: 360px;
   color: color-mix(in srgb, var(--voy-text) 80%, transparent);
   font-size: 0.87rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  line-height: 1.55;
 }
 
 .voy-login-quote-wrap {
