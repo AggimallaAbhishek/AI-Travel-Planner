@@ -350,7 +350,7 @@ async function main() {
   console.info("[city-map-data] Build complete", summary);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   main().catch((error) => {
     console.error("[city-map-data] Build failed", {
       message: error instanceof Error ? error.message : String(error),
