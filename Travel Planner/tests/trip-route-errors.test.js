@@ -15,6 +15,30 @@ test("resolveTripGenerationFailure maps missing Firestore setup errors", () => {
   assert.match(failure.hint, /Firestore Database -> Create database/i);
 });
 
+test("resolveTripGenerationFailure prefers explicit persistence-stage failures", () => {
+  const error = new Error("mystery persistence failure");
+  error.code = "trip/persistence-failed";
+  error.stage = "persistence";
+
+  const failure = resolveTripGenerationFailure(error);
+
+  assert.equal(failure.status, 500);
+  assert.match(failure.message, /saving the trip failed/i);
+  assert.match(failure.hint, /FIREBASE_PROJECT_ID/i);
+});
+
+test("resolveTripGenerationFailure prefers explicit generation-stage failures", () => {
+  const error = new Error("mystery generation failure");
+  error.code = "trip/generation-failed";
+  error.stage = "generation";
+
+  const failure = resolveTripGenerationFailure(error);
+
+  assert.equal(failure.status, 503);
+  assert.match(failure.message, /itinerary provider/i);
+  assert.match(failure.hint, /GOOGLE_GEMINI_API_KEY/i);
+});
+
 test("resolveTripGenerationFailure maps classified Firestore database-not-found errors", () => {
   const error = new Error(
     "Firestore database was not found for project ai-travel-planner-b805a. Create Firestore in Native mode."

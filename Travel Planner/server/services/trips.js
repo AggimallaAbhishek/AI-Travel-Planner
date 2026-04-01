@@ -45,6 +45,20 @@ function getErrorText(error) {
   return String(error);
 }
 
+function wrapTripStageFailure(error, code, stage) {
+  const wrappedError = error instanceof Error ? error : new Error(String(error));
+
+  if (!wrappedError.code) {
+    wrappedError.code = code;
+  }
+
+  if (!wrappedError.stage) {
+    wrappedError.stage = stage;
+  }
+
+  return wrappedError;
+}
+
 export function resolveTripPersistenceFailure(error) {
   const errorText = getErrorText(error).toLowerCase();
   const errorCode = String(error?.code ?? "").toLowerCase();
@@ -165,16 +179,27 @@ export async function createTripForUser({ user, userSelection }) {
     return trip;
   };
 
-  const generatedTrip = await generateTripPlan(userSelection);
-  return buildAndPersistTrip({
-    generatedTrip,
-    llmArtifacts: generatedTrip.llmArtifacts,
-    optimizationMeta: generatedTrip.optimizationMeta,
-    constraintReport: generatedTrip.constraintReport,
-    sourceProvenance: generatedTrip.sourceProvenance,
-    latencyBreakdownMs: generatedTrip.latencyBreakdownMs,
-    routeAlternatives: generatedTrip.routeAlternatives,
-  });
+  let generatedTrip;
+
+  try {
+    generatedTrip = await generateTripPlan(userSelection);
+  } catch (error) {
+    throw wrapTripStageFailure(error, "trip/generation-failed", "generation");
+  }
+
+  try {
+    return await buildAndPersistTrip({
+      generatedTrip,
+      llmArtifacts: generatedTrip.llmArtifacts,
+      optimizationMeta: generatedTrip.optimizationMeta,
+      constraintReport: generatedTrip.constraintReport,
+      sourceProvenance: generatedTrip.sourceProvenance,
+      latencyBreakdownMs: generatedTrip.latencyBreakdownMs,
+      routeAlternatives: generatedTrip.routeAlternatives,
+    });
+  } catch (error) {
+    throw wrapTripStageFailure(error, "trip/persistence-failed", "persistence");
+  }
 }
 
 export async function persistTripMapEnrichment({

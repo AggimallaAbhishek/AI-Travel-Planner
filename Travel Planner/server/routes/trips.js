@@ -113,6 +113,27 @@ export function resolveDependentServiceFailure(
 export function resolveTripGenerationFailure(error) {
   const errorText = getErrorText(error).toLowerCase();
   const errorCode = String(error?.code ?? "");
+  const errorStage = String(error?.stage ?? "").toLowerCase();
+
+  if (errorCode === "trip/persistence-failed" || errorStage === "persistence") {
+    return {
+      status: 500,
+      message:
+        "Trip generation completed, but saving the trip failed. Verify Firestore setup and Firebase Admin credentials.",
+      hint:
+        "Check FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY, and ensure Firestore exists in Native mode for that project.",
+    };
+  }
+
+  if (errorCode === "trip/generation-failed" || errorStage === "generation") {
+    return {
+      status: 503,
+      message:
+        "Trip generation failed while contacting the itinerary provider. Verify Gemini API access and retry.",
+      hint:
+        "Check GOOGLE_GEMINI_API_KEY, GEMINI_MODEL access, billing/quota, and outbound server connectivity.",
+    };
+  }
 
   if (
     includesAny(errorText, [
