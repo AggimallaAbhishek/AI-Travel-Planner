@@ -320,6 +320,132 @@ test("trip route service geocodes stops and uses Google route data when availabl
   assert.equal(routes.days[0].geocodeStats.liveLookupCount, 1);
 });
 
+test("trip route service retries duplicate unresolved stop lookups across days after an empty result", async () => {
+  let retrySpotRequests = 0;
+  const service = createTripRouteService({
+    resolvePlacesKey: () => "places-key",
+    resolveRoutesKey: () => "",
+    fetchImpl: async (url, options = {}) => {
+      const urlText = String(url);
+
+      if (!urlText.includes("places.googleapis.com")) {
+        throw new Error(`Unexpected URL: ${urlText}`);
+      }
+
+      const query = JSON.parse(options.body).textQuery;
+
+      if (query === "Kyoto, Japan") {
+        return {
+          ok: true,
+          headers: {
+            get(name) {
+              return name.toLowerCase() === "content-type"
+                ? "application/json"
+                : "";
+            },
+          },
+          async json() {
+            return {
+              places: [
+                {
+                  viewport: {
+                    northEast: { latitude: 35.12, longitude: 135.9 },
+                    southWest: { latitude: 34.92, longitude: 135.64 },
+                  },
+                },
+              ],
+            };
+          },
+        };
+      }
+
+      if (query === "Retry Spot, Kyoto, Japan") {
+        retrySpotRequests += 1;
+
+        return {
+          ok: true,
+          headers: {
+            get(name) {
+              return name.toLowerCase() === "content-type"
+                ? "application/json"
+                : "";
+            },
+          },
+          async json() {
+            return retrySpotRequests === 1
+              ? { places: [] }
+              : {
+                  places: [
+                    {
+                      displayName: { text: "Retry Spot" },
+                      formattedAddress: "Retry District, Kyoto, Japan",
+                      location: { latitude: 35.011, longitude: 135.768 },
+                      googleMapsUri:
+                        "https://www.google.com/maps/search/?api=1&query=35.011%2C135.768",
+                    },
+                  ],
+                };
+          },
+        };
+      }
+
+      return {
+        ok: true,
+        headers: {
+          get(name) {
+            return name.toLowerCase() === "content-type"
+              ? "application/json"
+              : "";
+          },
+        },
+        async json() {
+          return { places: [] };
+        },
+      };
+    },
+  });
+
+  const routes = await service.getRoutesForTrip({
+    trip: {
+      id: "trip-route-geocode-retry",
+      userSelection: {
+        location: { label: "Kyoto, Japan" },
+      },
+      itinerary: {
+        days: [
+          {
+            dayNumber: 1,
+            title: "Retry day one",
+            places: [
+              { placeName: "Retry Spot" },
+              {
+                placeName: "Stored Anchor",
+                geoCoordinates: { latitude: 35.004, longitude: 135.76 },
+              },
+            ],
+          },
+          {
+            dayNumber: 2,
+            title: "Retry day two",
+            places: [
+              { placeName: "Retry Spot" },
+              {
+                placeName: "Stored Anchor",
+                geoCoordinates: { latitude: 35.004, longitude: 135.76 },
+              },
+            ],
+          },
+        ],
+      },
+    },
+  });
+
+  assert.equal(retrySpotRequests, 2);
+  assert.equal(routes.days[0].status, "map_only");
+  assert.equal(routes.days[1].status, "ready");
+  assert.equal(routes.days[1].markers.length, 2);
+});
+
 test("trip route service preserves itinerary coordinates when aiPlan duplicates stop names", async () => {
   const service = createTripRouteService({
     resolvePlacesKey: () => "",

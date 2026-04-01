@@ -213,3 +213,109 @@ test("trip map enrichment derives and resolves extra marker places from ai plan 
     true
   );
 });
+
+test("trip map enrichment retries identical unresolved lookups after an empty geocode result", async () => {
+  let retrySpotRequests = 0;
+
+  const serviceResult = await enrichTripWithPersistedGeocodes({
+    apiKey: "places-key",
+    concurrency: 1,
+    fetchImpl: async (_url, options = {}) => {
+      const query = JSON.parse(options.body).textQuery;
+
+      if (query === "Kyoto, Japan") {
+        return {
+          ok: true,
+          headers: {
+            get(name) {
+              return name.toLowerCase() === "content-type"
+                ? "application/json"
+                : "";
+            },
+          },
+          async json() {
+            return {
+              places: [
+                {
+                  viewport: {
+                    northEast: { latitude: 35.12, longitude: 135.9 },
+                    southWest: { latitude: 34.92, longitude: 135.64 },
+                  },
+                },
+              ],
+            };
+          },
+        };
+      }
+
+      if (query === "Retry Spot, Kyoto, Japan") {
+        retrySpotRequests += 1;
+
+        return {
+          ok: true,
+          headers: {
+            get(name) {
+              return name.toLowerCase() === "content-type"
+                ? "application/json"
+                : "";
+            },
+          },
+          async json() {
+            return retrySpotRequests === 1
+              ? { places: [] }
+              : {
+                  places: [
+                    {
+                      displayName: { text: "Retry Spot" },
+                      formattedAddress: "Retry District, Kyoto, Japan",
+                      location: { latitude: 35.01, longitude: 135.76 },
+                      googleMapsUri:
+                        "https://www.google.com/maps/search/?api=1&query=35.01%2C135.76",
+                    },
+                  ],
+                };
+          },
+        };
+      }
+
+      return {
+        ok: true,
+        headers: {
+          get(name) {
+            return name.toLowerCase() === "content-type"
+              ? "application/json"
+              : "";
+          },
+        },
+        async json() {
+          return { places: [] };
+        },
+      };
+    },
+    trip: {
+      id: "trip-retry-geocode-cache",
+      userSelection: {
+        location: { label: "Kyoto, Japan" },
+      },
+      itinerary: {
+        days: [
+          {
+            dayNumber: 1,
+            title: "Kyoto retry",
+            places: [{ placeName: "Retry Spot" }, { placeName: "Retry Spot" }],
+          },
+        ],
+      },
+    },
+  });
+
+  assert.equal(retrySpotRequests, 2);
+  assert.equal(
+    serviceResult.trip.itinerary.days[0].places[0].geocodeStatus,
+    "unresolved"
+  );
+  assert.equal(
+    serviceResult.trip.itinerary.days[0].places[1].geocodeStatus,
+    "resolved"
+  );
+});
