@@ -433,14 +433,51 @@ export default function CityItineraryMapSection({ trip }) {
                 </p>
                 <p className="mt-2 max-w-3xl text-sm leading-7 text-[var(--voy-text-muted)]">
                   The map stays constrained to the destination outline and now uses a
-                  static OpenStreetMap basemap plus Google Maps clickthrough on each
-                  resolved stop.
+                  {mapSource === "prebuilt_city_map"
+                    ? " prebuilt local basemap"
+                    : " destination outline shell"}{" "}
+                  plus Google Maps clickthrough on each resolved stop.
                 </p>
               </div>
 
-              <div className="flex items-center gap-2 rounded-full border border-[rgba(24,39,75,0.08)] bg-white/80 px-3 py-2 text-xs font-medium text-[var(--voy-text-muted)]">
-                <Navigation className="h-4 w-4" />
-                Click pins to open Google Maps
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <div className="flex items-center gap-2 rounded-full border border-[rgba(24,39,75,0.08)] bg-white/80 px-3 py-2 text-xs font-medium text-[var(--voy-text-muted)]">
+                  <Navigation className="h-4 w-4" />
+                  Click pins to open Google Maps
+                </div>
+                <div className="flex items-center gap-1 rounded-full border border-[rgba(24,39,75,0.08)] bg-white/80 px-2 py-1.5 text-xs font-medium text-[var(--voy-text-muted)]">
+                  <button
+                    type="button"
+                    aria-label="Zoom out city map"
+                    className="rounded-full p-1 transition hover:bg-[rgba(24,39,75,0.06)] disabled:cursor-not-allowed disabled:opacity-45"
+                    onClick={() => setZoomLevel((current) => Math.max(1, current - 1))}
+                    disabled={!canZoomOut}
+                  >
+                    <Minus className="h-4 w-4" />
+                  </button>
+                  <span className="min-w-[56px] text-center">{zoomLevel}x zoom</span>
+                  <button
+                    type="button"
+                    aria-label="Zoom in city map"
+                    className="rounded-full p-1 transition hover:bg-[rgba(24,39,75,0.06)] disabled:cursor-not-allowed disabled:opacity-45"
+                    onClick={() => setZoomLevel((current) => Math.min(4, current + 1))}
+                    disabled={!canZoomIn}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    className="ml-1 inline-flex items-center gap-1 rounded-full px-2 py-1 transition hover:bg-[rgba(24,39,75,0.06)] disabled:cursor-not-allowed disabled:opacity-45"
+                    onClick={() => {
+                      setActivePlaceId("");
+                      setZoomLevel(1);
+                    }}
+                    disabled={!canZoomOut && !activePlaceId}
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    Reset
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -571,6 +608,7 @@ export default function CityItineraryMapSection({ trip }) {
 
                   {markers.map((marker) => {
                     const isActive = activePlaceId === marker.id;
+                    const pinSize = isActive ? 14 : 10;
                     const labelWidth = Math.max(
                       136,
                       Math.min(232, marker.placeName.length * 7.2 + 24)
@@ -589,10 +627,14 @@ export default function CityItineraryMapSection({ trip }) {
                         onMouseLeave={() => setActivePlaceId("")}
                         onFocus={() => setActivePlaceId(marker.id)}
                         onBlur={() => setActivePlaceId("")}
-                        onClick={() => openGoogleMaps(marker.mapsUrl)}
+                        onClick={() => {
+                          setActivePlaceId(marker.id);
+                          openGoogleMaps(marker.mapsUrl);
+                        }}
                         onKeyDown={(event) => {
                           if (event.key === "Enter" || event.key === " ") {
                             event.preventDefault();
+                            setActivePlaceId(marker.id);
                             openGoogleMaps(marker.mapsUrl);
                           }
                         }}
@@ -617,7 +659,7 @@ export default function CityItineraryMapSection({ trip }) {
                           <>
                             <rect
                               x={labelX}
-                              y={Math.max(CITY_ITINERARY_MAP_CANVAS.inset, marker.markerPoint.y - 60)}
+                              y={Math.max(CITY_ITINERARY_MAP_CANVAS.inset, marker.markerPoint.y - 72)}
                               width={labelWidth}
                               height="40"
                               rx="20"
@@ -639,38 +681,39 @@ export default function CityItineraryMapSection({ trip }) {
                           </>
                         ) : null}
 
-                        <circle
-                          cx={marker.markerPoint.x}
-                          cy={marker.markerPoint.y}
-                          r={isActive ? 28 : 22}
-                          fill={marker.accent.soft}
-                          opacity={isActive ? 0.9 : 0.55}
-                        />
-                        <circle
-                          cx={marker.markerPoint.x}
-                          cy={marker.markerPoint.y}
-                          r={isActive ? 15 : 13}
-                          fill="rgba(255,255,255,0.96)"
-                          stroke={marker.accent.stroke}
-                          strokeWidth="2.4"
-                        />
-                        <circle
-                          cx={marker.markerPoint.x}
-                          cy={marker.markerPoint.y}
-                          r={isActive ? 10 : 8.5}
-                          fill={marker.accent.fill}
-                          opacity={0.96}
-                        />
-                        <text
-                          x={marker.markerPoint.x}
-                          y={marker.markerPoint.y + 4.2}
-                          textAnchor="middle"
-                          fontSize="11"
-                          fontWeight="700"
-                          fill="#0F172A"
+                        <g
+                          transform={`translate(${marker.markerPoint.x} ${marker.markerPoint.y})`}
                         >
-                          {marker.dayNumber}
-                        </text>
+                          {isActive ? (
+                            <circle
+                              cx="0"
+                              cy={-pinSize * 0.2}
+                              r={pinSize * 1.5}
+                              fill={marker.accent.soft}
+                              opacity="0.92"
+                            />
+                          ) : null}
+                          <path
+                            d={buildPinPath(pinSize)}
+                            fill="rgba(255,255,255,0.96)"
+                            stroke={marker.accent.stroke}
+                            strokeWidth={isActive ? 2 : 1.6}
+                            strokeLinejoin="round"
+                          />
+                          <path
+                            d={buildPinPath(Math.max(6, pinSize - 2.4))}
+                            fill={marker.accent.fill}
+                            opacity="0.98"
+                            transform="translate(0 0.4)"
+                          />
+                          <circle
+                            cx="0"
+                            cy={-pinSize * 0.4}
+                            r={isActive ? 2.6 : 2.1}
+                            fill="#F8FAFC"
+                            opacity="0.98"
+                          />
+                        </g>
                       </g>
                     );
                   })}
@@ -782,7 +825,10 @@ export default function CityItineraryMapSection({ trip }) {
                           onMouseLeave={() => setActivePlaceId("")}
                           onFocus={() => setActivePlaceId(place.id)}
                           onBlur={() => setActivePlaceId("")}
-                          onClick={() => openGoogleMaps(place.mapsUrl)}
+                          onClick={() => {
+                            setActivePlaceId(place.id);
+                            openGoogleMaps(place.mapsUrl);
+                          }}
                         >
                           <span
                             className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold"

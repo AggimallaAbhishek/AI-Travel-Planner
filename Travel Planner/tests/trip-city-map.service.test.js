@@ -66,6 +66,7 @@ test("buildTripCityMapPayload keeps only in-outline resolved places as map pins"
   });
 
   assert.equal(cityMap.outline?.source, "administrative_boundary");
+  assert.equal(cityMap.mapSource, "fallback_bounds");
   assert.equal(cityMap.mappedPlaceCount, 1);
   assert.equal(cityMap.unresolvedPlaceCount, 2);
   assert.equal(cityMap.markers.length, 1);

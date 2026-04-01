@@ -143,7 +143,7 @@ export function buildTripCityMapPayload({
   basemap = null,
 } = {}) {
   const destination = getDestinationLabel(trip);
-  const cityBounds = trip?.mapEnrichment?.cityBounds ?? basemap?.cityBounds ?? null;
+  const cityBounds = basemap?.cityBounds ?? trip?.mapEnrichment?.cityBounds ?? null;
   const outline = basemap?.outline ?? null;
   const markerDaysSource =
     Array.isArray(trip?.mapEnrichment?.markerDays) &&
@@ -177,6 +177,10 @@ export function buildTripCityMapPayload({
     destination,
     cityBounds,
     basemap,
+    mapSource: normalizeText(
+      basemap?.mapSource ?? basemap?.source,
+      cityBounds ? "fallback_bounds" : ""
+    ),
     outline,
     dayCount: days.length,
     mappedPlaceCount: markers.length,

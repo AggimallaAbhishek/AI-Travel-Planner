@@ -138,7 +138,12 @@ export function buildCityMapArtifactPayload(artifacts = []) {
   const destinationIndex = {};
 
   for (const artifact of normalizedArtifacts) {
-    for (const lookupKey of buildDestinationLookupKeys(artifact.destinationLabel)) {
+    const lookupKeys = new Set([
+      ...buildDestinationLookupKeys(artifact.destinationLabel),
+      ...buildDestinationLookupKeys(artifact.destination),
+    ]);
+
+    for (const lookupKey of lookupKeys) {
       destinationIndex[lookupKey] ??= [];
       destinationIndex[lookupKey].push({
         destinationKey: artifact.destinationKey,

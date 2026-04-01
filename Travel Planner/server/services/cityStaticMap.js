@@ -643,11 +643,7 @@ function normalizePrebuiltBasemap(basemap = null, destination = "", fallbackBoun
 export async function getStaticCityBasemap({
   destination = "",
   cityBounds,
-  fetchImpl = fetch,
   cacheStore = basemapCache,
-  endpoint = OVERPASS_API_URL,
-  timeoutMs = DEFAULT_OVERPASS_TIMEOUT_MS,
-  featureLimits = DEFAULT_FEATURE_LIMITS,
   dataDir,
 } = {}) {
   const normalizedBounds = normalizeBounds(cityBounds);

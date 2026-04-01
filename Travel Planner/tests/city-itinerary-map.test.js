@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  buildZoomedCityMapBounds,
   buildCityMapOutlinePath,
   buildCityMapDistanceMatrix,
   buildCityMapFeaturePath,
@@ -10,6 +11,7 @@ import {
   createCityMapMarkerLayout,
   deriveCityMapBoundsFromPlaces,
   formatCityMapDistance,
+  getCityMapOutlineCentroid,
   isProjectedPointInsidePolygons,
   projectCityMapPoint,
   projectCityMapOutline,
@@ -233,6 +235,51 @@ test("projectCityMapOutline converts destination polygons into SVG-ready paths",
     }).endsWith("Z"),
     true
   );
+});
+
+test("getCityMapOutlineCentroid prefers the outline over raw bounds center", () => {
+  const centroid = getCityMapOutlineCentroid(
+    {
+      polygons: [
+        [
+          { latitude: 35.57, longitude: 139.58 },
+          { latitude: 35.8, longitude: 139.6 },
+          { latitude: 35.79, longitude: 139.9 },
+          { latitude: 35.6, longitude: 139.89 },
+          { latitude: 35.57, longitude: 139.58 },
+        ],
+      ],
+    },
+    {
+      north: 35.82,
+      south: 35.55,
+      east: 139.92,
+      west: 139.55,
+    }
+  );
+
+  assert.ok(centroid.latitude > 35.65);
+  assert.ok(centroid.longitude > 139.68);
+});
+
+test("buildZoomedCityMapBounds shrinks the visible viewport around the active focus", () => {
+  const bounds = {
+    north: 35.82,
+    south: 35.55,
+    east: 139.92,
+    west: 139.55,
+  };
+
+  const viewBounds = buildZoomedCityMapBounds({
+    bounds,
+    focusCoordinates: { latitude: 35.66, longitude: 139.7 },
+    zoomLevel: 3,
+  });
+
+  assert.ok(viewBounds.north - viewBounds.south < bounds.north - bounds.south);
+  assert.ok(viewBounds.east - viewBounds.west < bounds.east - bounds.west);
+  assert.ok(viewBounds.north <= bounds.north);
+  assert.ok(viewBounds.south >= bounds.south);
 });
 
 test("isProjectedPointInsidePolygons keeps marker placement inside the destination outline", () => {
