@@ -233,6 +233,8 @@ export function resolveTripGenerationFailure(error) {
     errorText.includes("unable to detect a project id in the current environment") ||
     errorText.includes("service account object must contain") ||
     errorText.includes("failed to determine service account") ||
+    errorText.includes("decoder routines::unsupported") ||
+    errorText.includes("getting metadata from plugin failed") ||
     errorText.includes("private key") ||
     errorText.includes("invalid_grant")
   ) {
@@ -241,7 +243,7 @@ export function resolveTripGenerationFailure(error) {
       message:
         "Server Firebase Admin credentials are invalid. Check FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY.",
       hint:
-        "Use a fresh service account key JSON and keep newline escapes in FIREBASE_PRIVATE_KEY.",
+        "Use a fresh service account key JSON. On Vercel, prefer FIREBASE_SERVICE_ACCOUNT_JSON or keep newline escapes in FIREBASE_PRIVATE_KEY without extra formatting.",
     };
   }
 

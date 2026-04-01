@@ -105,6 +105,18 @@ test("resolveTripGenerationFailure maps Firebase project detection errors", () =
   assert.match(failure.hint, /FIREBASE_PRIVATE_KEY/i);
 });
 
+test("resolveTripGenerationFailure maps OpenSSL decoder private key failures", () => {
+  const failure = resolveTripGenerationFailure(
+    new Error(
+      "2 UNKNOWN: Getting metadata from plugin failed with error: error:1E08010C:DECODER routines::unsupported"
+    )
+  );
+
+  assert.equal(failure.status, 500);
+  assert.match(failure.message, /Firebase Admin credentials are invalid/i);
+  assert.match(failure.hint, /FIREBASE_SERVICE_ACCOUNT_JSON/i);
+});
+
 test("resolveTripGenerationFailure maps oversized Firestore document failures", () => {
   const failure = resolveTripGenerationFailure(
     new Error("8 RESOURCE_EXHAUSTED: Document exceeds the maximum allowed size.")
