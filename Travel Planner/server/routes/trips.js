@@ -11,6 +11,7 @@ import {
   buildMockDestinationRecommendations,
   getRecommendationsForDestination,
 } from "../services/recommendations.js";
+import { getRoutesForTrip } from "../services/routeOptimization.js";
 
 const router = express.Router();
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
@@ -282,6 +283,55 @@ router.get("/trips/:tripId/recommendations", requireAuth, async (req, res) => {
     });
     res.status(500).json({
       message: "Unable to load destination recommendations right now.",
+    });
+  }
+});
+
+router.get("/trips/:tripId/routes", requireAuth, async (req, res) => {
+  try {
+    const trip = await getTripForUser({
+      tripId: req.params.tripId,
+      user: req.user,
+    });
+
+    if (!trip) {
+      res.status(404).json({
+        message: "Trip not found.",
+      });
+      return;
+    }
+
+    if (trip === "forbidden") {
+      res.status(403).json({
+        message: "You do not have access to this trip.",
+      });
+      return;
+    }
+
+    const routes = await getRoutesForTrip({
+      trip,
+      optimizeFor:
+        typeof req.query.optimizeFor === "string"
+          ? req.query.optimizeFor
+          : "duration",
+      dayNumber: req.query.day,
+    });
+
+    console.info("[trips] Trip routes loaded", {
+      tripId: trip.id,
+      destination: routes.destination,
+      dayCount: routes.dayCount,
+      optimizeFor: routes.optimizeFor,
+    });
+
+    res.json({ routes });
+  } catch (error) {
+    console.error("[trips] Failed to load trip routes", {
+      tripId: req.params.tripId,
+      message: getErrorText(error),
+    });
+    res.status(500).json({
+      message: "Unable to load optimized routes right now.",
     });
   }
 });

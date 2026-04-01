@@ -1,7 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  buildGoogleMapsDirectionsUrl,
   buildGoogleMapsSearchUrl,
+  decodeGooglePolyline,
   normalizeGeoCoordinates,
   resolveGoogleMapsUrl,
 } from "../../shared/maps.js";
@@ -60,4 +62,48 @@ test("resolveGoogleMapsUrl rejects non-Google map links and falls back safely", 
     url,
     "https://www.google.com/maps/search/?api=1&query=Eiffel%20Tower%2C%20Paris%2C%20France"
   );
+});
+
+test("buildGoogleMapsDirectionsUrl creates a directions link with waypoints", () => {
+  const url = buildGoogleMapsDirectionsUrl({
+    origin: {
+      placeName: "Louvre Museum",
+      destination: "Paris, France",
+      coordinates: [2.3364, 48.8606],
+    },
+    destination: {
+      placeName: "Eiffel Tower",
+      destination: "Paris, France",
+      coordinates: [2.2945, 48.8584],
+    },
+    waypoints: [
+      {
+        placeName: "Arc de Triomphe",
+        destination: "Paris, France",
+      },
+    ],
+  });
+
+  const parsed = new URL(url);
+
+  assert.equal(parsed.origin, "https://www.google.com");
+  assert.equal(parsed.pathname, "/maps/dir/");
+  assert.equal(parsed.searchParams.get("api"), "1");
+  assert.equal(parsed.searchParams.get("origin"), "48.8606,2.3364");
+  assert.equal(parsed.searchParams.get("destination"), "48.8584,2.2945");
+  assert.equal(parsed.searchParams.get("travelmode"), "driving");
+  assert.equal(
+    parsed.searchParams.get("waypoints"),
+    "Arc de Triomphe, Paris, France"
+  );
+});
+
+test("decodeGooglePolyline decodes an encoded polyline into coordinates", () => {
+  const points = decodeGooglePolyline("_p~iF~ps|U_ulLnnqC_mqNvxq`@");
+
+  assert.deepEqual(points, [
+    { latitude: 38.5, longitude: -120.2 },
+    { latitude: 40.7, longitude: -120.95 },
+    { latitude: 43.252, longitude: -126.453 },
+  ]);
 });

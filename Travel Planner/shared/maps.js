@@ -52,6 +52,20 @@ function normalizeQueryParts(parts = []) {
   return normalized;
 }
 
+function encodeDirectionsWaypoint(value = {}) {
+  const coordinates = normalizeGeoCoordinates(value.coordinates ?? value.geoCoordinates);
+
+  if (coordinates.latitude !== null && coordinates.longitude !== null) {
+    return `${coordinates.latitude},${coordinates.longitude}`;
+  }
+
+  return normalizeQueryParts([
+    value.name ?? value.placeName,
+    value.location ?? value.placeDetails,
+    value.destination,
+  ]).join(", ");
+}
+
 export function normalizeGeoCoordinates(value) {
   if (Array.isArray(value)) {
     const longitude = parseCoordinate(value[0]);
@@ -104,6 +118,85 @@ export function buildGoogleMapsSearchUrl({
   }
 
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
+
+export function buildGoogleMapsDirectionsUrl({
+  origin = {},
+  destination = {},
+  waypoints = [],
+  travelMode = "driving",
+} = {}) {
+  const safeOrigin = encodeDirectionsWaypoint(origin);
+  const safeDestination = encodeDirectionsWaypoint(destination);
+
+  if (!safeOrigin || !safeDestination) {
+    return "";
+  }
+
+  const params = new URLSearchParams({
+    api: "1",
+    origin: safeOrigin,
+    destination: safeDestination,
+    travelmode: normalizeText(travelMode, "driving").toLowerCase(),
+  });
+
+  const safeWaypoints = waypoints
+    .map((waypoint) => encodeDirectionsWaypoint(waypoint))
+    .filter(Boolean);
+
+  if (safeWaypoints.length > 0) {
+    params.set("waypoints", safeWaypoints.join("|"));
+  }
+
+  return `https://www.google.com/maps/dir/?${params.toString()}`;
+}
+
+export function decodeGooglePolyline(encodedPolyline = "") {
+  const encoded = normalizeText(encodedPolyline);
+  if (!encoded) {
+    return [];
+  }
+
+  const points = [];
+  let index = 0;
+  let latitude = 0;
+  let longitude = 0;
+
+  while (index < encoded.length) {
+    let shift = 0;
+    let result = 0;
+    let byte = 0;
+
+    do {
+      byte = encoded.charCodeAt(index) - 63;
+      index += 1;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20 && index <= encoded.length);
+
+    const latitudeDelta = result & 1 ? ~(result >> 1) : result >> 1;
+    latitude += latitudeDelta;
+
+    shift = 0;
+    result = 0;
+
+    do {
+      byte = encoded.charCodeAt(index) - 63;
+      index += 1;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20 && index <= encoded.length);
+
+    const longitudeDelta = result & 1 ? ~(result >> 1) : result >> 1;
+    longitude += longitudeDelta;
+
+    points.push({
+      latitude: latitude / 1e5,
+      longitude: longitude / 1e5,
+    });
+  }
+
+  return points;
 }
 
 export function resolveGoogleMapsUrl({
