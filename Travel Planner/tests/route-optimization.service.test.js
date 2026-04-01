@@ -1,7 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  buildNearestNeighborOrder,
   createTripRouteService,
+  improveOrderWithTwoOpt,
   runDijkstraOnWeightMatrix,
   runPrimOnWeightMatrix,
 } from "../server/services/routeOptimization.js";
@@ -36,6 +38,51 @@ test("runPrimOnWeightMatrix computes a minimum spanning tree", () => {
     { fromIndex: 1, toIndex: 2, weight: 1 },
     { fromIndex: 2, toIndex: 3, weight: 4 },
   ]);
+});
+
+test("buildNearestNeighborOrder produces a deterministic greedy visit order", () => {
+  const graph = [
+    [0, 2, 8, 9],
+    [2, 0, 3, 7],
+    [8, 3, 0, 1],
+    [9, 7, 1, 0],
+  ];
+
+  const visitOrder = buildNearestNeighborOrder({
+    weightMatrix: graph,
+    startIndex: 0,
+  });
+
+  assert.deepEqual(visitOrder, [0, 1, 2, 3]);
+});
+
+test("improveOrderWithTwoOpt preserves or lowers the total route weight", () => {
+  const graph = [
+    [0, 2, 8, 9, 7],
+    [2, 0, 3, 7, 6],
+    [8, 3, 0, 1, 5],
+    [9, 7, 1, 0, 2],
+    [7, 6, 5, 2, 0],
+  ];
+  const seedOrder = buildNearestNeighborOrder({
+    weightMatrix: graph,
+    startIndex: 0,
+  });
+  const seedWeight = seedOrder.reduce((total, fromIndex, index) => {
+    const toIndex = seedOrder[index + 1];
+    return toIndex === undefined ? total : total + graph[fromIndex][toIndex];
+  }, 0);
+  const improvedOrder = improveOrderWithTwoOpt(graph, seedOrder, {
+    fixedStart: true,
+    fixedEnd: false,
+  });
+  const improvedWeight = improvedOrder.reduce((total, fromIndex, index) => {
+    const toIndex = improvedOrder[index + 1];
+    return toIndex === undefined ? total : total + graph[fromIndex][toIndex];
+  }, 0);
+
+  assert.equal(improvedOrder[0], 0);
+  assert.equal(improvedWeight <= seedWeight, true);
 });
 
 test("trip route service falls back to estimated haversine routing when Google APIs are unavailable", async () => {

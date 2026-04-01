@@ -6,7 +6,7 @@
       "locality": "Bali",
       "countryCode": "ID",
       "countryName": "Indonesia",
-      "itemCount": 4
+      "itemCount": 8
     }
   ],
   "bali__indonesia": [
@@ -16,7 +16,7 @@
       "locality": "Bali",
       "countryCode": "ID",
       "countryName": "Indonesia",
-      "itemCount": 4
+      "itemCount": 8
     }
   ],
   "id": [
@@ -26,7 +26,7 @@
       "locality": "Bali",
       "countryCode": "ID",
       "countryName": "Indonesia",
-      "itemCount": 4
+      "itemCount": 8
     }
   ],
   "cairo__eg": [
@@ -66,7 +66,7 @@
       "locality": "Dubai",
       "countryCode": "AE",
       "countryName": "United Arab Emirates",
-      "itemCount": 4
+      "itemCount": 9
     }
   ],
   "dubai__united arab emirates": [
@@ -76,7 +76,7 @@
       "locality": "Dubai",
       "countryCode": "AE",
       "countryName": "United Arab Emirates",
-      "itemCount": 4
+      "itemCount": 9
     }
   ],
   "ae": [
@@ -86,7 +86,7 @@
       "locality": "Dubai",
       "countryCode": "AE",
       "countryName": "United Arab Emirates",
-      "itemCount": 4
+      "itemCount": 9
     }
   ],
   "jaipur__in": [
@@ -126,7 +126,7 @@
       "locality": "Kyoto",
       "countryCode": "JP",
       "countryName": "Japan",
-      "itemCount": 4
+      "itemCount": 9
     }
   ],
   "kyoto__japan": [
@@ -136,7 +136,7 @@
       "locality": "Kyoto",
       "countryCode": "JP",
       "countryName": "Japan",
-      "itemCount": 4
+      "itemCount": 9
     }
   ],
   "jp": [
@@ -146,7 +146,7 @@
       "locality": "Kyoto",
       "countryCode": "JP",
       "countryName": "Japan",
-      "itemCount": 4
+      "itemCount": 9
     },
     {
       "destinationKey": "tokyo__jp",
@@ -154,7 +154,7 @@
       "locality": "Tokyo",
       "countryCode": "JP",
       "countryName": "Japan",
-      "itemCount": 4
+      "itemCount": 10
     }
   ],
   "london__gb": [
@@ -224,7 +224,7 @@
       "locality": "Paris",
       "countryCode": "FR",
       "countryName": "France",
-      "itemCount": 4
+      "itemCount": 10
     }
   ],
   "paris__france": [
@@ -234,7 +234,7 @@
       "locality": "Paris",
       "countryCode": "FR",
       "countryName": "France",
-      "itemCount": 4
+      "itemCount": 10
     }
   ],
   "fr": [
@@ -244,7 +244,7 @@
       "locality": "Paris",
       "countryCode": "FR",
       "countryName": "France",
-      "itemCount": 4
+      "itemCount": 10
     }
   ],
   "petra__jo": [
@@ -404,7 +404,7 @@
       "locality": "Tokyo",
       "countryCode": "JP",
       "countryName": "Japan",
-      "itemCount": 4
+      "itemCount": 10
     }
   ],
   "tokyo__japan": [
@@ -414,7 +414,7 @@
       "locality": "Tokyo",
       "countryCode": "JP",
       "countryName": "Japan",
-      "itemCount": 4
+      "itemCount": 10
     }
   ]
 }

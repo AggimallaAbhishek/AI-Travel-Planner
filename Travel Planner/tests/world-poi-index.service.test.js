@@ -68,6 +68,33 @@ test("world poi index lists top destination attractions and respects category fi
   assert.equal(waterfrontPois.every((poi) => poi.categories.includes("waterfront")), true);
 });
 
+test("world poi index exposes transport and hospitality categories for supported destinations", async () => {
+  const airportPois = await listDestinationPois({
+    destination: "Tokyo, Japan",
+    limit: 3,
+    categories: ["airport"],
+  });
+  const hotelPois = await listDestinationPois({
+    destination: "Tokyo, Japan",
+    limit: 3,
+    categories: ["hotel"],
+  });
+  const railPois = await listDestinationPois({
+    destination: "Tokyo, Japan",
+    limit: 3,
+    categories: ["rail_station", "metro_station"],
+  });
+
+  assert.equal(airportPois.some((poi) => poi.name === "Haneda Airport"), true);
+  assert.equal(hotelPois.some((poi) => poi.categories.includes("hotel")), true);
+  assert.equal(
+    railPois.some((poi) =>
+      poi.categories.some((category) => ["rail_station", "metro_station"].includes(category))
+    ),
+    true
+  );
+});
+
 test("world poi index returns null when a destination-scoped match does not exist", async () => {
   const match = await resolvePlace({
     destination: "Rome, Italy",

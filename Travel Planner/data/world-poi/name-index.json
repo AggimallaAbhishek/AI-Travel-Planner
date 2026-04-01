@@ -39,6 +39,22 @@
       "popularityScore": 0.95
     }
   ],
+  "ngurah rai international airport": [
+    {
+      "id": "poi_bali__id_ngurah_rai_international_airport",
+      "destinationKey": "bali__id",
+      "shardFile": "shards/001-bali-id.json.gz",
+      "popularityScore": 0.94
+    }
+  ],
+  "denpasar airport": [
+    {
+      "id": "poi_bali__id_ngurah_rai_international_airport",
+      "destinationKey": "bali__id",
+      "shardFile": "shards/001-bali-id.json.gz",
+      "popularityScore": 0.94
+    }
+  ],
   "padang padang beach": [
     {
       "id": "poi_bali__id_padang_padang_beach",
@@ -69,6 +85,30 @@
       "destinationKey": "bali__id",
       "shardFile": "shards/001-bali-id.json.gz",
       "popularityScore": 0.89
+    }
+  ],
+  "locavore nxt": [
+    {
+      "id": "poi_bali__id_locavore_nxt",
+      "destinationKey": "bali__id",
+      "shardFile": "shards/001-bali-id.json.gz",
+      "popularityScore": 0.8
+    }
+  ],
+  "kuta beachwalk hotel": [
+    {
+      "id": "poi_bali__id_kuta_beachwalk_hotel",
+      "destinationKey": "bali__id",
+      "shardFile": "shards/001-bali-id.json.gz",
+      "popularityScore": 0.72
+    }
+  ],
+  "ubud central bus station": [
+    {
+      "id": "poi_bali__id_ubud_central_bus_station",
+      "destinationKey": "bali__id",
+      "shardFile": "shards/001-bali-id.json.gz",
+      "popularityScore": 0.69
     }
   ],
   "great pyramid of giza": [
@@ -119,6 +159,22 @@
       "popularityScore": 1
     }
   ],
+  "dubai international airport": [
+    {
+      "id": "poi_dubai__ae_dubai_international_airport",
+      "destinationKey": "dubai__ae",
+      "shardFile": "shards/003-dubai-ae.json.gz",
+      "popularityScore": 0.96
+    }
+  ],
+  "dxb": [
+    {
+      "id": "poi_dubai__ae_dubai_international_airport",
+      "destinationKey": "dubai__ae",
+      "shardFile": "shards/003-dubai-ae.json.gz",
+      "popularityScore": 0.96
+    }
+  ],
   "palm jumeirah": [
     {
       "id": "poi_dubai__ae_palm_jumeirah",
@@ -157,6 +213,38 @@
       "destinationKey": "dubai__ae",
       "shardFile": "shards/003-dubai-ae.json.gz",
       "popularityScore": 0.9
+    }
+  ],
+  "armani hotel dubai": [
+    {
+      "id": "poi_dubai__ae_armani_hotel_dubai",
+      "destinationKey": "dubai__ae",
+      "shardFile": "shards/003-dubai-ae.json.gz",
+      "popularityScore": 0.82
+    }
+  ],
+  "burjuman metro station": [
+    {
+      "id": "poi_dubai__ae_burjuman_metro_station",
+      "destinationKey": "dubai__ae",
+      "shardFile": "shards/003-dubai-ae.json.gz",
+      "popularityScore": 0.79
+    }
+  ],
+  "arabian tea house": [
+    {
+      "id": "poi_dubai__ae_arabian_tea_house",
+      "destinationKey": "dubai__ae",
+      "shardFile": "shards/003-dubai-ae.json.gz",
+      "popularityScore": 0.77
+    }
+  ],
+  "ibn battuta bus station": [
+    {
+      "id": "poi_dubai__ae_ibn_battuta_bus_station",
+      "destinationKey": "dubai__ae",
+      "shardFile": "shards/003-dubai-ae.json.gz",
+      "popularityScore": 0.71
     }
   ],
   "hawa mahal": [
@@ -239,12 +327,52 @@
       "popularityScore": 0.95
     }
   ],
+  "kyoto station": [
+    {
+      "id": "poi_kyoto__jp_kyoto_station",
+      "destinationKey": "kyoto__jp",
+      "shardFile": "shards/005-kyoto-jp.json.gz",
+      "popularityScore": 0.93
+    }
+  ],
   "gion": [
     {
       "id": "poi_kyoto__jp_gion",
       "destinationKey": "kyoto__jp",
       "shardFile": "shards/005-kyoto-jp.json.gz",
       "popularityScore": 0.92
+    }
+  ],
+  "hotel the celestine kyoto gion": [
+    {
+      "id": "poi_kyoto__jp_hotel_the_celestine_kyoto_gion",
+      "destinationKey": "kyoto__jp",
+      "shardFile": "shards/005-kyoto-jp.json.gz",
+      "popularityScore": 0.8
+    }
+  ],
+  "kokusaikaikan station": [
+    {
+      "id": "poi_kyoto__jp_kokusaikaikan_station",
+      "destinationKey": "kyoto__jp",
+      "shardFile": "shards/005-kyoto-jp.json.gz",
+      "popularityScore": 0.78
+    }
+  ],
+  "men ya inoichi": [
+    {
+      "id": "poi_kyoto__jp_men_ya_inoichi",
+      "destinationKey": "kyoto__jp",
+      "shardFile": "shards/005-kyoto-jp.json.gz",
+      "popularityScore": 0.77
+    }
+  ],
+  "kyoto avanti bus terminal": [
+    {
+      "id": "poi_kyoto__jp_kyoto_avanti_bus_terminal",
+      "destinationKey": "kyoto__jp",
+      "shardFile": "shards/005-kyoto-jp.json.gz",
+      "popularityScore": 0.74
     }
   ],
   "british museum": [
@@ -327,6 +455,30 @@
       "popularityScore": 0.99
     }
   ],
+  "charles de gaulle airport": [
+    {
+      "id": "poi_paris__fr_charles_de_gaulle_airport",
+      "destinationKey": "paris__fr",
+      "shardFile": "shards/008-paris-fr.json.gz",
+      "popularityScore": 0.95
+    }
+  ],
+  "paris charles de gaulle airport": [
+    {
+      "id": "poi_paris__fr_charles_de_gaulle_airport",
+      "destinationKey": "paris__fr",
+      "shardFile": "shards/008-paris-fr.json.gz",
+      "popularityScore": 0.95
+    }
+  ],
+  "gare du nord": [
+    {
+      "id": "poi_paris__fr_gare_du_nord",
+      "destinationKey": "paris__fr",
+      "shardFile": "shards/008-paris-fr.json.gz",
+      "popularityScore": 0.93
+    }
+  ],
   "montmartre": [
     {
       "id": "poi_paris__fr_montmartre",
@@ -349,6 +501,38 @@
       "destinationKey": "paris__fr",
       "shardFile": "shards/008-paris-fr.json.gz",
       "popularityScore": 0.88
+    }
+  ],
+  "chatelet metro station": [
+    {
+      "id": "poi_paris__fr_chatelet_metro_station",
+      "destinationKey": "paris__fr",
+      "shardFile": "shards/008-paris-fr.json.gz",
+      "popularityScore": 0.81
+    }
+  ],
+  "hotel regina louvre": [
+    {
+      "id": "poi_paris__fr_hotel_regina_louvre",
+      "destinationKey": "paris__fr",
+      "shardFile": "shards/008-paris-fr.json.gz",
+      "popularityScore": 0.79
+    }
+  ],
+  "le relais de l entrecote": [
+    {
+      "id": "poi_paris__fr_le_relais_de_l_entrecote",
+      "destinationKey": "paris__fr",
+      "shardFile": "shards/008-paris-fr.json.gz",
+      "popularityScore": 0.76
+    }
+  ],
+  "gallieni international bus terminal": [
+    {
+      "id": "poi_paris__fr_gallieni_international_bus_terminal",
+      "destinationKey": "paris__fr",
+      "shardFile": "shards/008-paris-fr.json.gz",
+      "popularityScore": 0.73
     }
   ],
   "al khazneh": [
@@ -605,6 +789,70 @@
       "destinationKey": "tokyo__jp",
       "shardFile": "shards/014-tokyo-jp.json.gz",
       "popularityScore": 0.95
+    }
+  ],
+  "haneda airport": [
+    {
+      "id": "poi_tokyo__jp_haneda_airport",
+      "destinationKey": "tokyo__jp",
+      "shardFile": "shards/014-tokyo-jp.json.gz",
+      "popularityScore": 0.95
+    }
+  ],
+  "tokyo international airport": [
+    {
+      "id": "poi_tokyo__jp_haneda_airport",
+      "destinationKey": "tokyo__jp",
+      "shardFile": "shards/014-tokyo-jp.json.gz",
+      "popularityScore": 0.95
+    }
+  ],
+  "tokyo station": [
+    {
+      "id": "poi_tokyo__jp_tokyo_station",
+      "destinationKey": "tokyo__jp",
+      "shardFile": "shards/014-tokyo-jp.json.gz",
+      "popularityScore": 0.92
+    }
+  ],
+  "shibuya station": [
+    {
+      "id": "poi_tokyo__jp_shibuya_station",
+      "destinationKey": "tokyo__jp",
+      "shardFile": "shards/014-tokyo-jp.json.gz",
+      "popularityScore": 0.91
+    }
+  ],
+  "shinjuku expressway bus terminal": [
+    {
+      "id": "poi_tokyo__jp_shinjuku_expressway_bus_terminal",
+      "destinationKey": "tokyo__jp",
+      "shardFile": "shards/014-tokyo-jp.json.gz",
+      "popularityScore": 0.84
+    }
+  ],
+  "busta shinjuku": [
+    {
+      "id": "poi_tokyo__jp_shinjuku_expressway_bus_terminal",
+      "destinationKey": "tokyo__jp",
+      "shardFile": "shards/014-tokyo-jp.json.gz",
+      "popularityScore": 0.84
+    }
+  ],
+  "park hotel tokyo": [
+    {
+      "id": "poi_tokyo__jp_park_hotel_tokyo",
+      "destinationKey": "tokyo__jp",
+      "shardFile": "shards/014-tokyo-jp.json.gz",
+      "popularityScore": 0.83
+    }
+  ],
+  "ichiran shibuya": [
+    {
+      "id": "poi_tokyo__jp_ichiran_shibuya",
+      "destinationKey": "tokyo__jp",
+      "shardFile": "shards/014-tokyo-jp.json.gz",
+      "popularityScore": 0.79
     }
   ]
 }

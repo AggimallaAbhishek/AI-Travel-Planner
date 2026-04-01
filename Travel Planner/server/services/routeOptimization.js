@@ -1421,7 +1421,7 @@ function calculatePathWeight(weightMatrix = [], visitOrder = []) {
   return totalWeight;
 }
 
-function buildNearestNeighborOrder({
+export function buildNearestNeighborOrder({
   weightMatrix = [],
   startIndex = 0,
   endIndex = null,
@@ -1474,7 +1474,7 @@ function buildNearestNeighborOrder({
   return order;
 }
 
-function improveOrderWithTwoOpt(weightMatrix = [], visitOrder = [], options = {}) {
+export function improveOrderWithTwoOpt(weightMatrix = [], visitOrder = [], options = {}) {
   if (visitOrder.length < 4) {
     return visitOrder;
   }

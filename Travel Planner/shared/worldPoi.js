@@ -22,7 +22,33 @@ export const WORLD_POI_CATEGORY_ALLOWLIST = Object.freeze([
   "palace",
   "fort",
   "bridge",
+  "hotel",
+  "restaurant",
+  "airport",
+  "rail_station",
+  "metro_station",
+  "bus_terminal",
 ]);
+
+const WORLD_POI_CATEGORY_ALIASES = Object.freeze({
+  "train station": "rail_station",
+  "railway station": "rail_station",
+  "rail station": "rail_station",
+  station: "rail_station",
+  "subway station": "metro_station",
+  metro: "metro_station",
+  "metro station": "metro_station",
+  "underground station": "metro_station",
+  "bus station": "bus_terminal",
+  "bus terminal": "bus_terminal",
+  "bus interchange": "bus_terminal",
+  hotel: "hotel",
+  lodging: "hotel",
+  accommodation: "hotel",
+  restaurant: "restaurant",
+  dining: "restaurant",
+  eatery: "restaurant",
+});
 
 function normalizeText(value, fallback = "") {
   if (typeof value !== "string") {
@@ -87,7 +113,9 @@ export function dedupeNormalizedStrings(values = [], maxItems = 24) {
 }
 
 function normalizeCategory(value) {
-  const category = normalizePoiKey(value);
+  const category =
+    WORLD_POI_CATEGORY_ALIASES[normalizePoiKey(value)] ??
+    normalizePoiKey(value);
   return WORLD_POI_CATEGORY_ALLOWLIST.includes(category) ? category : "";
 }
 

@@ -1,15 +1,15 @@
 {
-  "datasetVersion": "2026.04-starter-global-v1",
-  "generatedAt": "2026-04-01T11:17:47.119Z",
+  "datasetVersion": "2026.04-starter-global-v2",
+  "generatedAt": "2026-04-01T14:44:07.915Z",
   "schemaVersion": 1,
-  "totalItemCount": 56,
+  "totalItemCount": 82,
   "destinationCount": 14,
   "shardCount": 14,
   "shardMap": [
     {
       "destinationKey": "bali__id",
       "file": "shards/001-bali-id.json.gz",
-      "itemCount": 4,
+      "itemCount": 8,
       "locality": "Bali",
       "countryCode": "ID",
       "countryName": "Indonesia"
@@ -25,7 +25,7 @@
     {
       "destinationKey": "dubai__ae",
       "file": "shards/003-dubai-ae.json.gz",
-      "itemCount": 4,
+      "itemCount": 9,
       "locality": "Dubai",
       "countryCode": "AE",
       "countryName": "United Arab Emirates"
@@ -41,7 +41,7 @@
     {
       "destinationKey": "kyoto__jp",
       "file": "shards/005-kyoto-jp.json.gz",
-      "itemCount": 4,
+      "itemCount": 9,
       "locality": "Kyoto",
       "countryCode": "JP",
       "countryName": "Japan"
@@ -65,7 +65,7 @@
     {
       "destinationKey": "paris__fr",
       "file": "shards/008-paris-fr.json.gz",
-      "itemCount": 4,
+      "itemCount": 10,
       "locality": "Paris",
       "countryCode": "FR",
       "countryName": "France"
@@ -113,7 +113,7 @@
     {
       "destinationKey": "tokyo__jp",
       "file": "shards/014-tokyo-jp.json.gz",
-      "itemCount": 4,
+      "itemCount": 10,
       "locality": "Tokyo",
       "countryCode": "JP",
       "countryName": "Japan"
