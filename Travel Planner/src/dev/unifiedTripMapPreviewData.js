@@ -29,8 +29,10 @@ export const UNIFIED_TRIP_MAP_PREVIEW_PAYLOAD = {
       hotels: 1,
       restaurants: 1,
       airports: 1,
-      railMetroStations: 2,
+      railStations: 1,
+      metroStations: 1,
       busTerminals: 1,
+      flightRoutes: 2,
     },
   },
   provenance: {
@@ -99,7 +101,7 @@ export const UNIFIED_TRIP_MAP_PREVIEW_PAYLOAD = {
         },
       },
     ],
-    railMetroStations: [
+    railStations: [
       {
         id: "station-tokyo",
         name: "Tokyo Station",
@@ -115,6 +117,8 @@ export const UNIFIED_TRIP_MAP_PREVIEW_PAYLOAD = {
           longitude: 139.7671,
         },
       },
+    ],
+    metroStations: [
       {
         id: "station-shibuya",
         name: "Shibuya Station",
@@ -146,6 +150,32 @@ export const UNIFIED_TRIP_MAP_PREVIEW_PAYLOAD = {
           latitude: 35.6886,
           longitude: 139.7006,
         },
+      },
+    ],
+    flightRoutes: [
+      {
+        id: "route_hnd_sin_sq",
+        originAirportId: "airport-haneda",
+        destinationAirportId: "airport-singapore-changi",
+        originLabel: "Haneda Airport, Tokyo",
+        destinationLabel: "Singapore Changi Airport, Singapore",
+        airlineName: "Singapore Airlines",
+        airlineIata: "SQ",
+        airlineIcao: "SIA",
+        equipmentCodes: ["359", "77W"],
+        provider: "openflights",
+      },
+      {
+        id: "route_hnd_lhr_ba",
+        originAirportId: "airport-haneda",
+        destinationAirportId: "airport-london-heathrow",
+        originLabel: "Haneda Airport, Tokyo",
+        destinationLabel: "London Heathrow Airport, London",
+        airlineName: "British Airways",
+        airlineIata: "BA",
+        airlineIcao: "BAW",
+        equipmentCodes: ["789"],
+        provider: "openflights",
       },
     ],
   },

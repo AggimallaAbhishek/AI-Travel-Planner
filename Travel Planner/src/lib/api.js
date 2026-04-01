@@ -170,6 +170,10 @@ function resolveHttpFailureMessage({ status, data, text, statusText }) {
     return "The travel service is temporarily unavailable. Please try again.";
   }
 
+  if (status >= 500) {
+    return "Unexpected server error. Please try again.";
+  }
+
   return normalizeText(statusText, "The request could not be completed.");
 }
 
