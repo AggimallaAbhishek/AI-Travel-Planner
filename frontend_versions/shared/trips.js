@@ -97,11 +97,6 @@ const DEFAULT_TRIP_OBJECTIVE = "best_experience";
 const DEFAULT_DAILY_TIME_LIMIT_HOURS = 10;
 const DEFAULT_ALTERNATIVES_COUNT = 3;
 
-function normalizeNumber(value, fallback = null) {
-  const parsed = Number.parseFloat(value);
-  return Number.isFinite(parsed) ? parsed : fallback;
-}
-
 function normalizeLowerText(value, fallback = "") {
   return normalizeText(value, fallback).toLowerCase();
 }

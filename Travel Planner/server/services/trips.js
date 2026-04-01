@@ -8,6 +8,10 @@ import {
 } from "../../shared/trips.js";
 import { getAdminDb } from "../lib/firebaseAdmin.js";
 import { generateTripPlan } from "./gemini.js";
+import {
+  isPlannerCriticRepairEnabled,
+  orchestrateTripGeneration,
+} from "./orchestration.js";
 
 const COLLECTION_NAME = "AITrips";
 
@@ -75,39 +79,60 @@ export function validateTripRequest(body = {}) {
 }
 
 export async function createTripForUser({ user, userSelection }) {
-  const generatedTrip = await generateTripPlan(userSelection);
-  const trip = buildStoredTrip({
-    id: randomUUID(),
-    ownerId: user.uid,
-    ownerEmail: user.email ?? "",
-    userSelection,
-    generatedTrip,
-  });
+  const useOrchestration = isPlannerCriticRepairEnabled();
+  const tripId = randomUUID();
+  const buildAndPersistTrip = async (payload) => {
+    const trip = buildStoredTrip({
+      id: tripId,
+      ownerId: user.uid,
+      ownerEmail: user.email ?? "",
+      userSelection,
+      ...payload,
+    });
 
-  try {
-    console.info("[trips] Saving generated trip", {
-      tripId: trip.id,
-      projectId: process.env.FIREBASE_PROJECT_ID ?? null,
-      collection: COLLECTION_NAME,
+    const docRef = getTripsCollection().doc(trip.id);
+    const persistStartedAt = Date.now();
+    await docRef.set(trip);
+    const persistMs = Date.now() - persistStartedAt;
+
+    if (payload?.latencyBreakdownMs) {
+      trip.latencyBreakdownMs = {
+        ...trip.latencyBreakdownMs,
+        persist: persistMs,
+      };
+
+      try {
+        await docRef.set(
+          {
+            latencyBreakdownMs: trip.latencyBreakdownMs,
+          },
+          { merge: true }
+        );
+      } catch (error) {
+        console.warn("[trips] Failed to persist latency breakdown update", {
+          tripId: trip.id,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    return trip;
+  };
+
+  if (useOrchestration) {
+    const orchestration = await orchestrateTripGeneration({ userSelection });
+
+    return buildAndPersistTrip({
+      generatedTrip: orchestration.generatedTrip,
+      llmArtifacts: orchestration.llmArtifacts,
+      constraintReport: orchestration.constraintReport,
+      sourceProvenance: orchestration.sourceProvenance,
+      latencyBreakdownMs: orchestration.latencyBreakdownMs,
     });
-    await getTripsCollection().doc(trip.id).set(trip);
-    console.info("[trips] Generated trip saved", {
-      tripId: trip.id,
-    });
-  } catch (error) {
-    const resolvedError = resolveTripPersistenceFailure(error);
-    console.error("[trips] Failed to save generated trip", {
-      tripId: trip.id,
-      projectId: process.env.FIREBASE_PROJECT_ID ?? null,
-      collection: COLLECTION_NAME,
-      errorMessage: getErrorText(error),
-      errorCode: error?.code ?? null,
-      resolvedMessage: getErrorText(resolvedError),
-    });
-    throw resolvedError;
   }
 
-  return trip;
+  const generatedTrip = await generateTripPlan(userSelection);
+  return buildAndPersistTrip({ generatedTrip });
 }
 
 export async function getTripForUser({ tripId, user }) {

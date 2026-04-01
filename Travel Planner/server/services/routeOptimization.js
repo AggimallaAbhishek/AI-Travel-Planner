@@ -11,7 +11,6 @@ import {
   normalizeTripConstraints,
   normalizeTripObjective,
 } from "../../shared/trips.js";
-import { createMemoryCacheStore } from "./cacheStore.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
