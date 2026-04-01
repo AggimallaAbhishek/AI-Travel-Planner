@@ -66,6 +66,17 @@ function encodeDirectionsWaypoint(value = {}) {
   ]).join(", ");
 }
 
+export function escapeHtmlText(value = "") {
+  const text = normalizeText(String(value ?? ""));
+
+  return text
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
 export function normalizeGeoCoordinates(value) {
   if (Array.isArray(value)) {
     const longitude = parseCoordinate(value[0]);

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { loadGoogleMapsApi } from "@/lib/googleMaps";
-import { decodeGooglePolyline } from "@/lib/maps";
+import { decodeGooglePolyline, escapeHtmlText } from "@/lib/maps";
 
 function normalizeMarkerPosition(marker = {}) {
   const latitude = Number.parseFloat(marker.latitude);
@@ -63,8 +63,8 @@ function createMarkerIcon(googleMaps, isHighlighted) {
 }
 
 function buildInfoWindowMarkup(marker = {}, destination = "") {
-  const safeName = String(marker.name ?? "Stop");
-  const safeDestination = String(destination ?? "");
+  const safeName = escapeHtmlText(marker.name ?? "Stop");
+  const safeDestination = escapeHtmlText(destination ?? "");
 
   return `
     <div style="min-width: 180px; font-family: ui-sans-serif, system-ui, sans-serif;">
