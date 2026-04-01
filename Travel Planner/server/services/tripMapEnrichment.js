@@ -910,6 +910,7 @@ export async function enrichTripWithPersistedGeocodes({
             apiKey,
             fetchImpl,
             timeoutMs,
+            retries: readRetries,
             geocodeCache,
             cityBounds,
             telemetry,

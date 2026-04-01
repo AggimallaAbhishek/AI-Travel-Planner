@@ -77,10 +77,8 @@ function Viewtrip() {
         }
 
         console.error("[view-trip] Failed to load trip", error);
-        setTrip(null);
         setRecommendations(INITIAL_RECOMMENDATION_STATE);
         setErrorMessage(error.message ?? "Unable to load this trip.");
-        toast.error(error.message ?? "Unable to load this trip.");
       } finally {
         setLoading(false);
       }

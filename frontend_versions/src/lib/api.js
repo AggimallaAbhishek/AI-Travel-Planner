@@ -162,8 +162,16 @@ function resolveHttpFailureMessage({ status, data, text, statusText }) {
     return "The requested resource was not found.";
   }
 
+  if (status === 425 || status === 426) {
+    return "The travel service is temporarily unavailable. Please try again.";
+  }
+
   if (status === 408 || status === 504) {
     return "Request timed out. Please try again.";
+  }
+
+  if (status === 429) {
+    return "Too many requests were sent. Please wait a moment and try again.";
   }
 
   if (status === 502 || status === 503) {
@@ -172,6 +180,10 @@ function resolveHttpFailureMessage({ status, data, text, statusText }) {
 
   if (status >= 500) {
     return "Unexpected server error. Please try again.";
+  }
+
+  if (status >= 400) {
+    return "The request could not be completed.";
   }
 
   return normalizeText(statusText, "The request could not be completed.");
