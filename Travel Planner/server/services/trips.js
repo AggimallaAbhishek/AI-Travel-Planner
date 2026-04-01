@@ -18,6 +18,9 @@ import {
 import { enrichTripWithPersistedGeocodes } from "./tripMapEnrichment.js";
 
 const COLLECTION_NAME = "AITrips";
+const DEFAULT_FIRESTORE_TRIP_SOFT_LIMIT_BYTES = 850_000;
+const DEFAULT_PERSISTED_TEXT_PREVIEW_CHARS = 12_000;
+const DEFAULT_PERSISTED_ARRAY_ITEMS = 24;
 
 function shouldEnrichTripMapOnCreate() {
   return String(process.env.ENRICH_TRIP_MAP_ON_CREATE ?? "")
@@ -45,6 +48,265 @@ function getErrorText(error) {
   return String(error);
 }
 
+function parsePositiveInteger(value, fallback) {
+  const parsed = Number.parseInt(String(value ?? ""), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function getFirestoreTripSoftLimitBytes() {
+  return parsePositiveInteger(
+    process.env.FIRESTORE_TRIP_SOFT_LIMIT_BYTES,
+    DEFAULT_FIRESTORE_TRIP_SOFT_LIMIT_BYTES
+  );
+}
+
+function truncateText(value, maxChars = DEFAULT_PERSISTED_TEXT_PREVIEW_CHARS) {
+  const text = typeof value === "string" ? value.trim() : "";
+  if (!text) {
+    return "";
+  }
+
+  if (text.length <= maxChars) {
+    return text;
+  }
+
+  return `${text.slice(0, Math.max(0, maxChars - 14))}… [truncated]`;
+}
+
+function cloneSerializable(value, fallback = null) {
+  if (value === undefined) {
+    return fallback;
+  }
+
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch (_error) {
+    return fallback;
+  }
+}
+
+function summarizeSerializableValue(
+  value,
+  {
+    maxDepth = 4,
+    maxArrayItems = DEFAULT_PERSISTED_ARRAY_ITEMS,
+    maxObjectKeys = DEFAULT_PERSISTED_ARRAY_ITEMS,
+    maxStringLength = 1_000,
+  } = {}
+) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (typeof value === "string") {
+    return truncateText(value, maxStringLength);
+  }
+
+  if (typeof value === "number" || typeof value === "boolean") {
+    return value;
+  }
+
+  if (maxDepth <= 0) {
+    return Array.isArray(value)
+      ? `[Array(${value.length})]`
+      : "[Object truncated]";
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .slice(0, maxArrayItems)
+      .map((item) =>
+        summarizeSerializableValue(item, {
+          maxDepth: maxDepth - 1,
+          maxArrayItems,
+          maxObjectKeys,
+          maxStringLength,
+        })
+      )
+      .filter((item) => item !== undefined);
+  }
+
+  if (typeof value === "object") {
+    const result = {};
+
+    for (const [key, entry] of Object.entries(value).slice(0, maxObjectKeys)) {
+      const summarized = summarizeSerializableValue(entry, {
+        maxDepth: maxDepth - 1,
+        maxArrayItems,
+        maxObjectKeys,
+        maxStringLength,
+      });
+
+      if (summarized !== undefined) {
+        result[key] = summarized;
+      }
+    }
+
+    return result;
+  }
+
+  return String(value);
+}
+
+function summarizeLowConfidenceActivities(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.slice(0, DEFAULT_PERSISTED_ARRAY_ITEMS).map((activity) => ({
+    name: truncateText(activity?.name ?? "", 140),
+    dayNumber:
+      Number.isFinite(Number(activity?.dayNumber)) && Number(activity.dayNumber) > 0
+        ? Number(activity.dayNumber)
+        : null,
+    confidence: Number.isFinite(Number(activity?.confidence))
+      ? Number(activity.confidence)
+      : null,
+    rationale: truncateText(activity?.rationale ?? "", 280),
+  }));
+}
+
+function summarizeLlmArtifacts(value = {}, { minimal = false } = {}) {
+  const source = value && typeof value === "object" ? value : {};
+  const plannerOutputKey = Object.prototype.hasOwnProperty.call(source, "planner_output")
+    ? "planner_output"
+    : null;
+  const nextArtifacts = {
+    ...(plannerOutputKey
+      ? {
+          planner_output: truncateText(
+            typeof source.planner_output === "string"
+              ? source.planner_output
+              : JSON.stringify(cloneSerializable(source.planner_output, null)),
+            minimal ? 2_000 : DEFAULT_PERSISTED_TEXT_PREVIEW_CHARS
+          ),
+        }
+      : {}),
+    ...(Object.prototype.hasOwnProperty.call(source, "critic_report")
+      ? {
+          critic_report: summarizeSerializableValue(source.critic_report, {
+            maxDepth: minimal ? 2 : 4,
+            maxArrayItems: minimal ? 8 : 16,
+            maxObjectKeys: minimal ? 8 : 16,
+            maxStringLength: minimal ? 240 : 800,
+          }),
+        }
+      : {}),
+    ...(Object.prototype.hasOwnProperty.call(source, "repair_diff")
+      ? {
+          repair_diff: summarizeSerializableValue(source.repair_diff, {
+            maxDepth: minimal ? 2 : 4,
+            maxArrayItems: minimal ? 8 : 20,
+            maxObjectKeys: minimal ? 8 : 20,
+            maxStringLength: minimal ? 200 : 600,
+          }),
+        }
+      : {}),
+    ...(Object.prototype.hasOwnProperty.call(source, "low_confidence_activities")
+      ? {
+          low_confidence_activities: summarizeLowConfidenceActivities(
+            source.low_confidence_activities
+          ),
+        }
+      : {}),
+  };
+
+  for (const [key, entry] of Object.entries(source)) {
+    if (Object.prototype.hasOwnProperty.call(nextArtifacts, key)) {
+      continue;
+    }
+
+    nextArtifacts[key] = summarizeSerializableValue(entry, {
+      maxDepth: minimal ? 2 : 3,
+      maxArrayItems: minimal ? 6 : 12,
+      maxObjectKeys: minimal ? 6 : 12,
+      maxStringLength: minimal ? 160 : 400,
+    });
+  }
+
+  return nextArtifacts;
+}
+
+function summarizeRouteAlternatives(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .slice(0, 3)
+    .map((alternative) =>
+      summarizeSerializableValue(alternative, {
+        maxDepth: 4,
+        maxArrayItems: 12,
+        maxObjectKeys: 18,
+        maxStringLength: 600,
+      })
+    )
+    .filter(Boolean);
+}
+
+function getJsonByteLength(value) {
+  try {
+    return Buffer.byteLength(JSON.stringify(value), "utf8");
+  } catch (_error) {
+    return Number.POSITIVE_INFINITY;
+  }
+}
+
+export function buildPersistableTripForFirestore(trip) {
+  const softLimitBytes = getFirestoreTripSoftLimitBytes();
+  let persistedTrip = {
+    ...trip,
+    llmArtifacts: summarizeLlmArtifacts(trip?.llmArtifacts),
+    routeAlternatives: summarizeRouteAlternatives(trip?.routeAlternatives),
+  };
+  let sizeBytes = getJsonByteLength(persistedTrip);
+
+  if (sizeBytes <= softLimitBytes) {
+    return {
+      trip: persistedTrip,
+      trimmed: false,
+      trimStage: null,
+      sizeBytes,
+    };
+  }
+
+  persistedTrip = {
+    ...persistedTrip,
+    llmArtifacts: summarizeLlmArtifacts(trip?.llmArtifacts, {
+      minimal: true,
+    }),
+    routeAlternatives: [],
+  };
+  sizeBytes = getJsonByteLength(persistedTrip);
+
+  if (sizeBytes <= softLimitBytes) {
+    return {
+      trip: persistedTrip,
+      trimmed: true,
+      trimStage: "minimal_artifacts",
+      sizeBytes,
+    };
+  }
+
+  persistedTrip = {
+    ...persistedTrip,
+    llmArtifacts: {
+      persisted: false,
+      omittedReason: "trimmed_for_firestore_limit",
+    },
+    routeAlternatives: [],
+  };
+  sizeBytes = getJsonByteLength(persistedTrip);
+
+  return {
+    trip: persistedTrip,
+    trimmed: true,
+    trimStage: "omit_artifacts",
+    sizeBytes,
+  };
+}
+
 function wrapTripStageFailure(error, code, stage) {
   const wrappedError = error instanceof Error ? error : new Error(String(error));
 
@@ -63,6 +325,21 @@ export function resolveTripPersistenceFailure(error) {
   const errorText = getErrorText(error).toLowerCase();
   const errorCode = String(error?.code ?? "").toLowerCase();
   const projectId = process.env.FIREBASE_PROJECT_ID ?? "configured Firebase project";
+
+  if (
+    errorText.includes("request payload size exceeds") ||
+    errorText.includes("document exceeds the maximum allowed size") ||
+    errorText.includes("maximum allowed size") ||
+    errorText.includes("transaction too large") ||
+    errorCode.includes("resource-exhausted")
+  ) {
+    const wrappedError = new Error(
+      "Trip payload exceeded the Firestore document size limit. Reduce persisted artifacts before retrying."
+    );
+    wrappedError.code = "firestore/document-too-large";
+    wrappedError.cause = error;
+    return wrappedError;
+  }
 
   if (
     errorText.includes("5 not_found") ||
@@ -147,13 +424,22 @@ export async function createTripForUser({ user, userSelection }) {
     }
 
     const docRef = getTripsCollection().doc(trip.id);
+    const persistableTrip = buildPersistableTripForFirestore(trip);
+    if (persistableTrip.trimmed) {
+      console.warn("[trips] Trimmed trip payload before Firestore persistence", {
+        tripId: trip.id,
+        trimStage: persistableTrip.trimStage,
+        sizeBytes: persistableTrip.sizeBytes,
+      });
+    }
     const persistStartedAt = Date.now();
     try {
-      await docRef.set(trip);
+      await docRef.set(persistableTrip.trip);
     } catch (error) {
       throw resolveTripPersistenceFailure(error);
     }
     const persistMs = Date.now() - persistStartedAt;
+    trip = persistableTrip.trip;
 
     if (payload?.latencyBreakdownMs) {
       trip.latencyBreakdownMs = {
@@ -464,10 +750,19 @@ export async function replanTripForUser({
     routeAlternatives: existingTrip.routeAlternatives ?? [],
   });
 
-  await docRef.set(nextTrip);
+  const persistableTrip = buildPersistableTripForFirestore(nextTrip);
+  if (persistableTrip.trimmed) {
+    console.warn("[trips] Trimmed replanned trip payload before Firestore persistence", {
+      tripId,
+      trimStage: persistableTrip.trimStage,
+      sizeBytes: persistableTrip.sizeBytes,
+    });
+  }
+
+  await docRef.set(persistableTrip.trip);
 
   return {
-    trip: nextTrip,
+    trip: persistableTrip.trip,
     replanSummary: {
       disruptionCount: disruptions.length,
       changed: repairDiff.changed,

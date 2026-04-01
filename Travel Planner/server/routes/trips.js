@@ -113,27 +113,8 @@ export function resolveDependentServiceFailure(
 export function resolveTripGenerationFailure(error) {
   const errorText = getErrorText(error).toLowerCase();
   const errorCode = String(error?.code ?? "");
+  const normalizedErrorCode = errorCode.toLowerCase();
   const errorStage = String(error?.stage ?? "").toLowerCase();
-
-  if (errorCode === "trip/persistence-failed" || errorStage === "persistence") {
-    return {
-      status: 500,
-      message:
-        "Trip generation completed, but saving the trip failed. Verify Firestore setup and Firebase Admin credentials.",
-      hint:
-        "Check FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY, and ensure Firestore exists in Native mode for that project.",
-    };
-  }
-
-  if (errorCode === "trip/generation-failed" || errorStage === "generation") {
-    return {
-      status: 503,
-      message:
-        "Trip generation failed while contacting the itinerary provider. Verify Gemini API access and retry.",
-      hint:
-        "Check GOOGLE_GEMINI_API_KEY, GEMINI_MODEL access, billing/quota, and outbound server connectivity.",
-    };
-  }
 
   if (
     includesAny(errorText, [
@@ -143,7 +124,7 @@ export function resolveTripGenerationFailure(error) {
       "firestore api has not been used",
       "create/enable firestore",
     ]) ||
-    errorCode.toLowerCase().includes("firestore/database-not-found")
+    normalizedErrorCode.includes("firestore/database-not-found")
   ) {
     return {
       status: 500,
@@ -151,6 +132,27 @@ export function resolveTripGenerationFailure(error) {
         "Trip generation succeeded but saving failed. Create/enable Firestore for your Firebase project and try again.",
       hint:
         "Firebase Console -> Build -> Firestore Database -> Create database (Native mode), then retry. If Firestore already exists, verify FIREBASE_PROJECT_ID matches that project.",
+    };
+  }
+
+  if (
+    includesAny(errorText, [
+      "request payload size exceeds",
+      "document exceeds the maximum allowed size",
+      "maximum allowed size",
+      "transaction too large",
+      "request entity too large",
+      "resource exhausted",
+    ]) ||
+    normalizedErrorCode.includes("firestore/document-too-large") ||
+    normalizedErrorCode.includes("resource-exhausted")
+  ) {
+    return {
+      status: 500,
+      message:
+        "Trip generation completed, but the generated trip was too large to save in Firestore.",
+      hint:
+        "Redeploy the latest server build that trims persisted trip artifacts, then retry. If it still fails, inspect the saved payload size in server logs.",
     };
   }
 
@@ -226,7 +228,7 @@ export function resolveTripGenerationFailure(error) {
   }
 
   if (
-    errorCode.includes("app/invalid-credential") ||
+    normalizedErrorCode.includes("app/invalid-credential") ||
     errorText.includes("could not load the default credentials") ||
     errorText.includes("unable to detect a project id in the current environment") ||
     errorText.includes("service account object must contain") ||
@@ -246,6 +248,7 @@ export function resolveTripGenerationFailure(error) {
   if (
     includesAny(errorText, [
       "cannot use undefined as a firestore value",
+      'cannot use "undefined" as a firestore value',
       "invalid firestore document",
       "value for argument \"data\" is not a valid firestore document",
     ])
@@ -256,6 +259,26 @@ export function resolveTripGenerationFailure(error) {
         "Trip generation completed, but the generated payload could not be saved safely.",
       hint:
         "Retry once. If it repeats, inspect server logs for invalid fields in the Firestore document payload.",
+    };
+  }
+
+  if (errorCode === "trip/persistence-failed" || errorStage === "persistence") {
+    return {
+      status: 500,
+      message:
+        "Trip generation completed, but saving the trip failed. Verify Firestore setup and Firebase Admin credentials.",
+      hint:
+        "Check FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY, and ensure Firestore exists in Native mode for that project.",
+    };
+  }
+
+  if (errorCode === "trip/generation-failed" || errorStage === "generation") {
+    return {
+      status: 503,
+      message:
+        "Trip generation failed while contacting the itinerary provider. Verify Gemini API access and retry.",
+      hint:
+        "Check GOOGLE_GEMINI_API_KEY, GEMINI_MODEL access, billing/quota, and outbound server connectivity.",
     };
   }
 

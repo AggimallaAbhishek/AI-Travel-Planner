@@ -27,6 +27,18 @@ test("resolveTripGenerationFailure prefers explicit persistence-stage failures",
   assert.match(failure.hint, /FIREBASE_PROJECT_ID/i);
 });
 
+test("resolveTripGenerationFailure prefers invalid Firestore payload guidance over generic persistence messaging", () => {
+  const error = new Error('Cannot use "undefined" as a Firestore value.');
+  error.code = "trip/persistence-failed";
+  error.stage = "persistence";
+
+  const failure = resolveTripGenerationFailure(error);
+
+  assert.equal(failure.status, 500);
+  assert.match(failure.message, /could not be saved safely/i);
+  assert.match(failure.hint, /invalid fields/i);
+});
+
 test("resolveTripGenerationFailure prefers explicit generation-stage failures", () => {
   const error = new Error("mystery generation failure");
   error.code = "trip/generation-failed";
@@ -91,6 +103,16 @@ test("resolveTripGenerationFailure maps Firebase project detection errors", () =
   assert.equal(failure.status, 500);
   assert.match(failure.message, /Firebase Admin credentials are invalid/i);
   assert.match(failure.hint, /FIREBASE_PRIVATE_KEY/i);
+});
+
+test("resolveTripGenerationFailure maps oversized Firestore document failures", () => {
+  const failure = resolveTripGenerationFailure(
+    new Error("8 RESOURCE_EXHAUSTED: Document exceeds the maximum allowed size.")
+  );
+
+  assert.equal(failure.status, 500);
+  assert.match(failure.message, /too large to save in Firestore/i);
+  assert.match(failure.hint, /trims persisted trip artifacts/i);
 });
 
 test("resolveTripGenerationFailure keeps generic guidance for unknown errors", () => {

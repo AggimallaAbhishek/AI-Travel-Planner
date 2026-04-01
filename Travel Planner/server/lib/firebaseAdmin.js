@@ -2,27 +2,134 @@ import { applicationDefault, cert, getApps, initializeApp } from "firebase-admin
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 
-function getCredential() {
-  const projectId = process.env.FIREBASE_PROJECT_ID;
-  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-  const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n");
+function normalizeEnvString(value) {
+  if (typeof value !== "string") {
+    return "";
+  }
 
-  if (projectId && clientEmail && privateKey) {
-    return cert({
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1).trim();
+  }
+
+  return trimmed;
+}
+
+function normalizePrivateKey(value) {
+  return normalizeEnvString(value).replace(/\\n/g, "\n");
+}
+
+function parseServiceAccountJson(rawValue) {
+  const normalized = normalizeEnvString(rawValue);
+  if (!normalized) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(normalized);
+    const projectId = normalizeEnvString(parsed.project_id ?? parsed.projectId);
+    const clientEmail = normalizeEnvString(parsed.client_email ?? parsed.clientEmail);
+    const privateKey = normalizePrivateKey(parsed.private_key ?? parsed.privateKey);
+
+    if (!projectId || !clientEmail || !privateKey) {
+      return null;
+    }
+
+    return {
+      mode: "service_account_json",
       projectId,
       clientEmail,
       privateKey,
-    });
+    };
+  } catch (_error) {
+    return null;
+  }
+}
+
+export function resolveFirebaseAdminCredentialConfig(env = process.env) {
+  const serviceAccountJson =
+    parseServiceAccountJson(env.FIREBASE_SERVICE_ACCOUNT_JSON) ??
+    parseServiceAccountJson(env.GOOGLE_SERVICE_ACCOUNT_JSON);
+
+  if (serviceAccountJson) {
+    return serviceAccountJson;
   }
 
-  return applicationDefault();
+  const projectId = normalizeEnvString(env.FIREBASE_PROJECT_ID);
+  const clientEmail = normalizeEnvString(env.FIREBASE_CLIENT_EMAIL);
+  const privateKey = normalizePrivateKey(env.FIREBASE_PRIVATE_KEY);
+  const providedFieldCount = [projectId, clientEmail, privateKey].filter(Boolean).length;
+
+  if (providedFieldCount === 0) {
+    return {
+      mode: "application_default",
+      projectId: "",
+      clientEmail: "",
+      privateKey: "",
+    };
+  }
+
+  if (providedFieldCount < 3) {
+    const error = new Error(
+      "Incomplete Firebase Admin credentials. Set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY together."
+    );
+    error.code = "app/invalid-credential";
+    throw error;
+  }
+
+  return {
+    mode: "service_account_env",
+    projectId,
+    clientEmail,
+    privateKey,
+  };
+}
+
+function getCredentialOptions(env = process.env) {
+  const config = resolveFirebaseAdminCredentialConfig(env);
+
+  if (config.mode === "application_default") {
+    return {
+      credential: applicationDefault(),
+      projectId: normalizeEnvString(env.FIREBASE_PROJECT_ID),
+      mode: config.mode,
+    };
+  }
+
+  return {
+    credential: cert({
+      projectId: config.projectId,
+      clientEmail: config.clientEmail,
+      privateKey: config.privateKey,
+    }),
+    projectId: config.projectId,
+    mode: config.mode,
+  };
 }
 
 export function getFirebaseAdminApp() {
   if (!getApps().length) {
+    const { credential, projectId, mode } = getCredentialOptions();
+    console.info("[firebase-admin] Initializing Firebase Admin app", {
+      credentialMode: mode,
+      hasProjectId: Boolean(projectId),
+      hasClientEmail: Boolean(process.env.FIREBASE_CLIENT_EMAIL || process.env.FIREBASE_SERVICE_ACCOUNT_JSON),
+    });
+
     initializeApp({
-      credential: getCredential(),
-      projectId: process.env.FIREBASE_PROJECT_ID,
+      credential,
+      ...(projectId
+        ? {
+            projectId,
+          }
+        : {}),
     });
   }
 
