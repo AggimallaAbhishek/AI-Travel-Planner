@@ -12,6 +12,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "node --test",
+    "eval:research": "node ./scripts/researchEvaluation.mjs",
     "sync:frontend": "node ./scripts/frontendBackupSync.mjs --full",
     "sync:frontend:watch": "node ./scripts/frontendBackupSync.mjs --watch",
     "audit:full": "npm audit",
