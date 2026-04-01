@@ -1,10 +1,15 @@
 import express from "express";
 import { requireAuth } from "../middleware/auth.js";
-import { tripGenerationRateLimit } from "../middleware/rateLimit.js";
+import {
+  replanRateLimit,
+  tripGenerationRateLimit,
+} from "../middleware/rateLimit.js";
 import {
   createTripForUser,
   getTripForUser,
   listTripsForUser,
+  replanTripForUser,
+  validateReplanRequest,
   validateTripRequest,
 } from "../services/trips.js";
 import {
@@ -12,6 +17,11 @@ import {
   getRecommendationsForDestination,
 } from "../services/recommendations.js";
 import { getRoutesForTrip } from "../services/routeOptimization.js";
+import {
+  normalizeAlternativesCount,
+  normalizeTripConstraints,
+  normalizeTripObjective,
+} from "../../shared/trips.js";
 
 const router = express.Router();
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
@@ -143,6 +153,18 @@ export function resolveTripGenerationFailure(error) {
     hint:
       "Check server logs for [trips] Failed to generate trip, then verify Firestore setup, Firebase Admin credentials, and Gemini API connectivity.",
   };
+}
+
+function parseConstraintsFromQuery(query = {}) {
+  return normalizeTripConstraints({
+    dailyTimeLimitHours:
+      query.daily_time_limit ??
+      query.dailyTimeLimitHours ??
+      query.dailyTimeLimit,
+    budgetCap: query.budget_cap ?? query.budgetCap,
+    mobilityPref: query.mobility_pref ?? query.mobilityPref,
+    mealPrefs: query.meal_prefs ?? query.mealPrefs,
+  });
 }
 
 router.post("/trips/generate", requireAuth, tripGenerationRateLimit, async (req, res) => {
@@ -308,12 +330,30 @@ router.get("/trips/:tripId/routes", requireAuth, async (req, res) => {
       return;
     }
 
+    const objective = normalizeTripObjective(
+      typeof req.query.objective === "string"
+        ? req.query.objective
+        : typeof req.query.optimizeFor === "string"
+          ? req.query.optimizeFor
+          : trip.userSelection?.objective
+    );
+    const alternativesCount = normalizeAlternativesCount(
+      req.query.alternatives_count ??
+        req.query.alternativesCount ??
+        trip.userSelection?.alternativesCount
+    );
+    const constraints = parseConstraintsFromQuery(req.query);
     const routes = await getRoutesForTrip({
       trip,
       optimizeFor:
         typeof req.query.optimizeFor === "string"
           ? req.query.optimizeFor
-          : "duration",
+          : objective === "cheapest"
+            ? "distance"
+            : "duration",
+      objective,
+      alternativesCount,
+      constraints,
       dayNumber: req.query.day,
     });
 
@@ -322,6 +362,7 @@ router.get("/trips/:tripId/routes", requireAuth, async (req, res) => {
       destination: routes.destination,
       dayCount: routes.dayCount,
       optimizeFor: routes.optimizeFor,
+      objective: routes.objective,
     });
 
     res.json({ routes });

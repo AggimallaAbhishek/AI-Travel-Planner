@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
 import {
   buildStoredTrip,
+  getTripDisruptionErrors,
   getUserSelectionErrors,
+  normalizeTripDisruptions,
   normalizeStoredTrip,
   normalizeUserSelection,
   sortTripsNewestFirst,
@@ -9,9 +11,10 @@ import {
 import { getAdminDb } from "../lib/firebaseAdmin.js";
 import { generateTripPlan } from "./gemini.js";
 import {
-  isPlannerCriticRepairEnabled,
-  orchestrateTripGeneration,
-} from "./orchestration.js";
+  applyDeterministicTripRepairs,
+  buildRepairDiff,
+  evaluateTripConstraints,
+} from "./constraints.js";
 
 const COLLECTION_NAME = "AITrips";
 
@@ -79,7 +82,6 @@ export function validateTripRequest(body = {}) {
 }
 
 export async function createTripForUser({ user, userSelection }) {
-  const useOrchestration = isPlannerCriticRepairEnabled();
   const tripId = randomUUID();
   const buildAndPersistTrip = async (payload) => {
     const trip = buildStoredTrip({
@@ -119,20 +121,230 @@ export async function createTripForUser({ user, userSelection }) {
     return trip;
   };
 
-  if (useOrchestration) {
-    const orchestration = await orchestrateTripGeneration({ userSelection });
+  const generatedTrip = await generateTripPlan(userSelection);
+  return buildAndPersistTrip({
+    generatedTrip,
+    llmArtifacts: generatedTrip.llmArtifacts,
+    optimizationMeta: generatedTrip.optimizationMeta,
+    constraintReport: generatedTrip.constraintReport,
+    sourceProvenance: generatedTrip.sourceProvenance,
+    latencyBreakdownMs: generatedTrip.latencyBreakdownMs,
+    routeAlternatives: generatedTrip.routeAlternatives,
+  });
+}
 
-    return buildAndPersistTrip({
-      generatedTrip: orchestration.generatedTrip,
-      llmArtifacts: orchestration.llmArtifacts,
-      constraintReport: orchestration.constraintReport,
-      sourceProvenance: orchestration.sourceProvenance,
-      latencyBreakdownMs: orchestration.latencyBreakdownMs,
-    });
+function removeActivityFromDay(day = {}, disruption = {}) {
+  const normalizedTarget = String(disruption.placeName ?? "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+
+  if (!normalizedTarget) {
+    return day;
   }
 
-  const generatedTrip = await generateTripPlan(userSelection);
-  return buildAndPersistTrip({ generatedTrip });
+  const nextActivities = Array.isArray(day.activities)
+    ? day.activities.filter(
+        (activity) => !String(activity).toLowerCase().includes(normalizedTarget)
+      )
+    : [];
+
+  return {
+    ...day,
+    activities: nextActivities,
+  };
+}
+
+function removeItineraryPlaceFromDay(day = {}, disruption = {}) {
+  const target = String(disruption.placeName ?? "").trim().toLowerCase();
+  if (!target) {
+    return day;
+  }
+
+  const places = Array.isArray(day.places) ? day.places : [];
+  return {
+    ...day,
+    places: places.filter(
+      (place) =>
+        !String(place?.placeName ?? place?.name ?? "")
+          .toLowerCase()
+          .includes(target)
+    ),
+  };
+}
+
+function applyDisruptionsToTrip({
+  trip,
+  disruptions,
+}) {
+  const aiPlanDays = Array.isArray(trip?.aiPlan?.days) ? trip.aiPlan.days : [];
+  const itineraryDays = Array.isArray(trip?.itinerary?.days)
+    ? trip.itinerary.days
+    : [];
+  const byDayDisruptions = new Map();
+
+  for (const disruption of disruptions) {
+    const dayNumber = Number.parseInt(disruption.dayNumber, 10);
+    const dayEvents = byDayDisruptions.get(dayNumber) ?? [];
+    dayEvents.push(disruption);
+    byDayDisruptions.set(dayNumber, dayEvents);
+  }
+
+  const nextAiPlanDays = aiPlanDays.map((day) => {
+    const dayEvents = byDayDisruptions.get(day.day) ?? [];
+    let nextDay = { ...day };
+
+    for (const event of dayEvents) {
+      if (event.type === "weather_change") {
+        nextDay = {
+          ...nextDay,
+          tips: `${nextDay.tips ? `${nextDay.tips} ` : ""}Weather conditions changed; prioritize indoor options and flexible transport.`,
+        };
+      } else if (event.type === "traffic_delay") {
+        nextDay = {
+          ...nextDay,
+          tips: `${nextDay.tips ? `${nextDay.tips} ` : ""}Traffic disruption detected; keep extra transfer buffer for this day.`,
+        };
+      } else {
+        nextDay = removeActivityFromDay(nextDay, event);
+      }
+    }
+
+    return nextDay;
+  });
+
+  const nextItineraryDays = itineraryDays.map((day) => {
+    const dayEvents = byDayDisruptions.get(day.dayNumber) ?? [];
+    let nextDay = { ...day };
+
+    for (const event of dayEvents) {
+      if (event.type === "poi_closed" || event.type === "user_skip") {
+        nextDay = removeItineraryPlaceFromDay(nextDay, event);
+      }
+    }
+
+    return nextDay;
+  });
+
+  return {
+    ...trip,
+    aiPlan: {
+      ...trip.aiPlan,
+      days: nextAiPlanDays,
+    },
+    itinerary: {
+      days: nextItineraryDays,
+    },
+  };
+}
+
+export function validateReplanRequest(body = {}) {
+  const disruptions = normalizeTripDisruptions(
+    body.disruptions ?? body.events ?? []
+  );
+  const errors = getTripDisruptionErrors(disruptions);
+
+  if (disruptions.length === 0) {
+    errors.push("At least one disruption event is required.");
+  }
+
+  return {
+    disruptions,
+    errors,
+  };
+}
+
+export async function replanTripForUser({
+  tripId,
+  user,
+  disruptions,
+}) {
+  const replanStartedAt = Date.now();
+  const docRef = getTripsCollection().doc(tripId);
+  const snapshot = await docRef.get();
+
+  if (!snapshot.exists) {
+    return null;
+  }
+
+  const existingTrip = normalizeStoredTrip({ id: snapshot.id, ...snapshot.data() });
+  if (!isTripOwnedByUser(existingTrip, user)) {
+    return "forbidden";
+  }
+
+  const disruptedTrip = applyDisruptionsToTrip({
+    trip: existingTrip,
+    disruptions,
+  });
+  const repairedTrip = applyDeterministicTripRepairs({
+    generatedTrip: disruptedTrip,
+    userSelection: existingTrip.userSelection,
+  });
+  const repairDiff = buildRepairDiff({
+    beforeTrip: existingTrip,
+    afterTrip: repairedTrip,
+  });
+  const constraintReport = evaluateTripConstraints({
+    generatedTrip: repairedTrip,
+    userSelection: existingTrip.userSelection,
+  });
+  const updatedAt = new Date().toISOString();
+  const nextTrip = buildStoredTrip({
+    id: existingTrip.id,
+    ownerId: existingTrip.ownerId,
+    ownerEmail: existingTrip.ownerEmail,
+    userSelection: existingTrip.userSelection,
+    generatedTrip: {
+      ...repairedTrip,
+      llmArtifacts: {
+        ...(existingTrip.llmArtifacts ?? {}),
+        replan_disruptions: disruptions,
+        repair_diff: repairDiff,
+      },
+      constraintReport,
+      sourceProvenance: existingTrip.sourceProvenance,
+      latencyBreakdownMs: {
+        ...(existingTrip.latencyBreakdownMs ?? {}),
+        repair: Date.now() - replanStartedAt,
+      },
+      optimizationMeta: {
+        ...(existingTrip.optimizationMeta ?? {}),
+        generatedAt: updatedAt,
+      },
+      routeAlternatives: existingTrip.routeAlternatives ?? [],
+    },
+    createdAt: existingTrip.createdAt,
+    updatedAt,
+    llmArtifacts: {
+      ...(existingTrip.llmArtifacts ?? {}),
+      replan_disruptions: disruptions,
+      repair_diff: repairDiff,
+    },
+    optimizationMeta: {
+      ...(existingTrip.optimizationMeta ?? {}),
+      generatedAt: updatedAt,
+    },
+    constraintReport,
+    sourceProvenance: existingTrip.sourceProvenance,
+    latencyBreakdownMs: existingTrip.latencyBreakdownMs,
+    routeAlternatives: existingTrip.routeAlternatives ?? [],
+  });
+
+  await docRef.set(nextTrip);
+
+  return {
+    trip: nextTrip,
+    replanSummary: {
+      disruptionCount: disruptions.length,
+      changed: repairDiff.changed,
+      removedActivities: repairDiff.removedActivities,
+      addedActivities: repairDiff.addedActivities,
+      unchangedActivityCount: repairDiff.unchangedActivityCount,
+      hardViolationCount: constraintReport.hardViolations.length,
+      softViolationCount: constraintReport.softViolations.length,
+      updatedAt,
+    },
+  };
 }
 
 export async function getTripForUser({ tripId, user }) {

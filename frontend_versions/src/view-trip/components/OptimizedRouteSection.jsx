@@ -45,12 +45,22 @@ function getPreviewCoordinates(dayRoute) {
     ? dayRoute.orderedStops
     : [];
 
-  return orderedStops
+  const coordinates = orderedStops
     .map((stop) => normalizeGeoCoordinates(stop.geoCoordinates))
     .filter(
       (coordinates) =>
         coordinates.latitude !== null && coordinates.longitude !== null
     );
+
+  const bounds = dayRoute?.cityBounds;
+  if (bounds) {
+    coordinates.push(
+      { latitude: bounds.north, longitude: bounds.east },
+      { latitude: bounds.south, longitude: bounds.west }
+    );
+  }
+
+  return coordinates;
 }
 
 function projectPreviewPoints(coordinates = []) {
@@ -162,20 +172,33 @@ function RouteDayCard({ dayRoute }) {
             {dayRoute.title}
           </h3>
         </div>
-        <div className="flex flex-wrap gap-2 text-xs">
-          <span className="rounded-full border border-[var(--voy-border)] bg-[var(--voy-surface2)] px-3 py-1 text-[var(--voy-text-muted)]">
-            {dayRoute.algorithm}
-          </span>
-          <span className="rounded-full bg-[var(--voy-gold-dim)] px-3 py-1 text-[var(--voy-gold)]">
-            {dayRoute.routeProvider}
-          </span>
+          <div className="flex flex-wrap gap-2 text-xs">
+            <span className="rounded-full border border-[var(--voy-border)] bg-[var(--voy-surface2)] px-3 py-1 text-[var(--voy-text-muted)]">
+              {dayRoute.algorithm}
+            </span>
+            <span className="rounded-full bg-[var(--voy-gold-dim)] px-3 py-1 text-[var(--voy-gold)]">
+              {dayRoute.routeProvider}
+            </span>
+            <span className="rounded-full border border-[var(--voy-border)] bg-[var(--voy-surface2)] px-3 py-1 text-[var(--voy-text-muted)]">
+              City scoped
+            </span>
+          </div>
         </div>
-      </div>
 
       <div className="mt-5 grid gap-4 md:grid-cols-[1.2fr_0.8fr]">
         <RoutePreview dayRoute={dayRoute} />
 
         <div className="space-y-4">
+          {dayRoute.cityBounds &&
+          Number.isFinite(dayRoute.cityBounds.north) &&
+          Number.isFinite(dayRoute.cityBounds.south) &&
+          Number.isFinite(dayRoute.cityBounds.east) &&
+          Number.isFinite(dayRoute.cityBounds.west) ? (
+            <div className="rounded-2xl border border-[var(--voy-border)] bg-[var(--voy-surface2)] p-3 text-xs text-[var(--voy-text-muted)]">
+              Map constrained to city bounds (N {dayRoute.cityBounds.north.toFixed(3)}, S {dayRoute.cityBounds.south.toFixed(3)}, E {dayRoute.cityBounds.east.toFixed(3)}, W {dayRoute.cityBounds.west.toFixed(3)}).
+            </div>
+          ) : null}
+
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-2xl border border-[var(--voy-border)] bg-[var(--voy-surface2)] p-4">
               <div className="flex items-center gap-2 text-sm text-[var(--voy-text-muted)]">

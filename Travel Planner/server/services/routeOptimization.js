@@ -1377,9 +1377,63 @@ function matrixResultProviderFromDays(days = []) {
   return "mixed";
 }
 
+function createMapBackedRouteCacheStore({
+  cache = new Map(),
+  now = () => Date.now(),
+  ttlMs = DEFAULT_ROUTE_CACHE_TTL_MS,
+} = {}) {
+  return {
+    mode: "map",
+    async get(key, options = {}) {
+      const entry = cache.get(String(key));
+      if (!entry) {
+        return null;
+      }
+
+      const current = now();
+      if (current <= entry.freshUntil) {
+        return {
+          value: entry.value,
+          isStale: false,
+        };
+      }
+
+      if (options.allowStale && current <= entry.staleUntil) {
+        return {
+          value: entry.value,
+          isStale: true,
+        };
+      }
+
+      cache.delete(String(key));
+      return null;
+    },
+    async set(key, value, options = {}) {
+      const freshTtlMs = normalizeInteger(options.ttlMs, ttlMs);
+      const staleTtlMs = normalizeInteger(
+        options.staleTtlMs,
+        Math.min(ttlMs, 5 * 60 * 1000)
+      );
+      const createdAt = now();
+
+      cache.set(String(key), {
+        value,
+        freshUntil: createdAt + freshTtlMs,
+        staleUntil: createdAt + freshTtlMs + staleTtlMs,
+      });
+    },
+    stats() {
+      return {
+        size: cache.size,
+      };
+    },
+  };
+}
+
 export function createTripRouteService({
   now = () => Date.now(),
   cache = new Map(),
+  cacheStore = null,
   cacheTtlMs = DEFAULT_ROUTE_CACHE_TTL_MS,
   timeoutMs = DEFAULT_ROUTE_REQUEST_TIMEOUT_MS,
   fetchImpl = fetch,
@@ -1388,6 +1442,20 @@ export function createTripRouteService({
   maxStopsPerDay = resolveMaxStopsPerDay(),
   pythonRouteOptimizer = runPythonRouteOptimizer,
 } = {}) {
+  const localCacheStore =
+    cacheStore ??
+    (cache instanceof Map
+      ? createMapBackedRouteCacheStore({
+          cache,
+          now,
+          ttlMs: cacheTtlMs,
+        })
+      : createMemoryCacheStore({
+          now,
+          defaultTtlMs: cacheTtlMs,
+          defaultStaleTtlMs: Math.min(cacheTtlMs, 5 * 60 * 1000),
+        }));
+
   async function getRoutesForTrip({
     trip,
     optimizeFor = "duration",
@@ -1422,16 +1490,33 @@ export function createTripRouteService({
       alternativesCount: normalizedAlternativesCount,
       dayNumber: normalizedDayNumber,
     });
-    const cached = cache.get(cacheKey);
+    const cached = await localCacheStore.get(cacheKey, {
+      allowStale: true,
+    });
 
-    if (cached && now() - cached.createdAt < cacheTtlMs) {
+    if (cached) {
       console.info("[routes] Returning cached optimized routes", {
         tripId: trip?.id ?? null,
         optimizeFor: normalizedOptimizeFor,
         objective: normalizedObjective,
         dayNumber: normalizedDayNumber,
+        stale: cached.isStale,
       });
-      return cached.value;
+
+      const staleWarning = cached.isStale
+        ? "Route cache is stale while a fresh computation is pending."
+        : "";
+
+      return {
+        ...cached.value,
+        sourceProvenance: {
+          ...(cached.value?.sourceProvenance ?? {}),
+          cache: {
+            status: cached.isStale ? "stale" : "fresh",
+          },
+        },
+        warning: normalizeText([cached.value?.warning, staleWarning].join(" ")),
+      };
     }
 
     const destination = normalizeText(trip?.userSelection?.location?.label);
@@ -1893,9 +1978,9 @@ export function createTripRouteService({
         routeDays.find((dayRoute) => dayRoute.polyline)?.polyline ?? "",
     };
 
-    cache.set(cacheKey, {
-      createdAt: now(),
-      value: result,
+    await localCacheStore.set(cacheKey, result, {
+      ttlMs: cacheTtlMs,
+      staleTtlMs: Math.min(cacheTtlMs, 5 * 60 * 1000),
     });
 
     console.info("[routes] Trip route optimization complete", {
@@ -1910,7 +1995,7 @@ export function createTripRouteService({
 
   return {
     getRoutesForTrip,
-    cache,
+    cache: localCacheStore,
   };
 }
 
