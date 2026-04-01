@@ -59,6 +59,16 @@ test("resolveTripGenerationFailure maps Gemini timeout failures to HTTP 504", ()
   assert.match(failure.message, /service is currently unreachable/i);
 });
 
+test("resolveTripGenerationFailure maps Firebase project detection errors", () => {
+  const failure = resolveTripGenerationFailure(
+    new Error("Unable to detect a Project Id in the current environment.")
+  );
+
+  assert.equal(failure.status, 500);
+  assert.match(failure.message, /Firebase Admin credentials are invalid/i);
+  assert.match(failure.hint, /FIREBASE_PRIVATE_KEY/i);
+});
+
 test("resolveTripGenerationFailure keeps generic guidance for unknown errors", () => {
   const failure = resolveTripGenerationFailure(new Error("Unknown failure"));
 

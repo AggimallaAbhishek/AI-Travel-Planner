@@ -26,7 +26,11 @@ function shouldEnrichTripMapOnCreate() {
 }
 
 function getTripsCollection() {
-  return getAdminDb().collection(COLLECTION_NAME);
+  try {
+    return getAdminDb().collection(COLLECTION_NAME);
+  } catch (error) {
+    throw resolveTripPersistenceFailure(error);
+  }
 }
 
 function getErrorText(error) {

@@ -207,6 +207,9 @@ export function resolveTripGenerationFailure(error) {
   if (
     errorCode.includes("app/invalid-credential") ||
     errorText.includes("could not load the default credentials") ||
+    errorText.includes("unable to detect a project id in the current environment") ||
+    errorText.includes("service account object must contain") ||
+    errorText.includes("failed to determine service account") ||
     errorText.includes("private key") ||
     errorText.includes("invalid_grant")
   ) {
@@ -283,10 +286,14 @@ router.post("/trips/generate", requireAuth, tripGenerationRateLimit, async (req,
 
     res.status(resolvedFailure.status ?? 500).json({
       message: resolvedFailure.message,
-      ...(IS_PRODUCTION || !resolvedFailure.hint
+      ...(resolvedFailure.hint
+        ? {
+            hint: resolvedFailure.hint,
+          }
+        : {}),
+      ...(IS_PRODUCTION
         ? {}
         : {
-            hint: resolvedFailure.hint,
             debug: getErrorText(error),
             errorCode: String(error?.code ?? ""),
           }),
