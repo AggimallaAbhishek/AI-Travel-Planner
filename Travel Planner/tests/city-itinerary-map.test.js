@@ -1,14 +1,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  buildCityMapOutlinePath,
   buildCityMapDistanceMatrix,
   buildCityMapFeaturePath,
+  buildFallbackCityOutlineFromBounds,
   calculateGreatCircleDistanceMeters,
   CITY_ITINERARY_MAP_CANVAS,
   createCityMapMarkerLayout,
   deriveCityMapBoundsFromPlaces,
   formatCityMapDistance,
+  isProjectedPointInsidePolygons,
   projectCityMapPoint,
+  projectCityMapOutline,
   resolveCityMapBounds,
 } from "../src/lib/cityItineraryMap.js";
 
@@ -180,4 +184,140 @@ test("buildCityMapFeaturePath converts geographic basemap features into SVG path
 
   assert.equal(path.startsWith("M"), true);
   assert.equal(path.endsWith("Z"), true);
+});
+
+test("buildFallbackCityOutlineFromBounds returns a closed destination-shaped polygon", () => {
+  const outline = buildFallbackCityOutlineFromBounds({
+    north: 35.82,
+    south: 35.55,
+    east: 139.92,
+    west: 139.55,
+  });
+
+  assert.equal(outline.source, "fallback_bounds");
+  assert.equal(outline.polygons.length, 1);
+  assert.equal(outline.polygons[0].length >= 8, true);
+});
+
+test("projectCityMapOutline converts destination polygons into SVG-ready paths", () => {
+  const sourceOutline = {
+    source: "administrative_boundary",
+    polygons: [
+      [
+        { latitude: 35.57, longitude: 139.58 },
+        { latitude: 35.8, longitude: 139.6 },
+        { latitude: 35.79, longitude: 139.9 },
+        { latitude: 35.6, longitude: 139.89 },
+        { latitude: 35.57, longitude: 139.58 },
+      ],
+    ],
+  };
+  const outline = projectCityMapOutline(
+    sourceOutline,
+    {
+      north: 35.82,
+      south: 35.55,
+      east: 139.92,
+      west: 139.55,
+    }
+  );
+
+  assert.equal(outline.polygons.length, 1);
+  assert.equal(outline.polygons[0].path.startsWith("M"), true);
+  assert.equal(
+    buildCityMapOutlinePath(sourceOutline, {
+      north: 35.82,
+      south: 35.55,
+      east: 139.92,
+      west: 139.55,
+    }).endsWith("Z"),
+    true
+  );
+});
+
+test("isProjectedPointInsidePolygons keeps marker placement inside the destination outline", () => {
+  const bounds = {
+    north: 35.82,
+    south: 35.55,
+    east: 139.92,
+    west: 139.55,
+  };
+  const projectedOutline = projectCityMapOutline(
+    {
+      polygons: [
+        [
+          { latitude: 35.57, longitude: 139.58 },
+          { latitude: 35.8, longitude: 139.6 },
+          { latitude: 35.79, longitude: 139.9 },
+          { latitude: 35.6, longitude: 139.89 },
+          { latitude: 35.57, longitude: 139.58 },
+        ],
+      ],
+    },
+    bounds
+  );
+  const interiorPoint = projectCityMapPoint(
+    { latitude: 35.69, longitude: 139.7 },
+    bounds
+  );
+
+  assert.equal(
+    isProjectedPointInsidePolygons(interiorPoint, projectedOutline.polygons),
+    true
+  );
+  assert.equal(
+    isProjectedPointInsidePolygons({ x: 40, y: 40 }, projectedOutline.polygons),
+    false
+  );
+});
+
+test("createCityMapMarkerLayout respects an outline containment constraint", () => {
+  const projectedOutline = projectCityMapOutline(
+    {
+      polygons: [
+        [
+          { latitude: 35.57, longitude: 139.58 },
+          { latitude: 35.8, longitude: 139.6 },
+          { latitude: 35.79, longitude: 139.9 },
+          { latitude: 35.6, longitude: 139.89 },
+          { latitude: 35.57, longitude: 139.58 },
+        ],
+      ],
+    },
+    {
+      north: 35.82,
+      south: 35.55,
+      east: 139.92,
+      west: 139.55,
+    }
+  );
+  const laidOutMarkers = createCityMapMarkerLayout(
+    [
+      {
+        id: "a",
+        geoCoordinates: { latitude: 35.6895, longitude: 139.6917 },
+      },
+      {
+        id: "b",
+        geoCoordinates: { latitude: 35.6896, longitude: 139.6918 },
+      },
+    ],
+    {
+      bounds: {
+        north: 35.82,
+        south: 35.55,
+        east: 139.92,
+        west: 139.55,
+      },
+      containsPoint: (point) =>
+        isProjectedPointInsidePolygons(point, projectedOutline.polygons),
+    }
+  );
+
+  assert.equal(
+    laidOutMarkers.every((marker) =>
+      isProjectedPointInsidePolygons(marker.markerPoint, projectedOutline.polygons)
+    ),
+    true
+  );
 });

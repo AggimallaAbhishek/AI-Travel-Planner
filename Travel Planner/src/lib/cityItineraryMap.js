@@ -91,6 +91,219 @@ export function resolveCityMapBounds({ cityBounds, places = [] } = {}) {
   );
 }
 
+function closeRing(coordinates = []) {
+  if (coordinates.length === 0) {
+    return [];
+  }
+
+  const firstPoint = coordinates[0];
+  const lastPoint = coordinates.at(-1);
+
+  if (
+    firstPoint.latitude === lastPoint.latitude &&
+    firstPoint.longitude === lastPoint.longitude
+  ) {
+    return coordinates;
+  }
+
+  return [...coordinates, firstPoint];
+}
+
+function normalizeOutlineRing(ring = []) {
+  const coordinates = (Array.isArray(ring) ? ring : [])
+    .map((point) => normalizeGeoCoordinates(point))
+    .filter(
+      (point) => point.latitude !== null && point.longitude !== null
+    );
+
+  if (coordinates.length < 3) {
+    return [];
+  }
+
+  return closeRing(coordinates);
+}
+
+export function buildFallbackCityOutlineFromBounds(bounds = {}) {
+  const normalizedBounds = normalizeCityMapBounds(bounds);
+  if (!normalizedBounds) {
+    return null;
+  }
+
+  const latitudeSpan = normalizedBounds.north - normalizedBounds.south;
+  const longitudeSpan = normalizedBounds.east - normalizedBounds.west;
+  const lat = (ratio) => normalizedBounds.south + latitudeSpan * ratio;
+  const lng = (ratio) => normalizedBounds.west + longitudeSpan * ratio;
+
+  return {
+    source: "fallback_bounds",
+    polygons: [
+      closeRing([
+        { latitude: lat(0.90), longitude: lng(0.18) },
+        { latitude: lat(0.97), longitude: lng(0.45) },
+        { latitude: lat(0.92), longitude: lng(0.82) },
+        { latitude: lat(0.72), longitude: lng(0.95) },
+        { latitude: lat(0.42), longitude: lng(0.92) },
+        { latitude: lat(0.12), longitude: lng(0.72) },
+        { latitude: lat(0.04), longitude: lng(0.38) },
+        { latitude: lat(0.12), longitude: lng(0.12) },
+        { latitude: lat(0.44), longitude: lng(0.05) },
+        { latitude: lat(0.74), longitude: lng(0.08) },
+      ]),
+    ],
+  };
+}
+
+export function normalizeCityMapOutline(outline = null, bounds = null) {
+  const polygons = Array.isArray(outline?.polygons)
+    ? outline.polygons
+        .map((polygon) => normalizeOutlineRing(polygon))
+        .filter((polygon) => polygon.length >= 4)
+    : [];
+
+  if (polygons.length > 0) {
+    return {
+      source: outline?.source ?? "administrative_boundary",
+      polygons,
+    };
+  }
+
+  return buildFallbackCityOutlineFromBounds(bounds);
+}
+
+function getBoundsCenter(bounds = {}) {
+  const normalizedBounds = normalizeCityMapBounds(bounds);
+  if (!normalizedBounds) {
+    return null;
+  }
+
+  return {
+    latitude: (normalizedBounds.north + normalizedBounds.south) / 2,
+    longitude: (normalizedBounds.east + normalizedBounds.west) / 2,
+  };
+}
+
+export function getCityMapOutlineCentroid(outline = null, bounds = null) {
+  const normalizedOutline = normalizeCityMapOutline(outline, bounds);
+  const largestPolygon = (normalizedOutline?.polygons ?? [])
+    .map((polygon) => {
+      const normalizedPolygon = polygon.slice(0, -1);
+      const latitudes = normalizedPolygon.map((point) => point.latitude);
+      const longitudes = normalizedPolygon.map((point) => point.longitude);
+
+      return {
+        points: normalizedPolygon,
+        area:
+          (Math.max(...latitudes) - Math.min(...latitudes)) *
+          (Math.max(...longitudes) - Math.min(...longitudes)),
+      };
+    })
+    .sort((left, right) => right.area - left.area)[0];
+
+  if (!largestPolygon?.points?.length) {
+    return getBoundsCenter(bounds);
+  }
+
+  const pointCount = largestPolygon.points.length;
+  const latitude =
+    largestPolygon.points.reduce((sum, point) => sum + point.latitude, 0) /
+    pointCount;
+  const longitude =
+    largestPolygon.points.reduce((sum, point) => sum + point.longitude, 0) /
+    pointCount;
+
+  return { latitude, longitude };
+}
+
+const ZOOM_FACTORS = Object.freeze({
+  1: 1,
+  2: 0.72,
+  3: 0.52,
+  4: 0.38,
+});
+
+export function buildZoomedCityMapBounds({
+  bounds,
+  outline = null,
+  focusCoordinates = null,
+  zoomLevel = 1,
+} = {}) {
+  const normalizedBounds = normalizeCityMapBounds(bounds);
+  if (!normalizedBounds) {
+    return null;
+  }
+
+  const normalizedZoomLevel = clamp(
+    Math.round(toFiniteNumber(zoomLevel, 1)),
+    1,
+    4
+  );
+  if (normalizedZoomLevel === 1) {
+    return normalizedBounds;
+  }
+
+  const defaultCenter =
+    getCityMapOutlineCentroid(outline, normalizedBounds) ??
+    getBoundsCenter(normalizedBounds);
+  const candidateFocus = normalizeGeoCoordinates(focusCoordinates);
+  const center =
+    candidateFocus.latitude !== null &&
+    candidateFocus.longitude !== null &&
+    candidateFocus.latitude <= normalizedBounds.north &&
+    candidateFocus.latitude >= normalizedBounds.south &&
+    candidateFocus.longitude <= normalizedBounds.east &&
+    candidateFocus.longitude >= normalizedBounds.west
+      ? candidateFocus
+      : defaultCenter;
+
+  const latitudeSpan = Math.max(
+    0.000001,
+    normalizedBounds.north - normalizedBounds.south
+  );
+  const longitudeSpan = Math.max(
+    0.000001,
+    normalizedBounds.east - normalizedBounds.west
+  );
+  const zoomFactor = ZOOM_FACTORS[normalizedZoomLevel] ?? ZOOM_FACTORS[4];
+  const targetLatitudeSpan = latitudeSpan * zoomFactor;
+  const targetLongitudeSpan = longitudeSpan * zoomFactor;
+
+  let north = center.latitude + targetLatitudeSpan / 2;
+  let south = center.latitude - targetLatitudeSpan / 2;
+  let east = center.longitude + targetLongitudeSpan / 2;
+  let west = center.longitude - targetLongitudeSpan / 2;
+
+  if (north > normalizedBounds.north) {
+    const delta = north - normalizedBounds.north;
+    north -= delta;
+    south -= delta;
+  }
+
+  if (south < normalizedBounds.south) {
+    const delta = normalizedBounds.south - south;
+    north += delta;
+    south += delta;
+  }
+
+  if (east > normalizedBounds.east) {
+    const delta = east - normalizedBounds.east;
+    east -= delta;
+    west -= delta;
+  }
+
+  if (west < normalizedBounds.west) {
+    const delta = normalizedBounds.west - west;
+    east += delta;
+    west += delta;
+  }
+
+  return {
+    north: clamp(north, normalizedBounds.south, normalizedBounds.north),
+    south: clamp(south, normalizedBounds.south, normalizedBounds.north),
+    east: clamp(east, normalizedBounds.west, normalizedBounds.east),
+    west: clamp(west, normalizedBounds.west, normalizedBounds.east),
+  };
+}
+
 export function projectCityMapPoint(
   coordinates = {},
   bounds,
@@ -150,6 +363,83 @@ export function projectCityMapCoordinates(
     .filter(
       (point) => Number.isFinite(point.x) && Number.isFinite(point.y)
     );
+}
+
+export function projectCityMapOutline(
+  outline = null,
+  bounds,
+  canvas = CITY_ITINERARY_MAP_CANVAS
+) {
+  const normalizedOutline = normalizeCityMapOutline(outline, bounds);
+  const polygons = Array.isArray(normalizedOutline?.polygons)
+    ? normalizedOutline.polygons
+        .map((polygon) => {
+          const points = projectCityMapCoordinates(polygon, bounds, canvas);
+          if (points.length < 3) {
+            return null;
+          }
+
+          const path = points
+            .map((point, index) =>
+              `${index === 0 ? "M" : "L"}${point.x.toFixed(2)} ${point.y.toFixed(2)}`
+            )
+            .concat("Z")
+            .join(" ");
+
+          return {
+            points,
+            path,
+          };
+        })
+        .filter(Boolean)
+    : [];
+
+  return {
+    source: normalizedOutline?.source ?? "",
+    polygons,
+  };
+}
+
+export function buildCityMapOutlinePath(
+  outline = null,
+  bounds,
+  canvas = CITY_ITINERARY_MAP_CANVAS
+) {
+  return projectCityMapOutline(outline, bounds, canvas)
+    .polygons.map((polygon) => polygon.path)
+    .join(" ");
+}
+
+function isProjectedPointInsidePolygon(point = {}, polygon = []) {
+  let inside = false;
+
+  for (let index = 0, previous = polygon.length - 1; index < polygon.length; previous = index, index += 1) {
+    const currentPoint = polygon[index];
+    const previousPoint = polygon[previous];
+    const yCrosses =
+      currentPoint.y > point.y !== previousPoint.y > point.y;
+
+    if (!yCrosses) {
+      continue;
+    }
+
+    const projectedX =
+      ((previousPoint.x - currentPoint.x) * (point.y - currentPoint.y)) /
+        (previousPoint.y - currentPoint.y) +
+      currentPoint.x;
+
+    if (point.x < projectedX) {
+      inside = !inside;
+    }
+  }
+
+  return inside;
+}
+
+export function isProjectedPointInsidePolygons(point = {}, polygons = []) {
+  return (Array.isArray(polygons) ? polygons : []).some((polygon) =>
+    isProjectedPointInsidePolygon(point, polygon?.points ?? polygon)
+  );
 }
 
 export function buildCityMapFeaturePath(
@@ -232,7 +522,14 @@ const LAYOUT_DIRECTIONS = [
 
 export function createCityMapMarkerLayout(
   markers = [],
-  { bounds, canvas = CITY_ITINERARY_MAP_CANVAS, minDistance = 26, step = 10, maxRings = 3 } = {}
+  {
+    bounds,
+    canvas = CITY_ITINERARY_MAP_CANVAS,
+    minDistance = 26,
+    step = 10,
+    maxRings = 3,
+    containsPoint = null,
+  } = {}
 ) {
   const inset = clamp(
     toFiniteNumber(canvas.inset, CITY_ITINERARY_MAP_CANVAS.inset),
@@ -255,6 +552,9 @@ export function createCityMapMarkerLayout(
           x: clamp(anchorPoint.x + direction.x * step * ring, inset, canvas.width - inset),
           y: clamp(anchorPoint.y + direction.y * step * ring, inset, canvas.height - inset),
         };
+        if (typeof containsPoint === "function" && !containsPoint(candidatePoint)) {
+          continue;
+        }
         const nearestDistance = placedMarkers.reduce((smallestDistance, placedMarker) => {
           const distance = getPointDistance(candidatePoint, placedMarker.markerPoint);
           return Math.min(smallestDistance, distance);

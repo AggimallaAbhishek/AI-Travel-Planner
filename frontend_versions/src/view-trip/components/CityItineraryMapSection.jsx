@@ -1,11 +1,16 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { MapPin, Navigation } from "lucide-react";
+import React, { useEffect, useId, useMemo, useState } from "react";
+import { MapPin, Minus, Navigation, Plus, RotateCcw } from "lucide-react";
 import {
+  buildZoomedCityMapBounds,
   buildCityMapDistanceMatrix,
   buildCityMapFeaturePath,
+  buildCityMapOutlinePath,
   CITY_ITINERARY_MAP_CANVAS,
   createCityMapMarkerLayout,
   formatCityMapDistance,
+  getCityMapOutlineCentroid,
+  isProjectedPointInsidePolygons,
+  projectCityMapOutline,
   resolveCityMapBounds,
 } from "@/lib/cityItineraryMap";
 import { normalizeGeoCoordinates, resolveGoogleMapsUrl } from "@/lib/maps";
@@ -47,6 +52,20 @@ function getDayAccent(dayNumber = 1) {
   return DAY_ACCENTS[index % DAY_ACCENTS.length];
 }
 
+function buildPinPath(size = 12) {
+  const topY = -size * 1.05;
+  const shoulderY = -size * 0.18;
+  const halfWidth = size * 0.58;
+  const tipY = size;
+
+  return [
+    `M 0 ${tipY}`,
+    `C ${size * 0.74} ${size * 0.42}, ${halfWidth} ${shoulderY}, 0 ${topY}`,
+    `C ${-halfWidth} ${shoulderY}, ${-size * 0.74} ${size * 0.42}, 0 ${tipY}`,
+    "Z",
+  ].join(" ");
+}
+
 function clampLabelX(value, labelWidth) {
   const min = CITY_ITINERARY_MAP_CANVAS.inset;
   const max =
@@ -68,6 +87,8 @@ function flattenPlacesFromDays(days = [], destination = "") {
       const coordinates = normalizeGeoCoordinates(place?.geoCoordinates);
       const isResolved =
         coordinates.latitude !== null && coordinates.longitude !== null;
+      const isPinned =
+        typeof place?.isPinned === "boolean" ? place.isPinned : isResolved;
 
       return {
         id: normalizeText(
@@ -89,6 +110,7 @@ function flattenPlacesFromDays(days = [], destination = "") {
         ),
         coordinates,
         isResolved,
+        isPinned,
         mapsUrl: resolveGoogleMapsUrl({
           mapsUrl: place?.mapsUrl,
           name: place?.placeName ?? place?.name,
@@ -188,6 +210,7 @@ function useProjectedBasemapFeatures(basemap, bounds) {
 export default function CityItineraryMapSection({ trip }) {
   const [activePlaceId, setActivePlaceId] = useState("");
   const [cityMapState, setCityMapState] = useState(INITIAL_CITY_MAP_STATE);
+  const outlineClipId = useId().replace(/:/g, "");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -249,16 +272,17 @@ export default function CityItineraryMapSection({ trip }) {
     [cityMapState.cityMap?.days, trip?.itinerary?.days, trip?.mapEnrichment?.markerDays]
   );
   const basemap = cityMapState.cityMap?.basemap ?? null;
+  const outline = cityMapState.cityMap?.outline ?? basemap?.outline ?? null;
   const places = useMemo(
     () => flattenPlacesFromDays(rawDays, destination),
     [destination, rawDays]
   );
-  const resolvedPlaces = useMemo(
-    () => places.filter((place) => place.isResolved),
+  const pinnedPlaces = useMemo(
+    () => places.filter((place) => place.isPinned),
     [places]
   );
   const unresolvedPlaces = useMemo(
-    () => places.filter((place) => !place.isResolved),
+    () => places.filter((place) => !place.isPinned),
     [places]
   );
   const groupedPlaces = useMemo(() => groupPlacesByDay(places), [places]);
@@ -269,21 +293,31 @@ export default function CityItineraryMapSection({ trip }) {
           cityMapState.cityMap?.cityBounds ??
           basemap?.cityBounds ??
           trip?.mapEnrichment?.cityBounds,
-        places: resolvedPlaces,
+        places: pinnedPlaces,
       }),
-    [basemap?.cityBounds, cityMapState.cityMap?.cityBounds, resolvedPlaces, trip?.mapEnrichment?.cityBounds]
+    [basemap?.cityBounds, cityMapState.cityMap?.cityBounds, pinnedPlaces, trip?.mapEnrichment?.cityBounds]
+  );
+  const projectedOutline = useMemo(
+    () => projectCityMapOutline(outline, bounds, CITY_ITINERARY_MAP_CANVAS),
+    [bounds, outline]
+  );
+  const outlinePath = useMemo(
+    () => buildCityMapOutlinePath(outline, bounds, CITY_ITINERARY_MAP_CANVAS),
+    [bounds, outline]
   );
   const markers = useMemo(
     () =>
-      createCityMapMarkerLayout(resolvedPlaces, {
+      createCityMapMarkerLayout(pinnedPlaces, {
         bounds,
         canvas: CITY_ITINERARY_MAP_CANVAS,
+        containsPoint: (point) =>
+          isProjectedPointInsidePolygons(point, projectedOutline.polygons),
       }),
-    [bounds, resolvedPlaces]
+    [bounds, pinnedPlaces, projectedOutline.polygons]
   );
   const distanceMatrix = useMemo(
-    () => buildCityMapDistanceMatrix(resolvedPlaces),
-    [resolvedPlaces]
+    () => buildCityMapDistanceMatrix(pinnedPlaces),
+    [pinnedPlaces]
   );
   const approximateSpanMeters = useMemo(() => {
     if (distanceMatrix.length === 0) {
@@ -309,6 +343,7 @@ export default function CityItineraryMapSection({ trip }) {
       ? `${unresolvedPlaces.length} unresolved`
       : "All visible stops mapped";
   const hasMapFrame = Boolean(bounds) || markers.length > 0 || destination;
+  const hasOutline = projectedOutline.polygons.length > 0;
   const hasBasemapFeatures =
     roadPaths.length + waterPaths.length + parkPaths.length > 0;
   const showOverlay = markers.length === 0;
@@ -333,7 +368,7 @@ export default function CityItineraryMapSection({ trip }) {
           </h2>
           <p className="mt-3 max-w-3xl text-sm leading-7 text-[var(--voy-text-muted)]">
             All recognized stops across this itinerary are pinned inside the destination
-            city viewport. Click a pin or place name to open that stop directly in Google
+            outline. Click a pin or place name to open that stop directly in Google
             Maps.
           </p>
         </div>
@@ -363,7 +398,7 @@ export default function CityItineraryMapSection({ trip }) {
                   {destination}
                 </p>
                 <p className="mt-2 max-w-3xl text-sm leading-7 text-[var(--voy-text-muted)]">
-                  The map stays constrained to the destination city and now uses a
+                  The map stays constrained to the destination outline and now uses a
                   static OpenStreetMap basemap plus Google Maps clickthrough on each
                   resolved stop.
                 </p>
@@ -407,6 +442,13 @@ export default function CityItineraryMapSection({ trip }) {
                       <stop offset="0%" stopColor="rgba(255,255,255,0.99)" />
                       <stop offset="100%" stopColor="rgba(221,231,244,0.22)" />
                     </radialGradient>
+                    {hasOutline ? (
+                      <clipPath id={outlineClipId}>
+                        {projectedOutline.polygons.map((polygon, index) => (
+                          <path key={`clip-${index}`} d={polygon.path} />
+                        ))}
+                      </clipPath>
+                    ) : null}
                   </defs>
 
                   <rect
@@ -424,61 +466,55 @@ export default function CityItineraryMapSection({ trip }) {
                     fill="url(#city-itinerary-grid)"
                   />
 
-                  <rect
-                    x={CITY_ITINERARY_MAP_CANVAS.inset}
-                    y={CITY_ITINERARY_MAP_CANVAS.inset}
-                    width={
-                      CITY_ITINERARY_MAP_CANVAS.width -
-                      CITY_ITINERARY_MAP_CANVAS.inset * 2
-                    }
-                    height={
-                      CITY_ITINERARY_MAP_CANVAS.height -
-                      CITY_ITINERARY_MAP_CANVAS.inset * 2
-                    }
-                    rx="32"
-                    fill="rgba(255,255,255,0.44)"
-                    stroke="rgba(72, 99, 137, 0.1)"
-                    strokeWidth="1.5"
-                  />
+                  <g clipPath={hasOutline ? `url(#${outlineClipId})` : undefined}>
+                    {outlinePath ? (
+                      <path
+                        d={outlinePath}
+                        fill="rgba(255,255,255,0.44)"
+                        stroke="rgba(72, 99, 137, 0.08)"
+                        strokeWidth="1.2"
+                      />
+                    ) : null}
 
-                  {parkPaths.map((feature) => (
-                    <path
-                      key={feature.id}
-                      d={feature.path}
-                      fill="rgba(154, 198, 160, 0.32)"
-                      stroke="rgba(107, 153, 113, 0.22)"
-                      strokeWidth="1"
-                    />
-                  ))}
+                    {parkPaths.map((feature) => (
+                      <path
+                        key={feature.id}
+                        d={feature.path}
+                        fill="rgba(154, 198, 160, 0.32)"
+                        stroke="rgba(107, 153, 113, 0.22)"
+                        strokeWidth="1"
+                      />
+                    ))}
 
-                  {waterPaths.map((feature) => (
-                    <path
-                      key={feature.id}
-                      d={feature.path}
-                      fill={
-                        feature.closed
-                          ? "rgba(148, 190, 223, 0.34)"
-                          : "none"
-                      }
-                      stroke="rgba(90, 136, 176, 0.42)"
-                      strokeWidth={feature.closed ? 1.2 : 1.8}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  ))}
+                    {waterPaths.map((feature) => (
+                      <path
+                        key={feature.id}
+                        d={feature.path}
+                        fill={
+                          feature.closed
+                            ? "rgba(148, 190, 223, 0.34)"
+                            : "none"
+                        }
+                        stroke="rgba(90, 136, 176, 0.42)"
+                        strokeWidth={feature.closed ? 1.2 : 1.8}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    ))}
 
-                  {roadPaths.map((feature) => (
-                    <path
-                      key={feature.id}
-                      d={feature.path}
-                      fill="none"
-                      stroke="rgba(86, 104, 135, 1)"
-                      strokeOpacity={getRoadStrokeOpacity(feature.kind)}
-                      strokeWidth={getRoadStrokeWidth(feature.kind)}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  ))}
+                    {roadPaths.map((feature) => (
+                      <path
+                        key={feature.id}
+                        d={feature.path}
+                        fill="none"
+                        stroke="rgba(86, 104, 135, 1)"
+                        strokeOpacity={getRoadStrokeOpacity(feature.kind)}
+                        strokeWidth={getRoadStrokeWidth(feature.kind)}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    ))}
+                  </g>
 
                   {!hasBasemapFeatures ? (
                     <>
@@ -487,6 +523,17 @@ export default function CityItineraryMapSection({ trip }) {
                       <circle cx="980" cy="150" r="112" fill="rgba(122,168,138,0.08)" />
                     </>
                   ) : null}
+
+                  {projectedOutline.polygons.map((polygon, index) => (
+                    <path
+                      key={`outline-${index}`}
+                      d={polygon.path}
+                      fill="none"
+                      stroke="rgba(72, 99, 137, 0.34)"
+                      strokeWidth="3.2"
+                      strokeLinejoin="round"
+                    />
+                  ))}
 
                   {markers.map((marker) => {
                     const isActive = activePlaceId === marker.id;
@@ -680,7 +727,7 @@ export default function CityItineraryMapSection({ trip }) {
                         backgroundColor: group.accent.soft,
                       }}
                     >
-                      {group.places.filter((place) => place.isResolved).length} mapped
+                      {group.places.filter((place) => place.isPinned).length} mapped
                     </span>
                   </div>
 
@@ -718,7 +765,11 @@ export default function CityItineraryMapSection({ trip }) {
                                 {place.placeName}
                               </span>
                               <span className="text-xs font-medium text-[var(--voy-text-muted)]">
-                                {place.isResolved ? "Mapped" : "Pending"}
+                                {place.isPinned
+                                  ? "Mapped"
+                                  : place.isResolved
+                                    ? "Filtered"
+                                    : "Pending"}
                               </span>
                             </span>
                             <span className="mt-1 flex items-center gap-2 text-sm text-[var(--voy-text-muted)]">
@@ -764,7 +815,7 @@ export default function CityItineraryMapSection({ trip }) {
 
             <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--voy-text-muted)]">
               <span className="rounded-full border border-[var(--voy-border)] bg-white/80 px-4 py-2">
-                {resolvedPlaces.length} mapped
+                {pinnedPlaces.length} mapped
               </span>
               <span className="rounded-full border border-[var(--voy-border)] bg-white/80 px-4 py-2">
                 {unresolvedPlaces.length} excluded
@@ -775,7 +826,7 @@ export default function CityItineraryMapSection({ trip }) {
             </div>
           </div>
 
-          {resolvedPlaces.length >= 2 ? (
+          {pinnedPlaces.length >= 2 ? (
             <div className="mt-5 overflow-x-auto rounded-[1.3rem] border border-[var(--voy-border)] bg-white/80">
               <table className="min-w-full border-collapse text-left">
                 <thead>
@@ -783,7 +834,7 @@ export default function CityItineraryMapSection({ trip }) {
                     <th className="sticky left-0 z-[1] min-w-[220px] border-r border-[var(--voy-border)] bg-[rgba(248,248,246,0.98)] px-4 py-3 text-xs uppercase tracking-[0.18em] text-[var(--voy-text-faint)]">
                       Place
                     </th>
-                    {resolvedPlaces.map((place) => {
+                    {pinnedPlaces.map((place) => {
                       const isActive = activePlaceId === place.id;
 
                       return (
@@ -813,7 +864,7 @@ export default function CityItineraryMapSection({ trip }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {resolvedPlaces.map((rowPlace, rowIndex) => (
+                  {pinnedPlaces.map((rowPlace, rowIndex) => (
                     <tr
                       key={rowPlace.id}
                       className="border-b border-[var(--voy-border)] last:border-b-0"
@@ -845,7 +896,7 @@ export default function CityItineraryMapSection({ trip }) {
                       </th>
 
                       {distanceMatrix[rowIndex].map((cell, cellIndex) => {
-                        const columnPlace = resolvedPlaces[cellIndex];
+                        const columnPlace = pinnedPlaces[cellIndex];
                         const isDiagonal = rowPlace.id === columnPlace.id;
                         const isActive =
                           activePlaceId === rowPlace.id || activePlaceId === columnPlace.id;
