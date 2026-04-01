@@ -36,7 +36,6 @@ import AITips from "./pages/AITips.jsx";
 import Blog from "./pages/Blog.jsx";
 import APIDocs from "./pages/APIDocs.jsx";
 import Login from "./pages/Login.jsx";
-import UnifiedTripMapPreview from "./pages/UnifiedTripMapPreview.jsx";
 
 function LegacyTripRedirect() {
   const { tripId } = useParams();
@@ -71,37 +70,6 @@ function NotFound() {
   );
 }
 
-const childRoutes = [
-  { index: true, element: <App /> },
-  { path: "home", element: <Home /> },
-  { path: "create-trip", element: <CreateTrip /> },
-  { path: "trips/:tripId", element: <Viewtrip /> },
-  { path: "view-trip/:tripId", element: <LegacyTripRedirect /> },
-  { path: "my-trips", element: <MyTrips /> },
-  { path: "about", element: <About /> },
-  { path: "contact", element: <Contact /> },
-  { path: "features", element: <Feature /> },
-  { path: "our-story", element: <OurStory /> },
-  { path: "team", element: <Team /> },
-  { path: "careers", element: <Careers /> },
-  { path: "privacy-policy", element: <PrivacyPolicy /> },
-  { path: "help-center", element: <HelpCenter /> },
-  { path: "faqs", element: <FAQs /> },
-  { path: "feedback", element: <Feedback /> },
-  { path: "travel-guides", element: <TravelGuides /> },
-  { path: "ai-tips", element: <AITips /> },
-  { path: "blog", element: <Blog /> },
-  { path: "api-docs", element: <APIDocs /> },
-  { path: "*", element: <NotFound /> },
-];
-
-if (import.meta.env.DEV) {
-  childRoutes.splice(childRoutes.length - 1, 0, {
-    path: "dev/unified-trip-map-preview",
-    element: <UnifiedTripMapPreview />,
-  });
-}
-
 const router = createBrowserRouter([
   {
     path: "/login",
@@ -110,7 +78,29 @@ const router = createBrowserRouter([
   {
     path: "/",
     element: <Layout />,
-    children: childRoutes,
+    children: [
+      { index: true, element: <App /> },
+      { path: "home", element: <Home /> },
+      { path: "create-trip", element: <CreateTrip /> },
+      { path: "trips/:tripId", element: <Viewtrip /> },
+      { path: "view-trip/:tripId", element: <LegacyTripRedirect /> },
+      { path: "my-trips", element: <MyTrips /> },
+      { path: "about", element: <About /> },
+      { path: "contact", element: <Contact /> },
+      { path: "features", element: <Feature /> },
+      { path: "our-story", element: <OurStory /> },
+      { path: "team", element: <Team /> },
+      { path: "careers", element: <Careers /> },
+      { path: "privacy-policy", element: <PrivacyPolicy /> },
+      { path: "help-center", element: <HelpCenter /> },
+      { path: "faqs", element: <FAQs /> },
+      { path: "feedback", element: <Feedback /> },
+      { path: "travel-guides", element: <TravelGuides /> },
+      { path: "ai-tips", element: <AITips /> },
+      { path: "blog", element: <Blog /> },
+      { path: "api-docs", element: <APIDocs /> },
+      { path: "*", element: <NotFound /> },
+    ],
   },
 ]);
 

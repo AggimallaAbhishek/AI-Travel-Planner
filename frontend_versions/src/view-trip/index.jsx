@@ -4,11 +4,10 @@ import InfoSection from "./components/InfoSection";
 import Hotels from "./components/Hotels";
 import Restaurants from "./components/Restaurants";
 import PlacesToVisit from "./components/PlacesToVisit";
-import UnifiedTripRouteMapSection from "./components/UnifiedTripRouteMapSection";
+import CityItineraryMapSection from "./components/CityItineraryMapSection";
 import { toast } from "react-toastify";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/lib/api";
-import { clearTripMapCache } from "@/lib/tripMap";
 import { fetchTripRecommendations } from "@/lib/tripRecommendations";
 import { replanTrip } from "@/lib/tripRoutes";
 import { Button } from "@/components/ui/button";
@@ -196,7 +195,6 @@ function Viewtrip() {
       ];
       const response = await replanTrip(trip.id, payload);
       setTrip(response.trip ?? trip);
-      clearTripMapCache(trip.id);
       setTripReloadToken((previous) => previous + 1);
       setRecommendationReloadToken((previous) => previous + 1);
       toast.success("Trip replanned with the selected disruption.");
@@ -354,7 +352,7 @@ function Viewtrip() {
             </Button>
           </div>
         </section>
-        <UnifiedTripRouteMapSection
+        <CityItineraryMapSection
           trip={trip}
           reloadToken={tripReloadToken}
         />
