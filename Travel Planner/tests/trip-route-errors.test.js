@@ -10,6 +10,7 @@ test("resolveTripGenerationFailure maps missing Firestore setup errors", () => {
     new Error("Cloud Firestore API has not been used in project yet.")
   );
 
+  assert.equal(failure.status, 500);
   assert.match(failure.message, /Create\/enable Firestore/i);
   assert.match(failure.hint, /Firestore Database -> Create database/i);
 });
@@ -22,6 +23,7 @@ test("resolveTripGenerationFailure maps classified Firestore database-not-found 
 
   const failure = resolveTripGenerationFailure(error);
 
+  assert.equal(failure.status, 500);
   assert.match(failure.message, /Create\/enable Firestore/i);
   assert.match(failure.hint, /verify FIREBASE_PROJECT_ID/i);
 });
@@ -31,6 +33,7 @@ test("resolveTripGenerationFailure maps Firestore permission errors", () => {
     new Error("7 PERMISSION_DENIED: Missing or insufficient permissions.")
   );
 
+  assert.equal(failure.status, 500);
   assert.match(failure.message, /Firestore permissions/i);
   assert.match(failure.hint, /Cloud Datastore User/i);
 });
@@ -42,13 +45,24 @@ test("resolveTripGenerationFailure maps Gemini network fetch failures", () => {
     )
   );
 
+  assert.equal(failure.status, 503);
   assert.match(failure.message, /service is currently unreachable/i);
   assert.match(failure.hint, /outbound network access/i);
+});
+
+test("resolveTripGenerationFailure maps Gemini timeout failures to HTTP 504", () => {
+  const failure = resolveTripGenerationFailure(
+    new Error("Gemini upstream request timed out after 20000ms")
+  );
+
+  assert.equal(failure.status, 504);
+  assert.match(failure.message, /service is currently unreachable/i);
 });
 
 test("resolveTripGenerationFailure keeps generic guidance for unknown errors", () => {
   const failure = resolveTripGenerationFailure(new Error("Unknown failure"));
 
+  assert.equal(failure.status, 500);
   assert.equal(failure.message, "Unable to generate a trip right now.");
   assert.match(failure.hint, /Check server logs/i);
 });

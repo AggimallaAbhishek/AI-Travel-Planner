@@ -1,5 +1,11 @@
 import React from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import AppImage from "@/components/ui/AppImage";
 import { IMAGE_FALLBACKS } from "@/lib/imageManifest";
 
@@ -13,7 +19,7 @@ export default function DestinationModal({ destination, onOpenChange, onPlanTrip
           <>
             <DialogHeader>
               <p>{destination.country}</p>
-              <h3>{destination.name}</h3>
+              <DialogTitle>{destination.name}</DialogTitle>
             </DialogHeader>
             <DialogDescription className="voy-map-modal-subtitle">
               {destination.tagline}

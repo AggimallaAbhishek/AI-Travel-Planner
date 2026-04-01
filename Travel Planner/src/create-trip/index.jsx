@@ -20,7 +20,8 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogHeader
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import { FcGoogle } from "react-icons/fc";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -738,7 +739,9 @@ function CreateTrip() {
       <Dialog open={openDialog} onOpenChange={setOpenDialog}>
         <DialogContent className="voy-create-card max-w-sm w-full text-center">
           <DialogHeader>
-            <h2 className="voy-page-title text-[1.5rem]">Sign In With Google</h2>
+            <DialogTitle className="voy-page-title text-[1.5rem]">
+              Sign In With Google
+            </DialogTitle>
           </DialogHeader>
           <DialogDescription className="voy-page-subtitle">
             Sign in to securely generate and save your trip itinerary.

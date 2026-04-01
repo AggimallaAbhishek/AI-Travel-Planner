@@ -125,6 +125,7 @@ export function resolveTripGenerationFailure(error) {
     errorCode.toLowerCase().includes("firestore/database-not-found")
   ) {
     return {
+      status: 500,
       message:
         "Trip generation succeeded but saving failed. Create/enable Firestore for your Firebase project and try again.",
       hint:
@@ -141,6 +142,7 @@ export function resolveTripGenerationFailure(error) {
     !includesAny(errorText, ["generativelanguage", "gemini"])
   ) {
     return {
+      status: 500,
       message:
         "Trip save failed due to Firestore permissions. Grant Firestore access to your Firebase service account and retry.",
       hint:
@@ -159,6 +161,7 @@ export function resolveTripGenerationFailure(error) {
     ])
   ) {
     return {
+      status: 503,
       message:
         "Gemini request failed. Verify GOOGLE_GEMINI_API_KEY, model access, and billing/quota in Google AI Studio.",
       hint:
@@ -171,15 +174,29 @@ export function resolveTripGenerationFailure(error) {
       "error fetching from https://generativelanguage.googleapis.com",
       "fetch failed",
       "timed out",
+      "timeout",
+      "deadline exceeded",
       "socket hang up",
       "econnreset",
       "enotfound",
       "eai_again",
       "etimedout",
       "network error",
+      "gateway timeout",
+      "function invocation timeout",
     ])
   ) {
     return {
+      status: includesAny(errorText, [
+        "timed out",
+        "timeout",
+        "deadline exceeded",
+        "etimedout",
+        "gateway timeout",
+        "function invocation timeout",
+      ])
+        ? 504
+        : 503,
       message:
         "Trip generation service is currently unreachable. Check your internet connection and Gemini API availability, then retry.",
       hint:
@@ -194,6 +211,7 @@ export function resolveTripGenerationFailure(error) {
     errorText.includes("invalid_grant")
   ) {
     return {
+      status: 500,
       message:
         "Server Firebase Admin credentials are invalid. Check FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY.",
       hint:
@@ -209,6 +227,7 @@ export function resolveTripGenerationFailure(error) {
     ])
   ) {
     return {
+      status: 500,
       message:
         "Trip generation completed, but the generated payload could not be saved safely.",
       hint:
@@ -217,6 +236,7 @@ export function resolveTripGenerationFailure(error) {
   }
 
   return {
+    status: 500,
     message: "Unable to generate a trip right now.",
     hint:
       "Check server logs for [trips] Failed to generate trip, then verify Firestore setup, Firebase Admin credentials, and Gemini API connectivity.",
@@ -261,7 +281,7 @@ router.post("/trips/generate", requireAuth, tripGenerationRateLimit, async (req,
       resolvedMessage: resolvedFailure.message,
     });
 
-    res.status(500).json({
+    res.status(resolvedFailure.status ?? 500).json({
       message: resolvedFailure.message,
       ...(IS_PRODUCTION || !resolvedFailure.hint
         ? {}

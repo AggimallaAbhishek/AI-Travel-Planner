@@ -72,13 +72,17 @@ function isTripOwnedByUser(trip, user) {
 }
 
 async function backfillLegacyOwnership(docRef, user) {
-  await docRef.set(
-    {
-      ownerId: user.uid,
-      ownerEmail: user.email ?? "",
-    },
-    { merge: true }
-  );
+  try {
+    await docRef.set(
+      {
+        ownerId: user.uid,
+        ownerEmail: user.email ?? "",
+      },
+      { merge: true }
+    );
+  } catch (error) {
+    throw resolveTripPersistenceFailure(error);
+  }
 }
 
 export function validateTripRequest(body = {}) {
@@ -126,7 +130,11 @@ export async function createTripForUser({ user, userSelection }) {
 
     const docRef = getTripsCollection().doc(trip.id);
     const persistStartedAt = Date.now();
-    await docRef.set(trip);
+    try {
+      await docRef.set(trip);
+    } catch (error) {
+      throw resolveTripPersistenceFailure(error);
+    }
     const persistMs = Date.now() - persistStartedAt;
 
     if (payload?.latencyBreakdownMs) {
@@ -173,14 +181,18 @@ export async function persistTripMapEnrichment({
 }) {
   const docRef = getTripsCollection().doc(tripId);
 
-  await docRef.set(
-    {
-      itinerary,
-      mapEnrichment,
-      updatedAt,
-    },
-    { merge: true }
-  );
+  try {
+    await docRef.set(
+      {
+        itinerary,
+        mapEnrichment,
+        updatedAt,
+      },
+      { merge: true }
+    );
+  } catch (error) {
+    throw resolveTripPersistenceFailure(error);
+  }
 }
 
 export async function backfillTripMapEnrichment({
