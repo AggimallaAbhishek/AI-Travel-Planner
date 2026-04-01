@@ -257,6 +257,61 @@ test("trip route service geocodes stops and uses Google route data when availabl
   assert.equal(placeRequests.length, 4);
 });
 
+test("trip route service preserves itinerary coordinates when aiPlan duplicates stop names", async () => {
+  const service = createTripRouteService({
+    resolvePlacesKey: () => "",
+    resolveRoutesKey: () => "",
+    fetchImpl: async () => {
+      throw new Error("fetch should not be called for coordinate-only fallback");
+    },
+  });
+
+  const routes = await service.getRoutesForTrip({
+    trip: {
+      id: "trip-ai-duplicate-stops",
+      userSelection: {
+        location: { label: "Kyoto, Japan" },
+      },
+      aiPlan: {
+        days: [
+          {
+            day: 1,
+            activities: ["Kinkaku-ji", "Fushimi Inari Shrine", "Nishiki Market"],
+          },
+        ],
+      },
+      itinerary: {
+        days: [
+          {
+            dayNumber: 1,
+            title: "Kyoto highlights",
+            places: [
+              {
+                placeName: "Kinkaku-ji",
+                geoCoordinates: { latitude: 35.0394, longitude: 135.7292 },
+              },
+              {
+                placeName: "Fushimi Inari Shrine",
+                geoCoordinates: { latitude: 34.9671, longitude: 135.7727 },
+              },
+              {
+                placeName: "Nishiki Market",
+                geoCoordinates: { latitude: 35.0045, longitude: 135.7648 },
+              },
+            ],
+          },
+        ],
+      },
+    },
+  });
+
+  assert.equal(routes.dayCount, 1);
+  assert.equal(routes.days[0].status, "ready");
+  assert.equal(routes.days[0].routeProvider, "estimated-haversine");
+  assert.equal(routes.days[0].orderedStops.length, 3);
+  assert.equal(routes.days[0].unresolvedStops.length, 0);
+});
+
 test("trip route service synthesizes fallback stops when a day has none", async () => {
   const requests = [];
   const service = createTripRouteService({

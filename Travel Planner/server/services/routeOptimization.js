@@ -11,6 +11,7 @@ import {
   normalizeTripConstraints,
   normalizeTripObjective,
 } from "../../shared/trips.js";
+import { createMemoryCacheStore } from "./cacheStore.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -309,22 +310,62 @@ function findAiPlanDayByNumber(trip = {}, dayNumber) {
 
 function mergeStopsWithPreference(primaryStops = [], secondaryStops = [], maxStops = 8) {
   const mergedStops = [];
-  const seen = new Set();
+  const indexByKey = new Map();
+
+  function mergeDuplicateStops(existingStop = {}, incomingStop = {}) {
+    const existingCoordinates = normalizeGeoCoordinates(existingStop?.geoCoordinates);
+    const incomingCoordinates = normalizeGeoCoordinates(incomingStop?.geoCoordinates);
+    const existingHasCoordinates = hasCoordinates(existingCoordinates);
+    const incomingHasCoordinates = hasCoordinates(incomingCoordinates);
+
+    return {
+      ...existingStop,
+      name: normalizeText(existingStop?.name, normalizeText(incomingStop?.name)),
+      location: normalizeText(
+        existingStop?.location,
+        normalizeText(incomingStop?.location)
+      ),
+      description: normalizeText(
+        existingStop?.description,
+        normalizeText(incomingStop?.description)
+      ),
+      category: normalizeText(
+        existingStop?.category,
+        normalizeText(incomingStop?.category)
+      ),
+      geoCoordinates:
+        existingHasCoordinates || !incomingHasCoordinates
+          ? existingCoordinates
+          : incomingCoordinates,
+      mapsUrl:
+        !existingHasCoordinates && incomingHasCoordinates
+          ? normalizeText(incomingStop?.mapsUrl, normalizeText(existingStop?.mapsUrl))
+          : normalizeText(existingStop?.mapsUrl, normalizeText(incomingStop?.mapsUrl)),
+    };
+  }
 
   for (const stop of [...primaryStops, ...secondaryStops]) {
     const name = normalizeText(stop?.name);
+    if (!name) {
+      continue;
+    }
     const key = name.toLowerCase();
+    const existingIndex = indexByKey.get(key);
 
-    if (!name || seen.has(key)) {
+    if (existingIndex !== undefined) {
+      mergedStops[existingIndex] = mergeDuplicateStops(mergedStops[existingIndex], stop);
       continue;
     }
 
-    mergedStops.push(stop);
-    seen.add(key);
-
     if (mergedStops.length >= maxStops) {
-      break;
+      continue;
     }
+
+    mergedStops.push({
+      ...stop,
+      name,
+    });
+    indexByKey.set(key, mergedStops.length - 1);
   }
 
   return mergedStops;

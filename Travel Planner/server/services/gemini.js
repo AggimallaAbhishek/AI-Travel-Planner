@@ -93,22 +93,6 @@ function withTimeout(promise, timeoutMs) {
   });
 }
 
-async function requestGeminiTripPlan(prompt, timeoutMs) {
-  return withTimeout(
-    getGeminiModel().generateContent({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0.6,
-        topP: 0.9,
-        topK: 32,
-        maxOutputTokens: 3072,
-        responseMimeType: "application/json",
-      },
-    }),
-    timeoutMs
-  );
-}
-
 function normalizeText(value, fallback = "") {
   if (typeof value !== "string") {
     return fallback;

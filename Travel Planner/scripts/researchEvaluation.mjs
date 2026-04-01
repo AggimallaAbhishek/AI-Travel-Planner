@@ -25,6 +25,36 @@ function createSyntheticTrip(selection) {
     ["Museum cluster tour", "Signature lunch stop", "Evening cultural show"],
     ["Neighborhood food trail", "Panoramic viewpoint", "Night market exploration"],
   ];
+  const destinationCoordinates = {
+    "kyoto, japan": [
+      { latitude: 35.0116, longitude: 135.7681 },
+      { latitude: 35.0394, longitude: 135.7292 },
+      { latitude: 35.0017, longitude: 135.7788 },
+      { latitude: 35.0245, longitude: 135.7850 },
+    ],
+    "dubai, uae": [
+      { latitude: 25.1972, longitude: 55.2744 },
+      { latitude: 25.1412, longitude: 55.1853 },
+      { latitude: 25.2048, longitude: 55.2708 },
+      { latitude: 25.0763, longitude: 55.1324 },
+    ],
+  };
+  const coordinateSet =
+    destinationCoordinates[selection.location.label.toLowerCase()] ?? [
+      { latitude: 48.8566, longitude: 2.3522 },
+      { latitude: 48.8606, longitude: 2.3376 },
+      { latitude: 48.8738, longitude: 2.2950 },
+    ];
+  const itineraryDays = Array.from({ length: selection.days }, (_, index) => ({
+    dayNumber: index + 1,
+    title: `Day ${index + 1} route`,
+    places: dayTemplates[index % dayTemplates.length].map((activity, activityIndex) => ({
+      placeName: activity,
+      placeDetails: "Synthetic benchmark stop",
+      category: "activity",
+      geoCoordinates: coordinateSet[(index + activityIndex) % coordinateSet.length],
+    })),
+  }));
 
   return {
     ...fallback,
@@ -42,6 +72,9 @@ function createSyntheticTrip(selection) {
       "Use contactless transit cards for shorter transfer times.",
       "Keep one flexible slot daily for weather or crowd disruption.",
     ],
+    itinerary: {
+      days: itineraryDays,
+    },
   };
 }
 
@@ -56,8 +89,9 @@ async function evaluateScenario(selectionInput) {
   });
 
   const a1Start = performance.now();
+  const syntheticTrip = createSyntheticTrip(selection);
   const deterministicTrip = applyDeterministicTripRepairs({
-    generatedTrip: createSyntheticTrip(selection),
+    generatedTrip: syntheticTrip,
     userSelection: selection,
   });
   const a1Latency = performance.now() - a1Start;
@@ -107,6 +141,7 @@ async function evaluateScenario(selectionInput) {
       id: `eval-${selection.location.label}`,
       userSelection: selection,
       ...deterministicTrip,
+      itinerary: syntheticTrip.itinerary,
     },
     objective: selection.objective,
     alternativesCount: selection.alternativesCount,
@@ -204,7 +239,6 @@ async function main() {
 
   const scenarioResults = [];
   for (const scenario of scenarios) {
-    // eslint-disable-next-line no-await-in-loop
     const result = await evaluateScenario(scenario);
     scenarioResults.push(result);
   }

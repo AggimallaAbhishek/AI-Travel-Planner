@@ -70,6 +70,10 @@ function Viewtrip() {
   const [recommendationReloadToken, setRecommendationReloadToken] = useState(0);
   const [routeReloadToken, setRouteReloadToken] = useState(0);
   const loginPath = buildLoginPath(`${location.pathname}${location.search}${location.hash}`);
+  const firstItineraryDayNumber =
+    Array.isArray(trip?.itinerary?.days) && trip.itinerary.days.length > 0
+      ? trip.itinerary.days[0].dayNumber
+      : 1;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -136,12 +140,9 @@ function Viewtrip() {
     );
     setDisruptionDraft((previous) => ({
       ...previous,
-      dayNumber:
-        Array.isArray(trip?.itinerary?.days) && trip.itinerary.days.length > 0
-          ? trip.itinerary.days[0].dayNumber
-          : 1,
+      dayNumber: firstItineraryDayNumber,
     }));
-  }, [trip?.id, trip?.userSelection]);
+  }, [firstItineraryDayNumber, trip?.id, trip?.userSelection]);
 
   useEffect(() => {
     const controller = new AbortController();
