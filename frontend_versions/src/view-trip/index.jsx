@@ -216,6 +216,71 @@ function Viewtrip() {
     const destination = trip?.userSelection?.location?.label ?? "";
 
     if (!trip?.id || !user) {
+      setAlternatives(INITIAL_ALTERNATIVE_STATE);
+      return () => controller.abort();
+    }
+
+    async function loadAlternatives() {
+      setAlternatives((previous) => ({
+        ...previous,
+        destination,
+        objective: routeObjective,
+        alternativesCount,
+        loading: true,
+        errorMessage: "",
+      }));
+
+      try {
+        const response = await fetchTripRouteAlternatives(trip.id, {
+          signal: controller.signal,
+          objective: routeObjective,
+          alternativesCount,
+          constraints: trip?.userSelection?.constraints,
+        });
+
+        setAlternatives({
+          ...response,
+          destination,
+          objective: routeObjective,
+          alternativesCount,
+          loading: false,
+          errorMessage: "",
+        });
+      } catch (error) {
+        if (error.name === "AbortError") {
+          return;
+        }
+
+        setAlternatives((previous) => ({
+          ...previous,
+          destination,
+          objective: routeObjective,
+          alternativesCount,
+          loading: false,
+          errorMessage:
+            error.message ?? "Unable to load route alternatives right now.",
+        }));
+      }
+    }
+
+    loadAlternatives();
+
+    return () => controller.abort();
+  }, [
+    trip?.id,
+    trip?.userSelection?.location?.label,
+    trip?.userSelection?.constraints,
+    user,
+    routeReloadToken,
+    routeObjective,
+    alternativesCount,
+  ]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const destination = trip?.userSelection?.location?.label ?? "";
+
+    if (!trip?.id || !user) {
       setRecommendations(INITIAL_RECOMMENDATION_STATE);
       return () => controller.abort();
     }
@@ -284,6 +349,59 @@ function Viewtrip() {
     setRouteReloadToken((previous) => previous + 1);
   };
 
+  const handleObjectiveChange = (nextObjective) => {
+    setRouteObjective(nextObjective);
+    setRouteReloadToken((previous) => previous + 1);
+  };
+
+  const handleAlternativesCountChange = (nextCount) => {
+    const parsed = Number.parseInt(nextCount, 10);
+    const clamped = Number.isInteger(parsed) ? Math.min(5, Math.max(1, parsed)) : 3;
+    setAlternativesCount(clamped);
+    setRouteReloadToken((previous) => previous + 1);
+  };
+
+  const handleReplan = async () => {
+    if (!trip?.id) {
+      return;
+    }
+
+    const trimmedPlace = disruptionDraft.placeName.trim();
+    if (
+      disruptionDraft.type !== "weather_change" &&
+      disruptionDraft.type !== "traffic_delay" &&
+      !trimmedPlace
+    ) {
+      toast.error("Select a place name for this disruption type.");
+      return;
+    }
+
+    setReplanLoading(true);
+
+    try {
+      const payload = [
+        {
+          type: disruptionDraft.type,
+          dayNumber: Number.parseInt(disruptionDraft.dayNumber, 10) || 1,
+          placeName: trimmedPlace,
+        },
+      ];
+      const response = await replanTrip(trip.id, payload);
+      setTrip(response.trip ?? trip);
+      setRouteReloadToken((previous) => previous + 1);
+      setRecommendationReloadToken((previous) => previous + 1);
+      toast.success("Trip replanned with the selected disruption.");
+    } catch (error) {
+      console.error("[view-trip] Failed to replan trip", {
+        tripId: trip?.id,
+        message: error?.message,
+      });
+      toast.error(error?.message ?? "Unable to replan this trip right now.");
+    } finally {
+      setReplanLoading(false);
+    }
+  };
+
   if (authLoading) {
     return (
       <section className="voy-view-shell">
@@ -347,10 +465,95 @@ function Viewtrip() {
     <section className="voy-view-shell">
       <div className="voy-view-content">
         <InfoSection trip={trip} />
+        <section className="mt-10 rounded-2xl border border-[var(--voy-border)] bg-[var(--voy-surface)] p-6 shadow-md">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <h3 className="text-xl font-semibold text-[var(--voy-text)]">
+                Dynamic Replanning Simulator
+              </h3>
+              <p className="mt-1 text-sm text-[var(--voy-text-muted)]">
+                Simulate a disruption and instantly regenerate a minimally changed itinerary.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <label className="text-xs uppercase tracking-[0.14em] text-[var(--voy-text-faint)]">
+                  Disruption Type
+                </label>
+                <select
+                  className="voy-create-field mt-1 w-full"
+                  value={disruptionDraft.type}
+                  onChange={(event) =>
+                    setDisruptionDraft((previous) => ({
+                      ...previous,
+                      type: event.target.value,
+                    }))
+                  }
+                >
+                  <option value="traffic_delay">Traffic delay</option>
+                  <option value="poi_closed">POI closed</option>
+                  <option value="weather_change">Weather change</option>
+                  <option value="user_skip">User skip</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs uppercase tracking-[0.14em] text-[var(--voy-text-faint)]">
+                  Day Number
+                </label>
+                <input
+                  className="voy-create-field mt-1 w-full"
+                  type="number"
+                  min={1}
+                  max={trip?.userSelection?.days ?? 30}
+                  value={disruptionDraft.dayNumber}
+                  onChange={(event) =>
+                    setDisruptionDraft((previous) => ({
+                      ...previous,
+                      dayNumber: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="text-xs uppercase tracking-[0.14em] text-[var(--voy-text-faint)]">
+                  Place Name (optional for weather)
+                </label>
+                <input
+                  className="voy-create-field mt-1 w-full"
+                  placeholder="Ex. Louvre Museum"
+                  value={disruptionDraft.placeName}
+                  onChange={(event) =>
+                    setDisruptionDraft((previous) => ({
+                      ...previous,
+                      placeName: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 flex justify-end">
+            <Button
+              className="voy-create-primary"
+              onClick={handleReplan}
+              disabled={replanLoading}
+            >
+              {replanLoading ? "Replanning..." : "Apply Disruption & Replan"}
+            </Button>
+          </div>
+        </section>
         <OptimizedRouteSection
           routes={routes}
           isLoading={routes.loading}
           errorMessage={routes.errorMessage}
+          objective={routeObjective}
+          onObjectiveChange={handleObjectiveChange}
+          alternativesCount={alternativesCount}
+          onAlternativesCountChange={handleAlternativesCountChange}
+          alternativesData={alternatives}
           onRetry={handleRetryRoutes}
         />
         <Hotels
