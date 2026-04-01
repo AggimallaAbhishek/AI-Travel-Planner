@@ -10,7 +10,6 @@ import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/lib/api";
 import { fetchTripRecommendations } from "@/lib/tripRecommendations";
 import {
-  fetchTripRouteAlternatives,
   fetchTripRoutes,
   replanTrip,
 } from "@/lib/tripRoutes";
@@ -38,15 +37,6 @@ const INITIAL_ROUTE_STATE = {
   errorMessage: "",
 };
 
-const INITIAL_ALTERNATIVE_STATE = {
-  days: [],
-  destination: "",
-  objective: "best_experience",
-  alternativesCount: 3,
-  loading: false,
-  errorMessage: "",
-};
-
 function Viewtrip() {
   const { tripId } = useParams();
   const location = useLocation();
@@ -58,7 +48,6 @@ function Viewtrip() {
     INITIAL_RECOMMENDATION_STATE
   );
   const [routes, setRoutes] = useState(INITIAL_ROUTE_STATE);
-  const [alternatives, setAlternatives] = useState(INITIAL_ALTERNATIVE_STATE);
   const [routeObjective, setRouteObjective] = useState("best_experience");
   const [alternativesCount, setAlternativesCount] = useState(3);
   const [disruptionDraft, setDisruptionDraft] = useState({
@@ -83,6 +72,7 @@ function Viewtrip() {
       setTrip(null);
       setRecommendations(INITIAL_RECOMMENDATION_STATE);
       setRoutes(INITIAL_ROUTE_STATE);
+      console.info("[view-trip] Skipping trip detail load without trip id or authenticated user");
       return () => controller.abort();
     }
 
@@ -150,7 +140,6 @@ function Viewtrip() {
 
     if (!trip?.id || !user) {
       setRoutes(INITIAL_ROUTE_STATE);
-      setAlternatives(INITIAL_ALTERNATIVE_STATE);
       return () => controller.abort();
     }
 
@@ -200,71 +189,6 @@ function Viewtrip() {
     }
 
     loadRoutes();
-
-    return () => controller.abort();
-  }, [
-    trip?.id,
-    trip?.userSelection?.location?.label,
-    trip?.userSelection?.constraints,
-    user,
-    routeReloadToken,
-    routeObjective,
-    alternativesCount,
-  ]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    const destination = trip?.userSelection?.location?.label ?? "";
-
-    if (!trip?.id || !user) {
-      setAlternatives(INITIAL_ALTERNATIVE_STATE);
-      return () => controller.abort();
-    }
-
-    async function loadAlternatives() {
-      setAlternatives((previous) => ({
-        ...previous,
-        destination,
-        objective: routeObjective,
-        alternativesCount,
-        loading: true,
-        errorMessage: "",
-      }));
-
-      try {
-        const response = await fetchTripRouteAlternatives(trip.id, {
-          signal: controller.signal,
-          objective: routeObjective,
-          alternativesCount,
-          constraints: trip?.userSelection?.constraints,
-        });
-
-        setAlternatives({
-          ...response,
-          destination,
-          objective: routeObjective,
-          alternativesCount,
-          loading: false,
-          errorMessage: "",
-        });
-      } catch (error) {
-        if (error.name === "AbortError") {
-          return;
-        }
-
-        setAlternatives((previous) => ({
-          ...previous,
-          destination,
-          objective: routeObjective,
-          alternativesCount,
-          loading: false,
-          errorMessage:
-            error.message ?? "Unable to load route alternatives right now.",
-        }));
-      }
-    }
-
-    loadAlternatives();
 
     return () => controller.abort();
   }, [
@@ -347,18 +271,6 @@ function Viewtrip() {
   };
 
   const handleRetryRoutes = () => {
-    setRouteReloadToken((previous) => previous + 1);
-  };
-
-  const handleObjectiveChange = (nextObjective) => {
-    setRouteObjective(nextObjective);
-    setRouteReloadToken((previous) => previous + 1);
-  };
-
-  const handleAlternativesCountChange = (nextCount) => {
-    const parsed = Number.parseInt(nextCount, 10);
-    const clamped = Number.isInteger(parsed) ? Math.min(5, Math.max(1, parsed)) : 3;
-    setAlternativesCount(clamped);
     setRouteReloadToken((previous) => previous + 1);
   };
 
@@ -550,11 +462,6 @@ function Viewtrip() {
           routes={routes}
           isLoading={routes.loading}
           errorMessage={routes.errorMessage}
-          objective={routeObjective}
-          onObjectiveChange={handleObjectiveChange}
-          alternativesCount={alternativesCount}
-          onAlternativesCountChange={handleAlternativesCountChange}
-          alternativesData={alternatives}
           onRetry={handleRetryRoutes}
         />
         <Hotels

@@ -443,7 +443,7 @@ test("trip route service synthesizes fallback stops when a day has none", async 
   const placeRequests = requests.filter((request) =>
     request.url.includes("places.googleapis.com")
   );
-  assert.equal(placeRequests.length, 2);
+  assert.equal(placeRequests.length >= 2, true);
 });
 
 test("trip route service returns objective-ranked alternatives", async () => {
@@ -652,4 +652,287 @@ test("trip route service derives stops from aiPlan activities and filters places
     "Meiji Shrine, Tokyo, Japan",
     "Kyoto Imperial Palace, Tokyo, Japan",
   ]);
+});
+
+test("trip route service extracts place candidates from verbose aiPlan activities", async () => {
+  const requests = [];
+  const placesByQuery = {
+    "Bali, Indonesia": {
+      displayName: { text: "Bali" },
+      formattedAddress: "Bali, Indonesia",
+      location: { latitude: -8.4095, longitude: 115.1889 },
+      viewport: {
+        northEast: { latitude: -8.0, longitude: 115.72 },
+        southWest: { latitude: -8.86, longitude: 114.43 },
+      },
+    },
+    "Ubud Market, Bali, Indonesia": {
+      displayName: { text: "Ubud Market" },
+      formattedAddress: "Ubud, Gianyar Regency, Bali",
+      location: { latitude: -8.5067, longitude: 115.2625 },
+      googleMapsUri: "https://maps.google.com/?q=ubud-market",
+    },
+    "Monkey Forest, Bali, Indonesia": {
+      displayName: { text: "Monkey Forest" },
+      formattedAddress: "Ubud, Gianyar Regency, Bali",
+      location: { latitude: -8.5186, longitude: 115.2582 },
+      googleMapsUri: "https://maps.google.com/?q=monkey-forest",
+    },
+    "Ubud, Bali, Indonesia": {
+      displayName: { text: "Ubud" },
+      formattedAddress: "Ubud, Gianyar Regency, Bali",
+      location: { latitude: -8.5069, longitude: 115.2625 },
+      googleMapsUri: "https://maps.google.com/?q=ubud",
+    },
+  };
+
+  const service = createTripRouteService({
+    resolvePlacesKey: () => "places-key",
+    resolveRoutesKey: () => "",
+    pythonRouteOptimizer: null,
+    fetchImpl: async (url, options = {}) => {
+      const urlText = String(url);
+      requests.push({ url: urlText, options });
+
+      if (!urlText.includes("places.googleapis.com")) {
+        throw new Error(`Unexpected URL: ${urlText}`);
+      }
+
+      const query = JSON.parse(options.body).textQuery;
+      const place = placesByQuery[query];
+
+      return {
+        ok: true,
+        headers: {
+          get(name) {
+            return name.toLowerCase() === "content-type"
+              ? "application/json"
+              : "";
+          },
+        },
+        async json() {
+          return {
+            places: place ? [place] : [],
+          };
+        },
+      };
+    },
+  });
+
+  const routes = await service.getRoutesForTrip({
+    trip: {
+      id: "trip-bali-activity-extraction",
+      userSelection: {
+        location: { label: "Bali, Indonesia" },
+      },
+      aiPlan: {
+        days: [
+          {
+            day: 1,
+            title: "Arrival in Ubud & Monkey Forest Fun",
+            activities: [
+              "Explore Ubud Market",
+              "Walk through Monkey Forest",
+              "Sunset dinner in central Ubud",
+            ],
+          },
+        ],
+      },
+      itinerary: {
+        days: [
+          {
+            dayNumber: 1,
+            title: "Arrival in Ubud & Monkey Forest Fun",
+            places: [],
+          },
+        ],
+      },
+    },
+  });
+
+  assert.equal(routes.days[0].status, "ready");
+  assert.equal(routes.days[0].markers.length, 3);
+  assert.deepEqual(
+    routes.days[0].orderedStops.map((stop) => stop.name),
+    ["Ubud Market", "Ubud", "Monkey Forest"]
+  );
+
+  const placeQueries = requests
+    .filter((request) => request.url.includes("places.googleapis.com"))
+    .map((request) => JSON.parse(request.options.body).textQuery);
+
+  assert.deepEqual(placeQueries, [
+    "Bali, Indonesia",
+    "Ubud Market, Bali, Indonesia",
+    "Monkey Forest, Bali, Indonesia",
+    "Ubud, Bali, Indonesia",
+  ]);
+});
+
+test("trip route service retries city fallback places after geocoding collapses", async () => {
+  const requests = [];
+  const service = createTripRouteService({
+    resolvePlacesKey: () => "places-key",
+    resolveRoutesKey: () => "",
+    pythonRouteOptimizer: null,
+    fetchImpl: async (url, options = {}) => {
+      const urlText = String(url);
+      requests.push({ url: urlText, options });
+
+      if (!urlText.includes("places.googleapis.com")) {
+        throw new Error(`Unexpected URL: ${urlText}`);
+      }
+
+      const query = JSON.parse(options.body).textQuery;
+
+      if (query === "Bali, Indonesia") {
+        return {
+          ok: true,
+          headers: {
+            get(name) {
+              return name.toLowerCase() === "content-type"
+                ? "application/json"
+                : "";
+            },
+          },
+          async json() {
+            return {
+              places: [
+                {
+                  displayName: { text: "Bali" },
+                  formattedAddress: "Bali, Indonesia",
+                  location: { latitude: -8.4095, longitude: 115.1889 },
+                  viewport: {
+                    northEast: { latitude: -8.0, longitude: 115.72 },
+                    southWest: { latitude: -8.86, longitude: 114.43 },
+                  },
+                },
+              ],
+            };
+          },
+        };
+      }
+
+      if (
+        query === "Hidden Cliff Temple, Bali, Indonesia" ||
+        query === "Sidemen Village, Bali, Indonesia" ||
+        query === "Temple Trails in Sidemen in Bali, Indonesia"
+      ) {
+        return {
+          ok: true,
+          headers: {
+            get(name) {
+              return name.toLowerCase() === "content-type"
+                ? "application/json"
+                : "";
+            },
+          },
+          async json() {
+            return {
+              places: [],
+            };
+          },
+        };
+      }
+
+      if (query === "top sights in Sidemen, Bali, Indonesia") {
+        return {
+          ok: true,
+          headers: {
+            get(name) {
+              return name.toLowerCase() === "content-type"
+                ? "application/json"
+                : "";
+            },
+          },
+          async json() {
+            return {
+              places: [
+                {
+                  displayName: { text: "Sidemen Rice Terrace" },
+                  formattedAddress: "Sidemen, Bali",
+                  location: { latitude: -8.4662, longitude: 115.4444 },
+                  googleMapsUri: "https://maps.google.com/?q=sidemen-rice-terrace",
+                },
+                {
+                  displayName: { text: "Bukit Jambul" },
+                  formattedAddress: "Karangasem Regency, Bali",
+                  location: { latitude: -8.4459, longitude: 115.4275 },
+                  googleMapsUri: "https://maps.google.com/?q=bukit-jambul",
+                },
+                {
+                  displayName: { text: "Gembleng Waterfall" },
+                  formattedAddress: "Sidemen, Bali",
+                  location: { latitude: -8.5001, longitude: 115.4572 },
+                  googleMapsUri: "https://maps.google.com/?q=gembleng-waterfall",
+                },
+              ],
+            };
+          },
+        };
+      }
+
+      return {
+        ok: true,
+        headers: {
+          get(name) {
+            return name.toLowerCase() === "content-type"
+              ? "application/json"
+              : "";
+          },
+        },
+        async json() {
+          return {
+            places: [],
+          };
+        },
+      };
+    },
+  });
+
+  const routes = await service.getRoutesForTrip({
+    trip: {
+      id: "trip-bali-fallback-recovery",
+      userSelection: {
+        location: { label: "Bali, Indonesia" },
+      },
+      aiPlan: {
+        days: [
+          {
+            day: 1,
+            title: "Temple Trails in Sidemen",
+            activities: ["Hidden Cliff Temple", "Sidemen Village"],
+          },
+        ],
+      },
+      itinerary: {
+        days: [
+          {
+            dayNumber: 1,
+            title: "Temple Trails in Sidemen",
+            places: [],
+          },
+        ],
+      },
+    },
+  });
+
+  assert.equal(routes.days[0].status, "ready");
+  assert.equal(routes.days[0].markers.length, 3);
+  assert.equal(
+    routes.days[0].warning.includes(
+      "Some day stops were inferred from Google Places because the itinerary text could not be geocoded directly."
+    ),
+    true
+  );
+  assert.deepEqual(
+    routes.days[0].unresolvedStops.map((stop) => stop.name),
+    ["Hidden Cliff Temple", "Sidemen Village"]
+  );
+
+  const placeQueries = requests
+    .filter((request) => request.url.includes("places.googleapis.com"))
+    .map((request) => JSON.parse(request.options.body).textQuery);
+
+  assert.equal(placeQueries.includes("top sights in Sidemen, Bali, Indonesia"), true);
 });

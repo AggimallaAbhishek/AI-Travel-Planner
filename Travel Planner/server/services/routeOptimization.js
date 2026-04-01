@@ -46,12 +46,76 @@ const DEFAULT_ROUTE_CACHE_TTL_MS = 15 * 60 * 1000;
 const DEFAULT_ROUTE_REQUEST_TIMEOUT_MS = 12_000;
 const DEFAULT_MAX_ROUTE_STOPS_PER_DAY = 8;
 const DEFAULT_FALLBACK_DRIVE_SPEED_METERS_PER_SECOND = 10;
-const ROUTE_CACHE_SCHEMA_VERSION = "v1-day-routes";
+const DEFAULT_LOCAL_VIEWPORT_PADDING_RATIO = 0.22;
+const DEFAULT_LOCAL_VIEWPORT_MIN_SPAN = 0.018;
+const DEFAULT_LOCAL_CLUSTER_RADIUS_METERS = 8_000;
+const MAX_LOCAL_CLUSTER_RADIUS_METERS = 22_000;
+const ROUTE_CACHE_SCHEMA_VERSION = "v2-city-fallback-routes";
 const OBJECTIVE_PROFILES = [
   "fastest",
   "cheapest",
   "best_experience",
 ];
+const STOP_SOURCE_PRIORITY = Object.freeze({
+  itinerary: 4,
+  ai_plan: 3,
+  inferred: 2,
+  unknown: 1,
+});
+const PLACE_QUERY_LEADING_PATTERNS = Object.freeze([
+  /^explore\s+/i,
+  /^visit\s+/i,
+  /^discover\s+/i,
+  /^experience\s+/i,
+  /^check[\s-]*in(?:\s+at)?\s+/i,
+  /^walk(?:\s+through|\s+around|\s+along)?\s+/i,
+  /^stroll(?:\s+through|\s+around|\s+along)?\s+/i,
+  /^temple\s+stop\s+at\s+/i,
+  /^stop\s+at\s+/i,
+  /^sunset\s+dinner\s+in\s+/i,
+  /^dinner\s+in\s+/i,
+  /^lunch\s+in\s+/i,
+  /^breakfast\s+in\s+/i,
+  /^brunch\s+in\s+/i,
+  /^coffee\s+tasting(?:\s+session)?(?:\s+in)?\s+/i,
+  /^relax(?:ing)?\s+at\s+/i,
+  /^surf(?:ing)?\s+at\s+/i,
+  /^shop(?:ping)?\s+at\s+/i,
+  /^head\s+to\s+/i,
+  /^time\s+in\s+/i,
+]);
+const GENERIC_PLACE_QUERY_PATTERNS = Object.freeze([
+  /^arrival$/i,
+  /^departure$/i,
+  /^departure prep$/i,
+  /^check[\s-]*in$/i,
+  /^the villa$/i,
+  /^villa$/i,
+  /^hotel$/i,
+  /^resort$/i,
+  /^cultural immersion$/i,
+  /^natural beauty$/i,
+  /^cultural(?: and)? natural wonders$/i,
+  /^coastal charm$/i,
+  /^beach fun$/i,
+  /^island adventure$/i,
+  /^water park thrills$/i,
+  /^farewell dinner$/i,
+  /^coffee tasting(?: session)?$/i,
+  /^sunset dinner$/i,
+  /^breakfast$/i,
+  /^brunch$/i,
+  /^lunch$/i,
+  /^dinner$/i,
+  /^walk$/i,
+  /^stroll$/i,
+  /^sunset$/i,
+  /^sunrise$/i,
+  /^temple$/i,
+  /^shopping$/i,
+  /^nightlife$/i,
+  /^(?:cultural|natural|iconic|historic|trendy|coastal|futuristic)$/i,
+]);
 
 function normalizeText(value, fallback = "") {
   if (typeof value !== "string") {
@@ -75,6 +139,283 @@ function parseCoordinate(value) {
 function normalizePositiveNumber(value, fallback) {
   const parsed = Number.parseFloat(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function splitCandidateFragments(value = "") {
+  const normalized = normalizeText(value);
+
+  if (!normalized) {
+    return [];
+  }
+
+  return normalized
+    .split(/\s*(?:\/|&|,| and | or )\s*/i)
+    .map((fragment) => normalizeText(fragment))
+    .filter(Boolean);
+}
+
+function cleanPlaceCandidate(value = "") {
+  let candidate = normalizeText(value).replace(
+    /^[^A-Za-z0-9]+|[^A-Za-z0-9]+$/g,
+    ""
+  );
+
+  for (const pattern of PLACE_QUERY_LEADING_PATTERNS) {
+    candidate = candidate.replace(pattern, "");
+  }
+
+  candidate = candidate.replace(/^(?:the|central|downtown|local)\s+/i, "");
+  candidate = candidate.replace(/\s+(?:and|or)$/i, "");
+  candidate = candidate.replace(
+    /\s+(?:fun|beauty|wonders?|wonder|grandeur|elegance|adventure|thrills?|immersion|prep|nightlife)$/i,
+    ""
+  );
+
+  return normalizeText(candidate).replace(
+    /^[^A-Za-z0-9]+|[^A-Za-z0-9]+$/g,
+    ""
+  );
+}
+
+function isLikelyPlaceCandidate(value = "") {
+  const candidate = normalizeText(value);
+
+  if (!candidate) {
+    return false;
+  }
+
+  if (GENERIC_PLACE_QUERY_PATTERNS.some((pattern) => pattern.test(candidate))) {
+    return false;
+  }
+
+  if (/^(?:day|stop|session|experience|tour)$/i.test(candidate)) {
+    return false;
+  }
+
+  const words = candidate.split(/\s+/).filter(Boolean);
+
+  if (words.length === 1) {
+    return candidate.length >= 4;
+  }
+
+  return true;
+}
+
+function pushUniquePlaceCandidate(candidates = [], seen = new Set(), value = "") {
+  const candidate = cleanPlaceCandidate(value);
+  const key = candidate.toLowerCase();
+
+  if (!isLikelyPlaceCandidate(candidate) || seen.has(key)) {
+    return;
+  }
+
+  seen.add(key);
+  candidates.push(candidate);
+}
+
+function extractPlaceCandidatesFromText(value = "") {
+  const text = normalizeText(value);
+
+  if (!text) {
+    return [];
+  }
+
+  const rawCandidates = [];
+  const locationPhrasePattern =
+    /\b(?:in|at|near|around|through|towards?|to|from|inside|by|along)\s+([^.;:()]+)/gi;
+  const capitalizedPhrasePattern =
+    /\b[A-Z][A-Za-z'/-]*(?:\s+(?:[A-Z][A-Za-z'/-]*|of|the|and|\/)){0,5}/g;
+  let match;
+
+  while ((match = locationPhrasePattern.exec(text)) !== null) {
+    rawCandidates.push(match[1]);
+  }
+
+  rawCandidates.push(...(text.match(capitalizedPhrasePattern) ?? []));
+
+  if (rawCandidates.length === 0) {
+    rawCandidates.push(text);
+  }
+
+  const seen = new Set();
+  const candidates = [];
+
+  for (const rawCandidate of rawCandidates) {
+    const fragments = splitCandidateFragments(rawCandidate);
+
+    if (fragments.length === 0) {
+      pushUniquePlaceCandidate(candidates, seen, rawCandidate);
+      continue;
+    }
+
+    for (const fragment of fragments) {
+      pushUniquePlaceCandidate(candidates, seen, fragment);
+    }
+  }
+
+  return candidates;
+}
+
+function buildFallbackSearchQueries({
+  day,
+  aiPlanDay,
+  destination,
+}) {
+  const queries = [];
+  const seen = new Set();
+  const scopedDestination = normalizeText(destination);
+
+  function pushQuery(value = "") {
+    const query = normalizeText(value);
+    const key = query.toLowerCase();
+
+    if (!query || seen.has(key)) {
+      return;
+    }
+
+    seen.add(key);
+    queries.push(query);
+  }
+
+  pushQuery([normalizeText(day?.title), destination].filter(Boolean).join(" in "));
+  pushQuery([normalizeText(aiPlanDay?.title), destination].filter(Boolean).join(" in "));
+
+  const candidateTexts = [
+    day?.title,
+    aiPlanDay?.title,
+    ...(Array.isArray(aiPlanDay?.activities) ? aiPlanDay.activities : []),
+  ];
+
+  for (const text of candidateTexts) {
+    for (const candidate of extractPlaceCandidatesFromText(text)) {
+      pushQuery(
+        scopedDestination
+          ? `top sights in ${candidate}, ${scopedDestination}`
+          : candidate
+      );
+    }
+  }
+
+  return queries;
+}
+
+function clampNumber(value, min, max) {
+  if (!Number.isFinite(value)) {
+    return min;
+  }
+
+  return Math.min(max, Math.max(min, value));
+}
+
+function normalizeLabelKey(value = "") {
+  return normalizeText(value).toLowerCase();
+}
+
+function splitAddressParts(value = "") {
+  return normalizeText(value)
+    .split(",")
+    .map((part) => normalizeText(part))
+    .filter(Boolean);
+}
+
+function getDestinationPrimaryLabel(destination = "") {
+  return normalizeText(splitAddressParts(destination)[0], normalizeText(destination));
+}
+
+function isStreetLikeAddressPart(value = "") {
+  const text = normalizeText(value);
+
+  if (!text) {
+    return false;
+  }
+
+  return (
+    /\d/.test(text) ||
+    /\b(?:street|st|road|rd|avenue|ave|lane|ln|boulevard|blvd|drive|dr|jalan|jl|jln|gang|gg)\b/i.test(
+      text
+    )
+  );
+}
+
+function formatLocalityLabel(value = "") {
+  const normalized = normalizeText(value);
+
+  if (!normalized) {
+    return "";
+  }
+
+  return normalizeText(
+    normalized
+      .replace(
+        /\b(?:city|regency|prefecture|province|district|county|ward|municipality|region)\b/gi,
+        ""
+      )
+      .replace(/\s{2,}/g, " ")
+  );
+}
+
+function extractLocalityLabel(address = "", destination = "") {
+  const parts = splitAddressParts(address);
+  const destinationPrimary = getDestinationPrimaryLabel(destination);
+  const destinationCountry = normalizeText(splitAddressParts(destination).at(-1));
+  const destinationPrimaryKey = normalizeLabelKey(destinationPrimary);
+  const destinationCountryKey = normalizeLabelKey(destinationCountry);
+
+  const moreSpecificLocality = parts.find((part) => {
+    const key = normalizeLabelKey(part);
+
+    return (
+      key &&
+      key !== destinationPrimaryKey &&
+      key !== destinationCountryKey &&
+      !isStreetLikeAddressPart(part)
+    );
+  });
+
+  if (moreSpecificLocality) {
+    return formatLocalityLabel(moreSpecificLocality);
+  }
+
+  const destinationMatch = parts.find(
+    (part) =>
+      normalizeLabelKey(part) === destinationPrimaryKey &&
+      !isStreetLikeAddressPart(part)
+  );
+
+  if (destinationMatch) {
+    return formatLocalityLabel(destinationMatch);
+  }
+
+  const genericLocality = parts.find(
+    (part) =>
+      normalizeLabelKey(part) !== destinationCountryKey &&
+      !isStreetLikeAddressPart(part)
+  );
+
+  return formatLocalityLabel(genericLocality || destinationPrimary || destination);
+}
+
+function resolveDominantLocalityLabel(stops = [], destination = "") {
+  const counts = new Map();
+
+  for (const stop of Array.isArray(stops) ? stops : []) {
+    const localityLabel = extractLocalityLabel(stop?.location, destination);
+    const key = normalizeLabelKey(localityLabel);
+
+    if (!key) {
+      continue;
+    }
+
+    counts.set(key, {
+      label: localityLabel,
+      count: (counts.get(key)?.count ?? 0) + 1,
+    });
+  }
+
+  return (
+    Array.from(counts.values()).sort((left, right) => right.count - left.count)[0]
+      ?.label ?? formatLocalityLabel(getDestinationPrimaryLabel(destination) || destination)
+  );
 }
 
 function buildTimedFetchOptions(options = {}, timeoutMs) {
@@ -158,6 +499,184 @@ function calculateGreatCircleDistanceMeters(left = {}, right = {}) {
   );
 }
 
+function buildStopClusterMetrics(stops = []) {
+  const points = (Array.isArray(stops) ? stops : [])
+    .map((stop) => normalizeGeoCoordinates(stop?.geoCoordinates))
+    .filter((coordinates) => hasCoordinates(coordinates));
+
+  if (points.length === 0) {
+    return null;
+  }
+
+  const center = {
+    latitude:
+      points.reduce((total, point) => total + point.latitude, 0) / points.length,
+    longitude:
+      points.reduce((total, point) => total + point.longitude, 0) / points.length,
+  };
+  const radiusMeters = points.reduce(
+    (maximum, point) =>
+      Math.max(maximum, calculateGreatCircleDistanceMeters(point, center)),
+    0
+  );
+
+  return {
+    center,
+    radiusMeters,
+    points,
+  };
+}
+
+function clampViewportToBounds(viewport = null, bounds = null) {
+  if (!viewport) {
+    return null;
+  }
+
+  if (!bounds) {
+    return viewport;
+  }
+
+  const north = clampNumber(viewport.north, bounds.south, bounds.north);
+  const south = clampNumber(viewport.south, bounds.south, bounds.north);
+  const east = clampNumber(viewport.east, bounds.west, bounds.east);
+  const west = clampNumber(viewport.west, bounds.west, bounds.east);
+
+  if (north < south || east < west) {
+    return viewport;
+  }
+
+  return {
+    north,
+    south,
+    east,
+    west,
+  };
+}
+
+function buildDayClusterViewport(stops = [], fallbackBounds = null) {
+  const cluster = buildStopClusterMetrics(stops);
+
+  if (!cluster) {
+    return fallbackBounds ? { ...fallbackBounds } : null;
+  }
+
+  const latitudes = cluster.points.map((point) => point.latitude);
+  const longitudes = cluster.points.map((point) => point.longitude);
+  const north = Math.max(...latitudes);
+  const south = Math.min(...latitudes);
+  const east = Math.max(...longitudes);
+  const west = Math.min(...longitudes);
+  const latitudeSpan = north - south;
+  const longitudeSpan = east - west;
+  const latitudePadding = Math.max(
+    latitudeSpan * DEFAULT_LOCAL_VIEWPORT_PADDING_RATIO,
+    DEFAULT_LOCAL_VIEWPORT_MIN_SPAN / 2
+  );
+  const longitudePadding = Math.max(
+    longitudeSpan * DEFAULT_LOCAL_VIEWPORT_PADDING_RATIO,
+    DEFAULT_LOCAL_VIEWPORT_MIN_SPAN / 2
+  );
+
+  return clampViewportToBounds(
+    {
+      north: north + latitudePadding,
+      south: south - latitudePadding,
+      east: east + longitudePadding,
+      west: west - longitudePadding,
+    },
+    fallbackBounds
+  );
+}
+
+function buildMapCenter(viewport = null) {
+  if (!viewport) {
+    return null;
+  }
+
+  return {
+    latitude: Number(((viewport.north + viewport.south) / 2).toFixed(6)),
+    longitude: Number(((viewport.east + viewport.west) / 2).toFixed(6)),
+  };
+}
+
+function buildDayMapContext({
+  stops = [],
+  destination = "",
+  fallbackBounds = null,
+}) {
+  const usableStops = Array.isArray(stops) ? stops : [];
+  const hasClusterStops = usableStops.some((stop) => hasCoordinates(stop?.geoCoordinates));
+  const mapViewport = buildDayClusterViewport(usableStops, fallbackBounds);
+
+  return {
+    localityLabel: resolveDominantLocalityLabel(usableStops, destination),
+    mapViewport,
+    mapCenter: buildMapCenter(mapViewport),
+    viewportSource:
+      hasClusterStops && mapViewport ? "day_cluster" : fallbackBounds ? "destination_fallback" : "unavailable",
+  };
+}
+
+function filterLocalizedFallbackStops({
+  fallbackStops = [],
+  resolvedStops = [],
+  cityBounds = null,
+  destination = "",
+  maxStops = 8,
+}) {
+  const boundedStops = (Array.isArray(fallbackStops) ? fallbackStops : []).filter((stop) =>
+    isWithinBounds(stop?.geoCoordinates, cityBounds)
+  );
+  const candidateStops =
+    boundedStops.length > 0 ? boundedStops : Array.isArray(fallbackStops) ? fallbackStops : [];
+  const cluster = buildStopClusterMetrics(resolvedStops);
+  const dominantLocalityKey = normalizeLabelKey(
+    resolveDominantLocalityLabel(resolvedStops, destination)
+  );
+
+  const localizedStops = candidateStops.filter((stop) => {
+    const localityKey = normalizeLabelKey(
+      extractLocalityLabel(stop?.location, destination)
+    );
+
+    if (dominantLocalityKey && localityKey === dominantLocalityKey) {
+      return true;
+    }
+
+    if (!cluster) {
+      return true;
+    }
+
+    const distanceMeters = calculateGreatCircleDistanceMeters(
+      stop?.geoCoordinates,
+      cluster.center
+    );
+    const allowedRadiusMeters = Math.min(
+      MAX_LOCAL_CLUSTER_RADIUS_METERS,
+      Math.max(
+        DEFAULT_LOCAL_CLUSTER_RADIUS_METERS,
+        cluster.radiusMeters * 2.3 + 2_200
+      )
+    );
+
+    return distanceMeters <= allowedRadiusMeters;
+  });
+
+  return (localizedStops.length > 0 ? localizedStops : candidateStops).slice(0, maxStops);
+}
+
+function normalizeStopSource(value = "") {
+  const normalized = normalizeLabelKey(value);
+
+  return STOP_SOURCE_PRIORITY[normalized] ? normalized : "unknown";
+}
+
+function countInferredStops(stops = []) {
+  return (Array.isArray(stops) ? stops : []).filter(
+    (stop) => normalizeStopSource(stop?.source) === "inferred"
+  ).length;
+}
+
 function parseDurationSeconds(value) {
   if (typeof value === "number" && Number.isFinite(value)) {
     return value;
@@ -212,75 +731,77 @@ function isWithinBounds(coordinates = {}, bounds = null) {
 
 async function fetchFallbackStopsForDay({
   day,
+  aiPlanDay,
   destination,
   apiKey,
   fetchImpl,
   timeoutMs,
   maxStops,
 }) {
-  const query = normalizeText(
-    [normalizeText(day?.title), destination].filter(Boolean).join(" in ")
-  );
+  const queries = buildFallbackSearchQueries({
+    day,
+    aiPlanDay,
+    destination,
+  });
 
-  if (!apiKey || !query) {
+  if (!apiKey || queries.length === 0) {
     return [];
   }
-
-  const response = await fetchImpl(
-    GOOGLE_PLACES_TEXT_SEARCH_URL,
-    buildTimedFetchOptions(
-      {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          "X-Goog-Api-Key": apiKey,
-          "X-Goog-FieldMask": GOOGLE_PLACES_ROUTE_FIELD_MASK,
-        },
-        body: JSON.stringify({
-          textQuery: query,
-          languageCode: "en",
-          maxResultCount: Math.max(3, Math.min(maxStops, 8)),
-          rankPreference: "RELEVANCE",
-        }),
-      },
-      timeoutMs
-    )
-  );
-
-  if (!response.ok) {
-    const message = await parseErrorResponse(response);
-    console.warn("[routes] Fallback Places lookup failed", {
-      query,
-      message,
-    });
-    return [];
-  }
-
-  const payload = await response.json();
-  const places = Array.isArray(payload?.places) ? payload.places : [];
   const seen = new Set();
+  const fallbackStops = [];
+  const minimumUsefulStopCount = Math.min(maxStops, 4);
 
-  return places
-    .map((place, index) => {
+  for (const query of queries) {
+    const response = await fetchImpl(
+      GOOGLE_PLACES_TEXT_SEARCH_URL,
+      buildTimedFetchOptions(
+        {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "X-Goog-Api-Key": apiKey,
+            "X-Goog-FieldMask": GOOGLE_PLACES_ROUTE_FIELD_MASK,
+          },
+          body: JSON.stringify({
+            textQuery: query,
+            languageCode: "en",
+            maxResultCount: Math.max(3, Math.min(maxStops, 8)),
+            rankPreference: "RELEVANCE",
+          }),
+        },
+        timeoutMs
+      )
+    );
+
+    if (!response.ok) {
+      const message = await parseErrorResponse(response);
+      console.warn("[routes] Fallback Places lookup failed", {
+        query,
+        message,
+      });
+      continue;
+    }
+
+    const payload = await response.json();
+    const places = Array.isArray(payload?.places) ? payload.places : [];
+
+    for (const place of places) {
       const name = normalizeText(place?.displayName?.text);
-      if (!name) {
-        return null;
-      }
-
       const key = name.toLowerCase();
-      if (seen.has(key)) {
-        return null;
+
+      if (!name || seen.has(key)) {
+        continue;
       }
+
       seen.add(key);
-
       const geoCoordinates = normalizeGeoCoordinates(place?.location);
-
-      return {
-        id: `${day?.dayNumber ?? 0}-fallback-${index}`,
+      fallbackStops.push({
+        id: `${day?.dayNumber ?? 0}-fallback-${fallbackStops.length}`,
         dayNumber: day?.dayNumber,
-        stopIndex: index,
+        stopIndex: fallbackStops.length,
         name,
+        source: "inferred",
         location: normalizeText(place?.formattedAddress, destination),
         description: "",
         category: "point_of_interest",
@@ -293,10 +814,19 @@ async function fetchFallbackStopsForDay({
             coordinates: geoCoordinates,
           })
         ),
-      };
-    })
-    .filter(Boolean)
-    .slice(0, maxStops);
+      });
+
+      if (fallbackStops.length >= maxStops) {
+        return fallbackStops;
+      }
+    }
+
+    if (fallbackStops.length >= minimumUsefulStopCount) {
+      break;
+    }
+  }
+
+  return fallbackStops.slice(0, maxStops);
 }
 
 function findAiPlanDayByNumber(trip = {}, dayNumber) {
@@ -317,6 +847,14 @@ function mergeStopsWithPreference(primaryStops = [], secondaryStops = [], maxSto
     const incomingCoordinates = normalizeGeoCoordinates(incomingStop?.geoCoordinates);
     const existingHasCoordinates = hasCoordinates(existingCoordinates);
     const incomingHasCoordinates = hasCoordinates(incomingCoordinates);
+    const existingSource = normalizeStopSource(existingStop?.source);
+    const incomingSource = normalizeStopSource(incomingStop?.source);
+    const preferredSource =
+      !existingHasCoordinates && incomingHasCoordinates
+        ? incomingSource
+        : STOP_SOURCE_PRIORITY[incomingSource] > STOP_SOURCE_PRIORITY[existingSource]
+          ? incomingSource
+          : existingSource;
 
     return {
       ...existingStop,
@@ -341,6 +879,7 @@ function mergeStopsWithPreference(primaryStops = [], secondaryStops = [], maxSto
         !existingHasCoordinates && incomingHasCoordinates
           ? normalizeText(incomingStop?.mapsUrl, normalizeText(existingStop?.mapsUrl))
           : normalizeText(existingStop?.mapsUrl, normalizeText(incomingStop?.mapsUrl)),
+      source: preferredSource,
     };
   }
 
@@ -375,31 +914,59 @@ function createAiPlanDayStops(aiPlanDay = {}, destination = "", maxStopsPerDay =
   const activities = Array.isArray(aiPlanDay?.activities) ? aiPlanDay.activities : [];
   const details = normalizeText(aiPlanDay?.tips, "Planned activity from the itinerary.");
   const dayNumber = normalizeInteger(aiPlanDay?.day ?? aiPlanDay?.dayNumber, 0);
+  const uniqueStops = [];
+  const seen = new Set();
 
-  return activities
-    .map((activity, index) => {
-      const name = normalizeText(activity);
-      if (!name) {
-        return null;
-      }
+  function pushStop(name, description) {
+    const normalizedName = normalizeText(name);
+    const key = normalizedName.toLowerCase();
 
-      return {
-        id: `${dayNumber}-activity-${index}`,
-        dayNumber,
-        stopIndex: index,
-        name,
-        location: destination,
-        description: details,
-        category: "activity",
-        geoCoordinates: normalizeGeoCoordinates(null),
-        mapsUrl: buildGoogleMapsSearchUrl({
-          name,
-          destination,
-        }),
-      };
-    })
-    .filter(Boolean)
-    .slice(0, maxStopsPerDay);
+    if (!normalizedName || seen.has(key) || uniqueStops.length >= maxStopsPerDay) {
+      return;
+    }
+
+    seen.add(key);
+    uniqueStops.push({
+      id: `${dayNumber}-activity-${uniqueStops.length}`,
+      dayNumber,
+      stopIndex: uniqueStops.length,
+      name: normalizedName,
+      source: "ai_plan",
+      location: destination,
+      description: normalizeText(description, details),
+      category: "activity",
+      geoCoordinates: normalizeGeoCoordinates(null),
+      mapsUrl: buildGoogleMapsSearchUrl({
+        name: normalizedName,
+        destination,
+      }),
+    });
+  }
+
+  for (const activity of activities) {
+    const normalizedActivity = normalizeText(activity);
+    const extractedPlaces = extractPlaceCandidatesFromText(activity);
+
+    for (const candidate of extractedPlaces) {
+      pushStop(candidate, normalizedActivity || details);
+    }
+
+    if (extractedPlaces.length === 0 && isLikelyPlaceCandidate(normalizedActivity)) {
+      pushStop(normalizedActivity, details);
+    }
+
+    if (uniqueStops.length >= maxStopsPerDay) {
+      return uniqueStops;
+    }
+  }
+
+  if (uniqueStops.length < 2) {
+    for (const candidate of extractPlaceCandidatesFromText(aiPlanDay?.title)) {
+      pushStop(candidate, normalizeText(aiPlanDay?.title, details));
+    }
+  }
+
+  return uniqueStops;
 }
 
 function buildRouteCacheKey({
@@ -418,6 +985,7 @@ function buildRouteCacheKey({
     .map((day) => ({
       dayNumber: day.dayNumber,
       title: normalizeText(day.title),
+      aiPlanTitle: normalizeText(findAiPlanDayByNumber(trip, day.dayNumber)?.title),
       activities: Array.isArray(
         findAiPlanDayByNumber(trip, day.dayNumber)?.activities
       )
@@ -826,6 +1394,108 @@ function normalizeVisitOrder(visitOrder = [], nodeCount, startIndex, endIndex) {
   return normalizedOrder;
 }
 
+function reconstructShortestPath(previous = [], originIndex, destinationIndex) {
+  if (!Number.isInteger(originIndex) || !Number.isInteger(destinationIndex)) {
+    return [];
+  }
+
+  const path = [];
+  let currentIndex = destinationIndex;
+  const visited = new Set();
+
+  while (Number.isInteger(currentIndex) && !visited.has(currentIndex)) {
+    path.unshift(currentIndex);
+    if (currentIndex === originIndex) {
+      return path;
+    }
+    visited.add(currentIndex);
+    currentIndex = previous[currentIndex];
+  }
+
+  return path[0] === originIndex ? path : [];
+}
+
+function runDijkstraFastestOptimizer({
+  routeMatrix,
+  originIndex,
+  destinationIndex,
+}) {
+  const weightMatrix = createWeightMatrix(routeMatrix, "durationSeconds");
+  const shortestPathsFromOrigin = runDijkstraOnWeightMatrix(weightMatrix, originIndex);
+  const mst = runPrimOnWeightMatrix(weightMatrix);
+  const visitOrder = [originIndex];
+  const unvisited = new Set(
+    Array.from({ length: weightMatrix.length }, (_, index) => index)
+  );
+
+  unvisited.delete(originIndex);
+
+  if (Number.isInteger(destinationIndex) && destinationIndex !== originIndex) {
+    unvisited.delete(destinationIndex);
+  }
+
+  let currentIndex = originIndex;
+
+  while (unvisited.size > 0) {
+    const nextPaths = runDijkstraOnWeightMatrix(weightMatrix, currentIndex);
+    let nextIndex = null;
+    let nextDistance = Number.POSITIVE_INFINITY;
+
+    for (const candidateIndex of unvisited) {
+      const candidateDistance = nextPaths.distances[candidateIndex];
+
+      if (!Number.isFinite(candidateDistance) || candidateDistance >= nextDistance) {
+        continue;
+      }
+
+      nextDistance = candidateDistance;
+      nextIndex = candidateIndex;
+    }
+
+    if (!Number.isInteger(nextIndex)) {
+      break;
+    }
+
+    const pathIndices = reconstructShortestPath(
+      nextPaths.previous,
+      currentIndex,
+      nextIndex
+    );
+    const nextNodes =
+      pathIndices.length > 1
+        ? pathIndices.slice(1).filter((index) => unvisited.has(index))
+        : [nextIndex];
+
+    for (const nodeIndex of nextNodes) {
+      visitOrder.push(nodeIndex);
+      unvisited.delete(nodeIndex);
+      currentIndex = nodeIndex;
+    }
+  }
+
+  for (const remainingIndex of unvisited) {
+    visitOrder.push(remainingIndex);
+  }
+
+  if (Number.isInteger(destinationIndex) && destinationIndex !== originIndex) {
+    visitOrder.push(destinationIndex);
+  }
+
+  return {
+    algorithm: "dijkstra-fastest",
+    visitOrder: normalizeVisitOrder(
+      visitOrder,
+      weightMatrix.length,
+      originIndex,
+      destinationIndex
+    ) ?? visitOrder,
+    totalWeight: calculatePathWeight(weightMatrix, visitOrder),
+    shortestPathsFromOrigin: shortestPathsFromOrigin.distances,
+    previous: shortestPathsFromOrigin.previous,
+    mst,
+  };
+}
+
 function runLocalRouteOptimizerOnWeightMatrix({
   weightMatrix,
   algorithm = "js-nearest-neighbor-2opt",
@@ -988,6 +1658,7 @@ async function geocodeStopWithPlaces({
   fetchImpl,
   timeoutMs,
   geocodeCache,
+  cityBounds = null,
 }) {
   const query = normalizeText([stop.name, destination].filter(Boolean).join(", "));
   if (!query || !apiKey) {
@@ -1019,7 +1690,7 @@ async function geocodeStopWithPlaces({
           body: JSON.stringify({
             textQuery: query,
             languageCode: "en",
-            maxResultCount: 1,
+            maxResultCount: 5,
             rankPreference: "RELEVANCE",
           }),
         },
@@ -1035,7 +1706,11 @@ async function geocodeStopWithPlaces({
     }
 
     const payload = await response.json();
-    const place = Array.isArray(payload?.places) ? payload.places[0] : null;
+    const places = Array.isArray(payload?.places) ? payload.places : [];
+    const place =
+      places.find((candidate) =>
+        isWithinBounds(candidate?.location, cityBounds)
+      ) ?? places[0] ?? null;
 
     if (!place?.location) {
       return null;
@@ -1317,6 +1992,7 @@ function createRawDayStops({
       dayNumber: day.dayNumber,
       stopIndex: uniqueStops.length,
       name,
+      source: "itinerary",
       location: normalizeText(place?.location ?? destination, destination),
       description: normalizeText(place?.placeDetails ?? place?.description),
       category: normalizeText(place?.category),
@@ -1352,10 +2028,12 @@ function buildMarkersFromOrderedStops(orderedStops = []) {
       return {
         id: stop.id ?? `${index + 1}-${stop.name ?? "stop"}`,
         name: normalizeText(stop.name, `Stop ${index + 1}`),
+        location: normalizeText(stop.location),
         latitude: coordinates.latitude,
         longitude: coordinates.longitude,
         visitOrder: index + 1,
         mapsUrl: normalizeText(stop.mapsUrl),
+        source: normalizeStopSource(stop?.source),
       };
     })
     .filter(Boolean);
@@ -1366,6 +2044,7 @@ function formatRouteWarning({
   usedEstimatedFallback,
   unresolvedStops,
   truncatedStops,
+  usedFallbackPlaces = false,
 }) {
   const warnings = [];
 
@@ -1389,6 +2068,12 @@ function formatRouteWarning({
     );
   }
 
+  if (usedFallbackPlaces) {
+    warnings.push(
+      "Some day stops were inferred from Google Places because the itinerary text could not be geocoded directly."
+    );
+  }
+
   return warnings.join(" ");
 }
 
@@ -1405,6 +2090,63 @@ function formatMstWithStopNames(mst = {}, stops = []) {
         }))
       : [],
   };
+}
+
+function buildRouteGraphPayload({
+  optimizerResult = {},
+  weightMetric = "duration_seconds",
+}) {
+  return {
+    algorithm: normalizeText(optimizerResult?.algorithm),
+    weightMetric,
+    totalWeight: roundFinite(optimizerResult?.totalWeight),
+    shortestPaths: Array.isArray(optimizerResult?.shortestPathsFromOrigin)
+      ? optimizerResult.shortestPathsFromOrigin.map(roundFinite)
+      : [],
+    previous: Array.isArray(optimizerResult?.previous)
+      ? optimizerResult.previous.map((value) =>
+          Number.isInteger(value) ? value : null
+        )
+      : [],
+  };
+}
+
+function buildSegmentDetails({
+  orderedStopsWithGraphIndex = [],
+  routeMatrix = [],
+  shortestPaths = [],
+}) {
+  const details = [];
+  let cumulativeDistanceMeters = 0;
+  let cumulativeDurationSeconds = 0;
+
+  for (let index = 0; index < orderedStopsWithGraphIndex.length - 1; index += 1) {
+    const originStop = orderedStopsWithGraphIndex[index];
+    const destinationStop = orderedStopsWithGraphIndex[index + 1];
+    const segment = routeMatrix[originStop.graphIndex]?.[destinationStop.graphIndex];
+    const distanceMeters = roundFinite(segment?.distanceMeters) ?? 0;
+    const durationSeconds = roundFinite(segment?.durationSeconds) ?? 0;
+
+    cumulativeDistanceMeters += distanceMeters;
+    cumulativeDurationSeconds += durationSeconds;
+
+    details.push({
+      segmentNumber: index + 1,
+      fromId: originStop.id,
+      fromName: originStop.name,
+      toId: destinationStop.id,
+      toName: destinationStop.name,
+      distanceMeters,
+      durationSeconds,
+      cumulativeDistanceMeters,
+      cumulativeDurationSeconds,
+      shortestPathFromStartSeconds: roundFinite(
+        shortestPaths?.[destinationStop.graphIndex]
+      ),
+    });
+  }
+
+  return details;
 }
 
 function estimateRouteCost({
@@ -1690,10 +2432,12 @@ export function createTripRouteService({
         ? aiPlanDay.activities.filter((activity) => normalizeText(activity)).length
         : 0;
       let truncatedStops = Math.max(itineraryStopCount, aiActivityCount) > dayStops.length;
+      let usedFallbackPlaces = false;
 
       if (dayStops.length < 2) {
         const fallbackStops = await fetchFallbackStopsForDay({
           day,
+          aiPlanDay,
           destination,
           apiKey: placesApiKey,
           fetchImpl,
@@ -1704,6 +2448,7 @@ export function createTripRouteService({
         if (fallbackStops.length >= 2) {
           dayStops = fallbackStops;
           truncatedStops = false;
+          usedFallbackPlaces = true;
           console.info("[routes] Applied fallback Places stops for day", {
             dayNumber: day.dayNumber,
             destination,
@@ -1756,6 +2501,7 @@ export function createTripRouteService({
             usedEstimatedFallback: false,
             unresolvedStops: [],
             truncatedStops,
+            usedFallbackPlaces,
           }),
           unresolvedStops: [],
           cityBounds,
@@ -1763,41 +2509,80 @@ export function createTripRouteService({
         continue;
       }
 
-      const resolvedStops = [];
-      const unresolvedStops = [];
-
-      for (const stop of dayStops) {
-        if (hasCoordinates(stop.geoCoordinates)) {
-          if (isWithinBounds(stop.geoCoordinates, cityBounds)) {
-            resolvedStops.push(stop);
+      let resolvedStops = [];
+      let unresolvedStops = [];
+      const geocodeResults = await Promise.all(
+        dayStops.map(async (stop) => {
+          if (hasCoordinates(stop.geoCoordinates)) {
+            return {
+              stop,
+              geocodedStop: {
+                geoCoordinates: normalizeGeoCoordinates(stop.geoCoordinates),
+                location: stop.location,
+                mapsUrl: stop.mapsUrl,
+              },
+            };
           }
-          continue;
-        }
 
-        const geocodedStop = await geocodeStopWithPlaces({
-          stop,
-          destination,
-          apiKey: placesApiKey,
-          fetchImpl,
-          timeoutMs,
-          geocodeCache,
-        });
+          const geocodedStop = await geocodeStopWithPlaces({
+            stop,
+            destination,
+            apiKey: placesApiKey,
+            fetchImpl,
+            timeoutMs,
+            geocodeCache,
+            cityBounds,
+          });
 
-        if (
-          !geocodedStop?.geoCoordinates ||
-          !hasCoordinates(geocodedStop.geoCoordinates) ||
-          !isWithinBounds(geocodedStop.geoCoordinates, cityBounds)
-        ) {
-          unresolvedStops.push(stop);
+          return {
+            stop,
+            geocodedStop,
+          };
+        })
+      );
+
+      for (const result of geocodeResults) {
+        const coordinates = normalizeGeoCoordinates(result?.geocodedStop?.geoCoordinates);
+
+        if (!hasCoordinates(coordinates) || !isWithinBounds(coordinates, cityBounds)) {
+          unresolvedStops.push(result.stop);
           continue;
         }
 
         resolvedStops.push({
-          ...stop,
-          geoCoordinates: geocodedStop.geoCoordinates,
-          location: geocodedStop.location,
-          mapsUrl: geocodedStop.mapsUrl,
+          ...result.stop,
+          geoCoordinates: coordinates,
+          location: normalizeText(result?.geocodedStop?.location, result.stop.location),
+          mapsUrl: normalizeText(result?.geocodedStop?.mapsUrl, result.stop.mapsUrl),
         });
+      }
+
+      if (resolvedStops.length < 2) {
+        const fallbackStops = (await fetchFallbackStopsForDay({
+          day,
+          aiPlanDay,
+          destination,
+          apiKey: placesApiKey,
+          fetchImpl,
+          timeoutMs,
+          maxStops: maxStopsPerDay,
+        })).filter((stop) => isWithinBounds(stop.geoCoordinates, cityBounds));
+
+        const mergedResolvedStops = mergeStopsWithPreference(
+          resolvedStops,
+          fallbackStops,
+          maxStopsPerDay
+        );
+
+        if (mergedResolvedStops.length >= 2) {
+          resolvedStops = mergedResolvedStops;
+          usedFallbackPlaces = true;
+          console.info("[routes] Filled missing geocoded stops with fallback Places results", {
+            dayNumber: day.dayNumber,
+            destination,
+            resolvedStopCount: resolvedStops.length,
+          });
+        }
       }
 
       if (resolvedStops.length < 2) {
@@ -1838,6 +2623,7 @@ export function createTripRouteService({
             usedEstimatedFallback: false,
             unresolvedStops,
             truncatedStops,
+            usedFallbackPlaces,
           }),
           unresolvedStops,
           cityBounds,
@@ -2089,6 +2875,7 @@ export function createTripRouteService({
           usedEstimatedFallback: matrixResult.usedEstimatedFallback,
           unresolvedStops,
           truncatedStops,
+          usedFallbackPlaces,
         }),
         unresolvedStops: unresolvedStops.map((stop) => ({
           id: stop.id,
