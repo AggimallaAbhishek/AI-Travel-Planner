@@ -20,7 +20,6 @@ import {
 import { getRoutesForTrip } from "../services/routeOptimization.js";
 import { getStaticCityBasemap } from "../services/cityStaticMap.js";
 import { buildTripCityMapPayload } from "../services/tripCityMap.js";
-import { getUnifiedTripMap } from "../services/unifiedTripMap.js";
 import {
   normalizeAlternativesCount,
   normalizeTripConstraints,
@@ -115,34 +114,6 @@ export function resolveTripGenerationFailure(error) {
   const errorCode = String(error?.code ?? "");
   const normalizedErrorCode = errorCode.toLowerCase();
   const errorStage = String(error?.stage ?? "").toLowerCase();
-  const isPostgresConfigured = Boolean(String(process.env.DATABASE_URL ?? "").trim());
-
-  if (
-    normalizedErrorCode.includes("database/not-configured") ||
-    normalizedErrorCode.includes("database/invalid-table-name") ||
-    errorText.includes("database_url is not configured")
-  ) {
-    return {
-      status: 500,
-      message:
-        "Trip generation completed, but PostgreSQL persistence is not configured.",
-      hint:
-        "Set DATABASE_URL for the backend, keep TRIPS_TABLE_NAME alphanumeric/underscore only, or switch TRIP_PERSISTENCE_BACKEND back to firestore.",
-    };
-  }
-
-  if (
-    normalizedErrorCode.includes("database/connection-failed") ||
-    errorText.includes("postgresql connection failed")
-  ) {
-    return {
-      status: 500,
-      message:
-        "Trip generation completed, but the trip could not be saved to PostgreSQL.",
-      hint:
-        "Verify DATABASE_URL, RDS connectivity, database credentials, SSL mode, and security-group access.",
-    };
-  }
 
   if (
     includesAny(errorText, [
@@ -296,13 +267,9 @@ export function resolveTripGenerationFailure(error) {
     return {
       status: 500,
       message:
-        isPostgresConfigured
-          ? "Trip generation completed, but saving the trip failed. Verify PostgreSQL connectivity and persistence configuration."
-          : "Trip generation completed, but saving the trip failed. Verify Firestore setup and Firebase Admin credentials.",
+        "Trip generation completed, but saving the trip failed. Verify Firestore setup and Firebase Admin credentials.",
       hint:
-        isPostgresConfigured
-          ? "Check DATABASE_URL, ensure the RDS database is reachable from the backend, and verify the trips table can be created."
-          : "Check FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY, and ensure Firestore exists in Native mode for that project.",
+        "Check FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY, and ensure Firestore exists in Native mode for that project.",
     };
   }
 
@@ -503,66 +470,6 @@ router.get("/trips/:tripId/recommendations", requireAuth, async (req, res) => {
   }
 });
 
-router.get("/trips/:tripId/map", requireAuth, async (req, res) => {
-  try {
-    let trip = await getTripForUser({
-      tripId: req.params.tripId,
-      user: req.user,
-    });
-
-    if (!trip) {
-      res.status(404).json({
-        message: "Trip not found.",
-      });
-      return;
-    }
-
-    if (trip === "forbidden") {
-      res.status(403).json({
-        message: "You do not have access to this trip.",
-      });
-      return;
-    }
-
-    try {
-      const enrichmentResult = await backfillTripMapEnrichment({
-        trip,
-        logContext: "unified map",
-      });
-      trip = enrichmentResult.trip;
-    } catch (error) {
-      console.warn("[trips] Trip unified map enrichment backfill failed", {
-        tripId: trip.id,
-        message: getErrorText(error),
-      });
-    }
-
-    const tripMap = await getUnifiedTripMap({
-      trip,
-      dayNumber: req.query.day,
-    });
-
-    res.json({ tripMap });
-  } catch (error) {
-    const resolvedFailure = resolveDependentServiceFailure(error, {
-      fallbackMessage: "Unable to load the trip map right now.",
-      timeoutMessage:
-        "The trip map timed out while loading route and place data. Please try again.",
-      providerMessage:
-        "The trip map is temporarily unavailable because a routing or place provider could not respond.",
-    });
-    console.error("[trips] Failed to load unified trip map", {
-      tripId: req.params.tripId,
-      message: getErrorText(error),
-      resolvedMessage: resolvedFailure.message,
-    });
-    res.status(resolvedFailure.status).json({
-      message: resolvedFailure.message,
-    });
-  }
-});
-
-// Deprecated internal endpoint retained during unified-map migration.
 router.get("/trips/:tripId/city-map", requireAuth, async (req, res) => {
   try {
     let trip = await getTripForUser({
@@ -635,7 +542,6 @@ router.get("/trips/:tripId/city-map", requireAuth, async (req, res) => {
   }
 });
 
-// Deprecated internal endpoint retained during unified-map migration.
 router.get("/trips/:tripId/routes", requireAuth, async (req, res) => {
   try {
     let trip = await getTripForUser({
