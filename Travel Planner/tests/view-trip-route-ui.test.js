@@ -12,10 +12,6 @@ const cityItineraryMapPath = path.resolve(
   process.cwd(),
   "src/view-trip/components/CityItineraryMapSection.jsx"
 );
-const placesToVisitPath = path.resolve(
-  process.cwd(),
-  "src/view-trip/components/PlacesToVisit.jsx"
-);
 const mainRouterPath = path.resolve(process.cwd(), "src/main.jsx");
 const createTripPagePath = path.resolve(
   process.cwd(),
@@ -39,24 +35,17 @@ test("trip page renders the city itinerary map instead of the unified trip map",
   assert.equal(source.includes("clearTripMapCache"), false);
 });
 
-test("city itinerary map renders the compact static mini-map layout", () => {
+test("city itinerary map uses the static city-map endpoint and outline-based layout", () => {
   const source = fs.readFileSync(cityItineraryMapPath, "utf8");
 
   assert.equal(source.includes("fetchTripCityMap"), true);
-  assert.equal(source.includes("Static Mini Map"), true);
-  assert.equal(source.includes("Day snapshot"), true);
+  assert.equal(source.includes("buildCityMapDistanceMatrix"), true);
+  assert.equal(source.includes("buildZoomedCityMapBounds"), true);
   assert.equal(source.includes("clipPath"), true);
-  assert.equal(source.includes("Approximate pairwise distances"), false);
+  assert.equal(source.includes("Zoom in city map"), true);
+  assert.equal(source.includes("Approximate pairwise distances"), true);
   assert.equal(source.includes("Supplemental transport context"), false);
   assert.equal(source.includes("Nearby arrival and local transit references"), false);
-});
-
-test("places to visit keeps the detailed day-by-day plan and algorithm-based route legs", () => {
-  const source = fs.readFileSync(placesToVisitPath, "utf8");
-
-  assert.equal(source.includes("Your Journey Itinerary"), true);
-  assert.equal(source.includes("Approximate route legs"), true);
-  assert.equal(source.includes("algorithm-based distance estimates"), true);
 });
 
 test("main router does not expose the unified trip map preview route", () => {

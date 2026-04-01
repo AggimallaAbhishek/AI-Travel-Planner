@@ -1,12 +1,14 @@
 import React, { useEffect, useId, useMemo, useState } from "react";
-import { MapPin, Navigation } from "lucide-react";
+import { MapPin, Minus, Navigation, Plus, RotateCcw } from "lucide-react";
 import {
+  buildZoomedCityMapBounds,
   buildCityMapDistanceMatrix,
   buildCityMapFeaturePath,
   buildCityMapOutlinePath,
   CITY_ITINERARY_MAP_CANVAS,
   createCityMapMarkerLayout,
   formatCityMapDistance,
+  getCityMapOutlineCentroid,
   isProjectedPointInsidePolygons,
   projectCityMapOutline,
   resolveCityMapBounds,
@@ -50,18 +52,28 @@ function getDayAccent(dayNumber = 1) {
   return DAY_ACCENTS[index % DAY_ACCENTS.length];
 }
 
-function buildPinPath(size = 9) {
-  const topY = -size * 1.02;
-  const shoulderY = -size * 0.14;
-  const halfWidth = size * 0.5;
-  const tipY = size * 0.92;
+function buildPinPath(size = 12) {
+  const topY = -size * 1.05;
+  const shoulderY = -size * 0.18;
+  const halfWidth = size * 0.58;
+  const tipY = size;
 
   return [
     `M 0 ${tipY}`,
-    `C ${size * 0.68} ${size * 0.38}, ${halfWidth} ${shoulderY}, 0 ${topY}`,
-    `C ${-halfWidth} ${shoulderY}, ${-size * 0.68} ${size * 0.38}, 0 ${tipY}`,
+    `C ${size * 0.74} ${size * 0.42}, ${halfWidth} ${shoulderY}, 0 ${topY}`,
+    `C ${-halfWidth} ${shoulderY}, ${-size * 0.74} ${size * 0.42}, 0 ${tipY}`,
     "Z",
   ].join(" ");
+}
+
+function clampLabelX(value, labelWidth) {
+  const min = CITY_ITINERARY_MAP_CANVAS.inset;
+  const max =
+    CITY_ITINERARY_MAP_CANVAS.width -
+    CITY_ITINERARY_MAP_CANVAS.inset -
+    labelWidth;
+
+  return Math.min(Math.max(value, min), Math.max(min, max));
 }
 
 function flattenPlacesFromDays(days = [], destination = "") {
@@ -88,8 +100,14 @@ function flattenPlacesFromDays(days = [], destination = "") {
         dayNumber,
         dayTitle,
         accent,
+        indexWithinDay: placeIndex + 1,
         placeName: normalizeText(place?.placeName ?? place?.name, "Recommended stop"),
+        placeDetails: normalizeText(place?.placeDetails ?? place?.description),
         location: normalizeText(place?.location, destination),
+        geocodeStatus: normalizeText(
+          place?.geocodeStatus,
+          isResolved ? "resolved" : "unresolved"
+        ),
         coordinates,
         isResolved,
         isPinned,
@@ -113,15 +131,10 @@ function groupPlacesByDay(places = []) {
       dayNumber: place.dayNumber,
       dayTitle: place.dayTitle,
       accent: place.accent,
-      totalPlaces: 0,
-      mappedPlaces: 0,
+      places: [],
     };
 
-    group.totalPlaces += 1;
-    if (place.isPinned) {
-      group.mappedPlaces += 1;
-    }
-
+    group.places.push(place);
     grouped.set(place.dayNumber, group);
   }
 
@@ -136,32 +149,36 @@ function openGoogleMaps(url = "") {
   window.open(url, "_blank", "noopener,noreferrer");
 }
 
+function buildPlaceMatrixLabel(place = {}) {
+  return `D${place.dayNumber}-${place.indexWithinDay}`;
+}
+
 function getRoadStrokeWidth(kind = "") {
   const normalizedKind = normalizeText(kind).toLowerCase();
 
   if (normalizedKind === "motorway" || normalizedKind === "trunk") {
-    return 4.2;
+    return 4.8;
   }
 
   if (normalizedKind === "primary" || normalizedKind === "secondary") {
-    return 2.8;
+    return 3.2;
   }
 
-  return 1.6;
+  return 1.8;
 }
 
 function getRoadStrokeOpacity(kind = "") {
   const normalizedKind = normalizeText(kind).toLowerCase();
 
   if (normalizedKind === "motorway" || normalizedKind === "trunk") {
-    return 0.4;
+    return 0.42;
   }
 
   if (normalizedKind === "primary" || normalizedKind === "secondary") {
-    return 0.28;
+    return 0.32;
   }
 
-  return 0.16;
+  return 0.18;
 }
 
 function useProjectedBasemapFeatures(basemap, bounds) {
@@ -191,6 +208,8 @@ function useProjectedBasemapFeatures(basemap, bounds) {
 }
 
 export default function CityItineraryMapSection({ trip, reloadToken = 0 }) {
+  const [activePlaceId, setActivePlaceId] = useState("");
+  const [zoomLevel, setZoomLevel] = useState(1);
   const [cityMapState, setCityMapState] = useState(INITIAL_CITY_MAP_STATE);
   const outlineClipId = useId().replace(/:/g, "");
 
@@ -224,7 +243,7 @@ export default function CityItineraryMapSection({ trip, reloadToken = 0 }) {
           return;
         }
 
-        console.error("[city-itinerary-map] Failed to load mini city map", {
+        console.error("[city-itinerary-map] Failed to load static city map", {
           tripId: trip.id,
           message: error?.message,
         });
@@ -233,7 +252,7 @@ export default function CityItineraryMapSection({ trip, reloadToken = 0 }) {
           cityMap: null,
           loading: false,
           errorMessage:
-            error?.message ?? "Unable to load the destination map right now.",
+            error?.message ?? "Unable to load the destination city map right now.",
         });
       }
     }
@@ -242,6 +261,11 @@ export default function CityItineraryMapSection({ trip, reloadToken = 0 }) {
 
     return () => controller.abort();
   }, [reloadToken, trip?.id]);
+
+  useEffect(() => {
+    setActivePlaceId("");
+    setZoomLevel(1);
+  }, [trip?.id]);
 
   const destination =
     cityMapState.cityMap?.destination ?? getDestinationLabel(trip);
@@ -279,29 +303,43 @@ export default function CityItineraryMapSection({ trip, reloadToken = 0 }) {
       }),
     [basemap?.cityBounds, cityMapState.cityMap?.cityBounds, pinnedPlaces, trip?.mapEnrichment?.cityBounds]
   );
+  const defaultFocusCoordinates = useMemo(
+    () => getCityMapOutlineCentroid(outline, bounds),
+    [bounds, outline]
+  );
+  const activePlace = useMemo(
+    () => pinnedPlaces.find((place) => place.id === activePlaceId) ?? null,
+    [activePlaceId, pinnedPlaces]
+  );
+  const viewBounds = useMemo(
+    () =>
+      buildZoomedCityMapBounds({
+        bounds,
+        outline,
+        focusCoordinates: activePlace?.coordinates ?? defaultFocusCoordinates,
+        zoomLevel,
+      }),
+    [activePlace?.coordinates, bounds, defaultFocusCoordinates, outline, zoomLevel]
+  );
   const projectedOutline = useMemo(
-    () => projectCityMapOutline(outline, bounds, CITY_ITINERARY_MAP_CANVAS),
-    [outline, bounds]
+    () => projectCityMapOutline(outline, viewBounds, CITY_ITINERARY_MAP_CANVAS),
+    [outline, viewBounds]
   );
   const outlinePath = useMemo(
-    () => buildCityMapOutlinePath(outline, bounds, CITY_ITINERARY_MAP_CANVAS),
-    [outline, bounds]
+    () => buildCityMapOutlinePath(outline, viewBounds, CITY_ITINERARY_MAP_CANVAS),
+    [outline, viewBounds]
   );
   const markers = useMemo(
     () =>
       createCityMapMarkerLayout(pinnedPlaces, {
-        bounds,
+        bounds: viewBounds,
         canvas: CITY_ITINERARY_MAP_CANVAS,
-        minDistance: 16,
-        step: 6,
+        minDistance: 18,
+        step: 7,
         containsPoint: (point) =>
           isProjectedPointInsidePolygons(point, projectedOutline.polygons),
       }),
-    [bounds, pinnedPlaces, projectedOutline.polygons]
-  );
-  const { roadPaths, waterPaths, parkPaths } = useProjectedBasemapFeatures(
-    basemap,
-    bounds
+    [pinnedPlaces, projectedOutline.polygons, viewBounds]
   );
   const distanceMatrix = useMemo(
     () => buildCityMapDistanceMatrix(pinnedPlaces),
@@ -320,288 +358,444 @@ export default function CityItineraryMapSection({ trip, reloadToken = 0 }) {
       }, largestDistance);
     }, 0);
   }, [distanceMatrix]);
+  const { roadPaths, waterPaths, parkPaths } = useProjectedBasemapFeatures(
+    basemap,
+    viewBounds
+  );
 
-  const hasMapFrame = Boolean(bounds) || markers.length > 0 || destination;
+  const mappedPinsLabel = `${markers.length} pin${markers.length === 1 ? "" : "s"}`;
+  const unresolvedLabel =
+    unresolvedPlaces.length > 0
+      ? `${unresolvedPlaces.length} unresolved`
+      : "All visible stops mapped";
+  const hasMapFrame = Boolean(viewBounds) || markers.length > 0 || destination;
   const hasOutline = projectedOutline.polygons.length > 0;
   const hasBasemapFeatures =
     roadPaths.length + waterPaths.length + parkPaths.length > 0;
+  const mapSource =
+    cityMapState.cityMap?.mapSource ??
+    cityMapState.cityMap?.basemap?.mapSource ??
+    basemap?.mapSource ??
+    basemap?.source ??
+    "fallback_bounds";
   const showOverlay = markers.length === 0;
   const overlayHeading = cityMapState.loading
-    ? "Loading mini map"
-    : "Mini map is getting ready";
+    ? "Loading destination map"
+    : "We’re still locating itinerary stops";
   const overlayMessage = cityMapState.errorMessage
     ? cityMapState.errorMessage
     : hasBasemapFeatures
-      ? `The destination basemap for ${destination} is ready. Pins will appear as recognized stops are mapped.`
-      : `The destination shell for ${destination} is ready. Pins will appear as itinerary stops are recognized.`;
+      ? `The prebuilt city basemap for ${destination} is ready. Pins will appear here as itinerary stops are recognized and geocoded.`
+      : `The city map shell is ready for ${destination}. Pins will appear here as enough itinerary places are recognized and geocoded.`;
+  const canZoomOut = zoomLevel > 1;
+  const canZoomIn = zoomLevel < 4;
 
   return (
     <section className="mt-10 rounded-[2rem] border border-[var(--voy-border)] bg-[var(--voy-surface)] p-6 shadow-md md:p-8">
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <p className="text-xs uppercase tracking-[0.24em] text-[var(--voy-accent)]">
-            Static Mini Map
+            City Itinerary Map
           </p>
           <h2 className="mt-2 text-3xl font-semibold text-[var(--voy-text)]">
             {destination}
           </h2>
           <p className="mt-3 max-w-3xl text-sm leading-7 text-[var(--voy-text-muted)]">
-            A compact static map keeps the destination visible at a glance. The full
-            day-by-day plan and algorithm-based distance estimates continue below.
+            All recognized stops across this itinerary are pinned inside the destination
+            outline. Click a pin or place name to open that stop directly in Google
+            Maps.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--voy-text-muted)]">
-          <span className="rounded-full border border-[var(--voy-border)] bg-white/80 px-4 py-2">
-            {markers.length} mapped pin{markers.length === 1 ? "" : "s"}
+          <span className="rounded-full border border-[var(--voy-border)] bg-[rgba(255,255,255,0.72)] px-4 py-2">
+            {mappedPinsLabel}
           </span>
-          <span className="rounded-full border border-[var(--voy-border)] bg-white/80 px-4 py-2">
+          <span className="rounded-full border border-[var(--voy-border)] bg-[rgba(255,255,255,0.72)] px-4 py-2">
+            {unresolvedLabel}
+          </span>
+          <span className="rounded-full border border-[var(--voy-border)] bg-[rgba(255,255,255,0.72)] px-4 py-2">
             {groupedPlaces.length} day{groupedPlaces.length === 1 ? "" : "s"}
-          </span>
-          <span className="rounded-full border border-[var(--voy-border)] bg-white/80 px-4 py-2">
-            {formatCityMapDistance(approximateSpanMeters)} max span
           </span>
         </div>
       </div>
 
-      <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1.15fr)_320px]">
-        <div className="rounded-[1.6rem] border border-[rgba(24,39,75,0.08)] bg-[linear-gradient(180deg,rgba(246,248,252,0.98)_0%,rgba(239,244,250,0.98)_100%)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)]">
-          <div className="mb-3 flex items-center justify-between gap-3 flex-wrap">
-            <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-[var(--voy-text-faint)]">
-                Destination snapshot
-              </p>
-              <p className="mt-1 text-base font-semibold text-[var(--voy-text)]">
-                {destination}
-              </p>
-            </div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(24,39,75,0.08)] bg-white/80 px-3 py-2 text-xs font-medium text-[var(--voy-text-muted)]">
-              <Navigation className="h-4 w-4" />
-              Click pins to open Google Maps
-            </div>
-          </div>
+      <div className="mt-8 space-y-6">
+        <div className="rounded-[1.75rem] border border-[rgba(24,39,75,0.08)] bg-[linear-gradient(180deg,rgba(246,248,252,0.98)_0%,rgba(239,244,250,0.98)_100%)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] md:p-6">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-[0.22em] text-[var(--voy-text-faint)]">
+                  Destination viewport
+                </p>
+                <p className="mt-1 text-lg font-semibold text-[var(--voy-text)]">
+                  {destination}
+                </p>
+                <p className="mt-2 max-w-3xl text-sm leading-7 text-[var(--voy-text-muted)]">
+                  The map stays constrained to the destination outline and now uses a
+                  {mapSource === "prebuilt_city_map"
+                    ? " prebuilt local basemap"
+                    : " destination outline shell"}{" "}
+                  plus Google Maps clickthrough on each resolved stop.
+                </p>
+              </div>
 
-          <div
-            className="relative overflow-hidden rounded-[1.4rem] border border-[rgba(24,39,75,0.08)] bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.98),rgba(239,244,250,0.9)_58%,rgba(226,234,245,0.94)_100%)]"
-            style={{
-              aspectRatio: "16 / 9",
-              minHeight: "220px",
-            }}
-          >
-            {hasMapFrame ? (
-              <svg
-                viewBox={`0 0 ${CITY_ITINERARY_MAP_CANVAS.width} ${CITY_ITINERARY_MAP_CANVAS.height}`}
-                className="block h-full w-full"
-                role="img"
-                aria-label={`${destination} mini itinerary map`}
-              >
-                <defs>
-                  <pattern
-                    id="city-itinerary-mini-grid"
-                    width="72"
-                    height="72"
-                    patternUnits="userSpaceOnUse"
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <div className="flex items-center gap-2 rounded-full border border-[rgba(24,39,75,0.08)] bg-white/80 px-3 py-2 text-xs font-medium text-[var(--voy-text-muted)]">
+                  <Navigation className="h-4 w-4" />
+                  Click pins to open Google Maps
+                </div>
+                <div className="flex items-center gap-1 rounded-full border border-[rgba(24,39,75,0.08)] bg-white/80 px-2 py-1.5 text-xs font-medium text-[var(--voy-text-muted)]">
+                  <button
+                    type="button"
+                    aria-label="Zoom out city map"
+                    className="rounded-full p-1 transition hover:bg-[rgba(24,39,75,0.06)] disabled:cursor-not-allowed disabled:opacity-45"
+                    onClick={() => setZoomLevel((current) => Math.max(1, current - 1))}
+                    disabled={!canZoomOut}
                   >
-                    <path
-                      d="M 72 0 L 0 0 0 72"
-                      fill="none"
-                      stroke="rgba(72, 99, 137, 0.08)"
-                      strokeWidth="1"
-                    />
-                  </pattern>
-                  {hasOutline ? (
-                    <clipPath id={outlineClipId}>
-                      {projectedOutline.polygons.map((polygon, index) => (
-                        <path key={`clip-${index}`} d={polygon.path} />
-                      ))}
-                    </clipPath>
-                  ) : null}
-                </defs>
-
-                <rect
-                  x="0"
-                  y="0"
-                  width={CITY_ITINERARY_MAP_CANVAS.width}
-                  height={CITY_ITINERARY_MAP_CANVAS.height}
-                  fill="rgba(255,255,255,0.82)"
-                />
-                <rect
-                  x="0"
-                  y="0"
-                  width={CITY_ITINERARY_MAP_CANVAS.width}
-                  height={CITY_ITINERARY_MAP_CANVAS.height}
-                  fill="url(#city-itinerary-mini-grid)"
-                />
-
-                <g clipPath={hasOutline ? `url(#${outlineClipId})` : undefined}>
-                  {outlinePath ? (
-                    <path
-                      d={outlinePath}
-                      fill="rgba(255,255,255,0.58)"
-                      stroke="rgba(72, 99, 137, 0.08)"
-                      strokeWidth="1.2"
-                    />
-                  ) : null}
-
-                  {parkPaths.map((feature) => (
-                    <path
-                      key={feature.id}
-                      d={feature.path}
-                      fill="rgba(154, 198, 160, 0.28)"
-                      stroke="rgba(107, 153, 113, 0.2)"
-                      strokeWidth="1"
-                    />
-                  ))}
-
-                  {waterPaths.map((feature) => (
-                    <path
-                      key={feature.id}
-                      d={feature.path}
-                      fill={feature.closed ? "rgba(148, 190, 223, 0.3)" : "none"}
-                      stroke="rgba(90, 136, 176, 0.36)"
-                      strokeWidth={feature.closed ? 1.1 : 1.6}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  ))}
-
-                  {roadPaths.map((feature) => (
-                    <path
-                      key={feature.id}
-                      d={feature.path}
-                      fill="none"
-                      stroke="rgba(86, 104, 135, 1)"
-                      strokeOpacity={getRoadStrokeOpacity(feature.kind)}
-                      strokeWidth={getRoadStrokeWidth(feature.kind)}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  ))}
-                </g>
-
-                {projectedOutline.polygons.map((polygon, index) => (
-                  <path
-                    key={`outline-${index}`}
-                    d={polygon.path}
-                    fill="none"
-                    stroke="rgba(72, 99, 137, 0.3)"
-                    strokeWidth="2.4"
-                    strokeLinejoin="round"
-                  />
-                ))}
-
-                {markers.map((marker) => (
-                  <g
-                    key={marker.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => openGoogleMaps(marker.mapsUrl)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        openGoogleMaps(marker.mapsUrl);
-                      }
+                    <Minus className="h-4 w-4" />
+                  </button>
+                  <span className="min-w-[56px] text-center">{zoomLevel}x zoom</span>
+                  <button
+                    type="button"
+                    aria-label="Zoom in city map"
+                    className="rounded-full p-1 transition hover:bg-[rgba(24,39,75,0.06)] disabled:cursor-not-allowed disabled:opacity-45"
+                    onClick={() => setZoomLevel((current) => Math.min(4, current + 1))}
+                    disabled={!canZoomIn}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    className="ml-1 inline-flex items-center gap-1 rounded-full px-2 py-1 transition hover:bg-[rgba(24,39,75,0.06)] disabled:cursor-not-allowed disabled:opacity-45"
+                    onClick={() => {
+                      setActivePlaceId("");
+                      setZoomLevel(1);
                     }}
-                    className="cursor-pointer outline-none"
+                    disabled={!canZoomOut && !activePlaceId}
                   >
-                    <title>{`${marker.placeName} • Day ${marker.dayNumber}`}</title>
-
-                    <g transform={`translate(${marker.markerPoint.x} ${marker.markerPoint.y})`}>
-                      <path
-                        d={buildPinPath(9)}
-                        fill="rgba(255,255,255,0.96)"
-                        stroke={marker.accent.stroke}
-                        strokeWidth="1.4"
-                        strokeLinejoin="round"
-                      />
-                      <path
-                        d={buildPinPath(6.6)}
-                        fill={marker.accent.fill}
-                        opacity="0.98"
-                        transform="translate(0 0.4)"
-                      />
-                      <circle
-                        cx="0"
-                        cy="-3.6"
-                        r="1.9"
-                        fill="#F8FAFC"
-                        opacity="0.98"
-                      />
-                    </g>
-                  </g>
-                ))}
-              </svg>
-            ) : null}
-
-            {showOverlay ? (
-              <div className="absolute inset-0 flex items-center justify-center bg-[linear-gradient(180deg,rgba(250,250,248,0.72)_0%,rgba(246,243,237,0.84)_100%)] p-6 text-center">
-                <div className="max-w-xl">
-                  <p className="text-xl font-semibold text-[var(--voy-text)]">
-                    {overlayHeading}
-                  </p>
-                  <p className="mt-3 text-sm leading-7 text-[var(--voy-text-muted)]">
-                    {overlayMessage}
-                  </p>
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    Reset
+                  </button>
                 </div>
               </div>
-            ) : null}
+            </div>
+
+            <div
+              className="relative overflow-hidden rounded-[1.6rem] border border-[rgba(24,39,75,0.08)] bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.98),rgba(239,244,250,0.9)_58%,rgba(226,234,245,0.94)_100%)]"
+              style={{
+                aspectRatio: `${CITY_ITINERARY_MAP_CANVAS.width} / ${CITY_ITINERARY_MAP_CANVAS.height}`,
+                minHeight: "360px",
+              }}
+            >
+              {hasMapFrame ? (
+                <svg
+                  viewBox={`0 0 ${CITY_ITINERARY_MAP_CANVAS.width} ${CITY_ITINERARY_MAP_CANVAS.height}`}
+                  className="block h-full w-full"
+                  role="img"
+                  aria-label={`${destination} itinerary map`}
+                >
+                  <defs>
+                    <pattern
+                      id="city-itinerary-grid"
+                      width="64"
+                      height="64"
+                      patternUnits="userSpaceOnUse"
+                    >
+                      <path
+                        d="M 64 0 L 0 0 0 64"
+                        fill="none"
+                        stroke="rgba(72, 99, 137, 0.08)"
+                        strokeWidth="1"
+                      />
+                    </pattern>
+                    <radialGradient id="city-itinerary-glow" cx="18%" cy="10%" r="78%">
+                      <stop offset="0%" stopColor="rgba(255,255,255,0.99)" />
+                      <stop offset="100%" stopColor="rgba(221,231,244,0.22)" />
+                    </radialGradient>
+                    {hasOutline ? (
+                      <clipPath id={outlineClipId}>
+                        {projectedOutline.polygons.map((polygon, index) => (
+                          <path key={`clip-${index}`} d={polygon.path} />
+                        ))}
+                      </clipPath>
+                    ) : null}
+                  </defs>
+
+                  <rect
+                    x="0"
+                    y="0"
+                    width={CITY_ITINERARY_MAP_CANVAS.width}
+                    height={CITY_ITINERARY_MAP_CANVAS.height}
+                    fill="url(#city-itinerary-glow)"
+                  />
+                  <rect
+                    x="0"
+                    y="0"
+                    width={CITY_ITINERARY_MAP_CANVAS.width}
+                    height={CITY_ITINERARY_MAP_CANVAS.height}
+                    fill="url(#city-itinerary-grid)"
+                  />
+
+                  <g clipPath={hasOutline ? `url(#${outlineClipId})` : undefined}>
+                    {outlinePath ? (
+                      <path
+                        d={outlinePath}
+                        fill="rgba(255,255,255,0.44)"
+                        stroke="rgba(72, 99, 137, 0.08)"
+                        strokeWidth="1.2"
+                      />
+                    ) : null}
+
+                    {parkPaths.map((feature) => (
+                      <path
+                        key={feature.id}
+                        d={feature.path}
+                        fill="rgba(154, 198, 160, 0.32)"
+                        stroke="rgba(107, 153, 113, 0.22)"
+                        strokeWidth="1"
+                      />
+                    ))}
+
+                    {waterPaths.map((feature) => (
+                      <path
+                        key={feature.id}
+                        d={feature.path}
+                        fill={
+                          feature.closed
+                            ? "rgba(148, 190, 223, 0.34)"
+                            : "none"
+                        }
+                        stroke="rgba(90, 136, 176, 0.42)"
+                        strokeWidth={feature.closed ? 1.2 : 1.8}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    ))}
+
+                    {roadPaths.map((feature) => (
+                      <path
+                        key={feature.id}
+                        d={feature.path}
+                        fill="none"
+                        stroke="rgba(86, 104, 135, 1)"
+                        strokeOpacity={getRoadStrokeOpacity(feature.kind)}
+                        strokeWidth={getRoadStrokeWidth(feature.kind)}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    ))}
+                  </g>
+
+                  {!hasBasemapFeatures ? (
+                    <>
+                      <circle cx="220" cy="150" r="140" fill="rgba(217,181,77,0.08)" />
+                      <circle cx="1200" cy="520" r="180" fill="rgba(94,134,182,0.08)" />
+                      <circle cx="980" cy="150" r="112" fill="rgba(122,168,138,0.08)" />
+                    </>
+                  ) : null}
+
+                  {projectedOutline.polygons.map((polygon, index) => (
+                    <path
+                      key={`outline-${index}`}
+                      d={polygon.path}
+                      fill="none"
+                      stroke="rgba(72, 99, 137, 0.34)"
+                      strokeWidth="3.2"
+                      strokeLinejoin="round"
+                    />
+                  ))}
+
+                  {markers.map((marker) => {
+                    const isActive = activePlaceId === marker.id;
+                    const pinSize = isActive ? 14 : 10;
+                    const labelWidth = Math.max(
+                      136,
+                      Math.min(232, marker.placeName.length * 7.2 + 24)
+                    );
+                    const labelX = clampLabelX(
+                      marker.markerPoint.x - labelWidth / 2,
+                      labelWidth
+                    );
+
+                    return (
+                      <g
+                        key={marker.id}
+                        role="button"
+                        tabIndex={0}
+                        onMouseEnter={() => setActivePlaceId(marker.id)}
+                        onMouseLeave={() => setActivePlaceId("")}
+                        onFocus={() => setActivePlaceId(marker.id)}
+                        onBlur={() => setActivePlaceId("")}
+                        onClick={() => {
+                          setActivePlaceId(marker.id);
+                          openGoogleMaps(marker.mapsUrl);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            setActivePlaceId(marker.id);
+                            openGoogleMaps(marker.mapsUrl);
+                          }
+                        }}
+                        className="cursor-pointer outline-none"
+                      >
+                        <title>{`${marker.placeName} • Day ${marker.dayNumber}`}</title>
+
+                        {marker.isShifted ? (
+                          <line
+                            x1={marker.point.x}
+                            y1={marker.point.y}
+                            x2={marker.markerPoint.x}
+                            y2={marker.markerPoint.y}
+                            stroke={marker.accent.stroke}
+                            strokeDasharray="5 6"
+                            strokeOpacity={isActive ? 0.9 : 0.45}
+                            strokeWidth="1.8"
+                          />
+                        ) : null}
+
+                        {isActive ? (
+                          <>
+                            <rect
+                              x={labelX}
+                              y={Math.max(CITY_ITINERARY_MAP_CANVAS.inset, marker.markerPoint.y - 72)}
+                              width={labelWidth}
+                              height="40"
+                              rx="20"
+                              fill="rgba(17,24,39,0.92)"
+                              stroke={marker.accent.fill}
+                              strokeWidth="1.5"
+                            />
+                            <text
+                              x={labelX + 18}
+                              y={marker.markerPoint.y - 35}
+                              fontSize="14"
+                              fontWeight="600"
+                              fill="#F8FAFC"
+                            >
+                              {marker.placeName.length > 30
+                                ? `${marker.placeName.slice(0, 29)}…`
+                                : marker.placeName}
+                            </text>
+                          </>
+                        ) : null}
+
+                        <g
+                          transform={`translate(${marker.markerPoint.x} ${marker.markerPoint.y})`}
+                        >
+                          {isActive ? (
+                            <circle
+                              cx="0"
+                              cy={-pinSize * 0.2}
+                              r={pinSize * 1.5}
+                              fill={marker.accent.soft}
+                              opacity="0.92"
+                            />
+                          ) : null}
+                          <path
+                            d={buildPinPath(pinSize)}
+                            fill="rgba(255,255,255,0.96)"
+                            stroke={marker.accent.stroke}
+                            strokeWidth={isActive ? 2 : 1.6}
+                            strokeLinejoin="round"
+                          />
+                          <path
+                            d={buildPinPath(Math.max(6, pinSize - 2.4))}
+                            fill={marker.accent.fill}
+                            opacity="0.98"
+                            transform="translate(0 0.4)"
+                          />
+                          <circle
+                            cx="0"
+                            cy={-pinSize * 0.4}
+                            r={isActive ? 2.6 : 2.1}
+                            fill="#F8FAFC"
+                            opacity="0.98"
+                          />
+                        </g>
+                      </g>
+                    );
+                  })}
+                </svg>
+              ) : null}
+
+              {showOverlay ? (
+                <div className="absolute inset-0 flex items-center justify-center bg-[linear-gradient(180deg,rgba(250,250,248,0.72)_0%,rgba(246,243,237,0.84)_100%)] p-8 text-center">
+                  <div className="max-w-2xl">
+                    <p className="text-2xl font-semibold text-[var(--voy-text)]">
+                      {overlayHeading}
+                    </p>
+                    <p className="mt-3 text-base leading-7 text-[var(--voy-text-muted)]">
+                      {overlayMessage}
+                    </p>
+                    <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                      <div className="rounded-[1.25rem] border border-[var(--voy-border)] bg-white/75 px-5 py-4 text-left">
+                        <p className="text-xs uppercase tracking-[0.2em] text-[var(--voy-text-faint)]">
+                          Focused area
+                        </p>
+                        <p className="mt-2 text-lg font-semibold text-[var(--voy-text)]">
+                          {destination}
+                        </p>
+                      </div>
+                      <div className="rounded-[1.25rem] border border-[var(--voy-border)] bg-white/75 px-5 py-4 text-left">
+                        <p className="text-xs uppercase tracking-[0.2em] text-[var(--voy-text-faint)]">
+                          Mapped pins
+                        </p>
+                        <p className="mt-2 text-lg font-semibold text-[var(--voy-text)]">
+                          {markers.length}
+                        </p>
+                      </div>
+                      <div className="rounded-[1.25rem] border border-[var(--voy-border)] bg-white/75 px-5 py-4 text-left">
+                        <p className="text-xs uppercase tracking-[0.2em] text-[var(--voy-text-faint)]">
+                          Unresolved
+                        </p>
+                        <p className="mt-2 text-lg font-semibold text-[var(--voy-text)]">
+                          {unresolvedPlaces.length}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
 
-        <div className="rounded-[1.6rem] border border-[var(--voy-border)] bg-[rgba(251,250,247,0.9)] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]">
-          <p className="text-xs uppercase tracking-[0.2em] text-[var(--voy-text-faint)]">
-            Day snapshot
-          </p>
-          <h3 className="mt-2 text-lg font-semibold text-[var(--voy-text)]">
-            Day-by-day overview
-          </h3>
-          <p className="mt-2 text-sm leading-7 text-[var(--voy-text-muted)]">
-            The detailed plan is listed below. Use this compact snapshot to see how
-            many places are mapped for each day before opening the itinerary cards.
-          </p>
-
-          <div className="mt-5 grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
-            <div className="rounded-[1.1rem] border border-[var(--voy-border)] bg-white/80 px-4 py-4">
-              <p className="text-xs uppercase tracking-[0.18em] text-[var(--voy-text-faint)]">
-                Mapped pins
+        <div className="rounded-[1.75rem] border border-[var(--voy-border)] bg-[rgba(251,250,247,0.9)] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] md:p-6">
+          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.22em] text-[var(--voy-text-faint)]">
+                Itinerary places
               </p>
-              <p className="mt-2 text-lg font-semibold text-[var(--voy-text)]">
-                {markers.length}
+              <h3 className="mt-2 text-xl font-semibold text-[var(--voy-text)]">
+                All trip stops
+              </h3>
+              <p className="mt-2 max-w-3xl text-sm leading-7 text-[var(--voy-text-muted)]">
+                Every day remains visible here, even if some places are still waiting on
+                geocoding. Hover any mapped stop to highlight its pin on the landscape map.
               </p>
             </div>
-            <div className="rounded-[1.1rem] border border-[var(--voy-border)] bg-white/80 px-4 py-4">
-              <p className="text-xs uppercase tracking-[0.18em] text-[var(--voy-text-faint)]">
-                Pending places
-              </p>
-              <p className="mt-2 text-lg font-semibold text-[var(--voy-text)]">
-                {unresolvedPlaces.length}
-              </p>
-            </div>
-            <div className="rounded-[1.1rem] border border-[var(--voy-border)] bg-white/80 px-4 py-4">
-              <p className="text-xs uppercase tracking-[0.18em] text-[var(--voy-text-faint)]">
-                Max span
-              </p>
-              <p className="mt-2 text-lg font-semibold text-[var(--voy-text)]">
-                {formatCityMapDistance(approximateSpanMeters)}
-              </p>
-            </div>
+            <span className="rounded-full border border-[var(--voy-border)] bg-white/80 px-3 py-1.5 text-xs font-medium text-[var(--voy-text-muted)]">
+              {places.length} total
+            </span>
           </div>
 
-          <div className="mt-5 space-y-3">
+          <div className="mt-5 grid gap-4 xl:grid-cols-2">
             {groupedPlaces.length > 0 ? (
               groupedPlaces.map((group) => (
                 <div
                   key={group.dayNumber}
-                  className="rounded-[1rem] border border-[var(--voy-border)] bg-white/80 px-4 py-3"
+                  className="rounded-[1.3rem] border border-[var(--voy-border)] bg-white/80 p-4"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--voy-text-faint)]">
+                      <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--voy-text-faint)]">
                         Day {group.dayNumber}
                       </p>
-                      <p className="mt-1 font-semibold text-[var(--voy-text)]">
+                      <h4 className="mt-1 text-base font-semibold text-[var(--voy-text)]">
                         {group.dayTitle}
-                      </p>
+                      </h4>
                     </div>
                     <span
                       className="rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]"
@@ -610,17 +804,208 @@ export default function CityItineraryMapSection({ trip, reloadToken = 0 }) {
                         backgroundColor: group.accent.soft,
                       }}
                     >
-                      {group.mappedPlaces}/{group.totalPlaces} mapped
+                      {group.places.filter((place) => place.isPinned).length} mapped
                     </span>
+                  </div>
+
+                  <div className="mt-4 space-y-2.5">
+                    {group.places.map((place) => {
+                      const isActive = activePlaceId === place.id;
+
+                      return (
+                        <button
+                          key={place.id}
+                          type="button"
+                          className="flex w-full items-start gap-3 rounded-[1rem] border px-3.5 py-3 text-left transition hover:-translate-y-0.5 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--voy-accent)]"
+                          style={{
+                            borderColor: isActive ? place.accent.stroke : "rgba(24,39,75,0.08)",
+                            backgroundColor: isActive ? place.accent.soft : "rgba(255,255,255,0.78)",
+                          }}
+                          onMouseEnter={() => setActivePlaceId(place.id)}
+                          onMouseLeave={() => setActivePlaceId("")}
+                          onFocus={() => setActivePlaceId(place.id)}
+                          onBlur={() => setActivePlaceId("")}
+                          onClick={() => {
+                            setActivePlaceId(place.id);
+                            openGoogleMaps(place.mapsUrl);
+                          }}
+                        >
+                          <span
+                            className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold"
+                            style={{
+                              backgroundColor: place.accent.fill,
+                              color: "#0F172A",
+                            }}
+                          >
+                            {place.dayNumber}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="flex items-start justify-between gap-3">
+                              <span className="font-semibold text-[var(--voy-text)]">
+                                {place.placeName}
+                              </span>
+                              <span className="text-xs font-medium text-[var(--voy-text-muted)]">
+                                {place.isPinned
+                                  ? "Mapped"
+                                  : place.isResolved
+                                    ? "Filtered"
+                                    : "Pending"}
+                              </span>
+                            </span>
+                            <span className="mt-1 flex items-center gap-2 text-sm text-[var(--voy-text-muted)]">
+                              <MapPin className="h-4 w-4" />
+                              {place.location || destination}
+                            </span>
+                            {place.placeDetails ? (
+                              <span className="mt-2 block text-sm leading-6 text-[var(--voy-text-muted)]">
+                                {place.placeDetails}
+                              </span>
+                            ) : null}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               ))
             ) : (
-              <div className="rounded-[1rem] border border-[var(--voy-border)] bg-white/80 px-4 py-4 text-sm text-[var(--voy-text-muted)]">
-                Day cards will appear here once itinerary stops are saved.
+              <div className="rounded-[1.3rem] border border-[var(--voy-border)] bg-white/75 px-4 py-6 text-sm leading-7 text-[var(--voy-text-muted)] xl:col-span-2">
+                This itinerary does not have recognizable places yet. The city map shell is
+                ready and will populate as soon as stops are saved with usable location data.
               </div>
             )}
           </div>
+        </div>
+
+        <div className="rounded-[1.75rem] border border-[var(--voy-border)] bg-[rgba(251,250,247,0.9)] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] md:p-6">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.22em] text-[var(--voy-text-faint)]">
+                Approximate pairwise distances
+              </p>
+              <h3 className="mt-2 text-xl font-semibold text-[var(--voy-text)]">
+                Distance between mapped places
+              </h3>
+              <p className="mt-2 max-w-3xl text-sm leading-7 text-[var(--voy-text-muted)]">
+                Distances below are straight-line Haversine estimates from saved coordinates.
+                They help compare how far stops are from each other without waiting on live
+                routing APIs.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--voy-text-muted)]">
+              <span className="rounded-full border border-[var(--voy-border)] bg-white/80 px-4 py-2">
+                {pinnedPlaces.length} mapped
+              </span>
+              <span className="rounded-full border border-[var(--voy-border)] bg-white/80 px-4 py-2">
+                {unresolvedPlaces.length} excluded
+              </span>
+              <span className="rounded-full border border-[var(--voy-border)] bg-white/80 px-4 py-2">
+                Longest span {formatCityMapDistance(approximateSpanMeters)}
+              </span>
+            </div>
+          </div>
+
+          {pinnedPlaces.length >= 2 ? (
+            <div className="mt-5 overflow-x-auto rounded-[1.3rem] border border-[var(--voy-border)] bg-white/80">
+              <table className="min-w-full border-collapse text-left">
+                <thead>
+                  <tr className="border-b border-[var(--voy-border)] bg-[rgba(248,248,246,0.92)]">
+                    <th className="sticky left-0 z-[1] min-w-[220px] border-r border-[var(--voy-border)] bg-[rgba(248,248,246,0.98)] px-4 py-3 text-xs uppercase tracking-[0.18em] text-[var(--voy-text-faint)]">
+                      Place
+                    </th>
+                    {pinnedPlaces.map((place) => {
+                      const isActive = activePlaceId === place.id;
+
+                      return (
+                        <th
+                          key={place.id}
+                          className="min-w-[124px] border-r border-[var(--voy-border)] px-3 py-3 align-top text-xs font-semibold text-[var(--voy-text)] last:border-r-0"
+                          onMouseEnter={() => setActivePlaceId(place.id)}
+                          onMouseLeave={() => setActivePlaceId("")}
+                        >
+                          <div
+                            className="inline-flex rounded-full px-2.5 py-1 text-[10px] uppercase tracking-[0.12em]"
+                            style={{
+                              color: place.accent.stroke,
+                              backgroundColor: isActive ? place.accent.soft : "rgba(24,39,75,0.06)",
+                            }}
+                          >
+                            {buildPlaceMatrixLabel(place)}
+                          </div>
+                          <div className="mt-2 text-sm leading-5">
+                            {place.placeName.length > 22
+                              ? `${place.placeName.slice(0, 21)}…`
+                              : place.placeName}
+                          </div>
+                        </th>
+                      );
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  {pinnedPlaces.map((rowPlace, rowIndex) => (
+                    <tr
+                      key={rowPlace.id}
+                      className="border-b border-[var(--voy-border)] last:border-b-0"
+                      onMouseEnter={() => setActivePlaceId(rowPlace.id)}
+                      onMouseLeave={() => setActivePlaceId("")}
+                    >
+                      <th className="sticky left-0 z-[1] min-w-[220px] border-r border-[var(--voy-border)] bg-white/95 px-4 py-3 align-top">
+                        <button
+                          type="button"
+                          className="text-left"
+                          onClick={() => openGoogleMaps(rowPlace.mapsUrl)}
+                        >
+                          <div
+                            className="inline-flex rounded-full px-2.5 py-1 text-[10px] uppercase tracking-[0.12em]"
+                            style={{
+                              color: rowPlace.accent.stroke,
+                              backgroundColor: rowPlace.accent.soft,
+                            }}
+                          >
+                            {buildPlaceMatrixLabel(rowPlace)}
+                          </div>
+                          <div className="mt-2 font-semibold text-[var(--voy-text)]">
+                            {rowPlace.placeName}
+                          </div>
+                          <div className="mt-1 text-xs text-[var(--voy-text-muted)]">
+                            {rowPlace.location || destination}
+                          </div>
+                        </button>
+                      </th>
+
+                      {distanceMatrix[rowIndex].map((cell, cellIndex) => {
+                        const columnPlace = pinnedPlaces[cellIndex];
+                        const isDiagonal = rowPlace.id === columnPlace.id;
+                        const isActive =
+                          activePlaceId === rowPlace.id || activePlaceId === columnPlace.id;
+
+                        return (
+                          <td
+                            key={`${rowPlace.id}-${columnPlace.id}`}
+                            className="border-r border-[var(--voy-border)] px-3 py-3 text-sm text-[var(--voy-text)] last:border-r-0"
+                            style={{
+                              backgroundColor: isActive
+                                ? "rgba(217, 181, 77, 0.08)"
+                                : "transparent",
+                            }}
+                          >
+                            {isDiagonal ? "—" : cell.label}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="mt-5 rounded-[1.3rem] border border-[var(--voy-border)] bg-white/75 px-4 py-6 text-sm leading-7 text-[var(--voy-text-muted)]">
+              Add at least two mapped places to compare approximate distances across the
+              full itinerary.
+            </div>
+          )}
         </div>
       </div>
     </section>
