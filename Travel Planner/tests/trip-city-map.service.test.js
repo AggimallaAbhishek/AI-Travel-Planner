@@ -69,9 +69,6 @@ test("buildTripCityMapPayload keeps only in-outline resolved places as map pins"
   assert.equal(cityMap.mapSource, "fallback_bounds");
   assert.equal(cityMap.mappedPlaceCount, 1);
   assert.equal(cityMap.unresolvedPlaceCount, 2);
-  assert.equal(cityMap.transportContext?.matchedDestinationKey, "tokyo__jp");
-  assert.equal(cityMap.transportContext?.sourceVersion, "2026.04-transport-v1");
-  assert.equal(cityMap.transportContext?.nearestStations?.length > 0, true);
   assert.equal(cityMap.markers.length, 1);
   assert.equal(cityMap.markers[0].name, "Shibuya Crossing");
   assert.equal(cityMap.days[0].places[0].isPinned, true);

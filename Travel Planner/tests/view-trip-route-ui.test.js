@@ -44,8 +44,8 @@ test("city itinerary map uses the static city-map endpoint and outline-based lay
   assert.equal(source.includes("clipPath"), true);
   assert.equal(source.includes("Zoom in city map"), true);
   assert.equal(source.includes("Approximate pairwise distances"), true);
-  assert.equal(source.includes("Supplemental transport context"), true);
-  assert.equal(source.includes("Nearby arrival and local transit references"), true);
+  assert.equal(source.includes("Supplemental transport context"), false);
+  assert.equal(source.includes("Nearby arrival and local transit references"), false);
 });
 
 test("main router does not expose the unified trip map preview route", () => {
