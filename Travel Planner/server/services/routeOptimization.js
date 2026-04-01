@@ -2024,11 +2024,14 @@ function createRawDayStops({
       description: normalizeText(place?.placeDetails ?? place?.description),
       category: normalizeText(place?.category),
       geoCoordinates: normalizeGeoCoordinates(place?.geoCoordinates),
-      mapsUrl: buildGoogleMapsSearchUrl({
-        name,
-        destination,
-        coordinates: place?.geoCoordinates,
-      }),
+      mapsUrl: normalizeText(
+        place?.mapsUrl,
+        buildGoogleMapsSearchUrl({
+          name,
+          destination,
+          coordinates: place?.geoCoordinates,
+        })
+      ),
     });
     seen.add(key);
 
@@ -2438,11 +2441,24 @@ export function createTripRouteService({
     const routesApiKey = resolveRoutesKey();
     const geocodeCache = new Map();
     const routeDays = [];
-    const cityBounds = await geocodeCityBounds({
-      destination,
-      apiKey: placesApiKey || routesApiKey,
-      fetchImpl,
-      timeoutMs,
+    const cityBounds =
+      (trip?.mapEnrichment?.cityBounds &&
+      typeof trip.mapEnrichment.cityBounds === "object"
+        ? trip.mapEnrichment.cityBounds
+        : null) ??
+      (await geocodeCityBounds({
+        destination,
+        apiKey: placesApiKey || routesApiKey,
+        fetchImpl,
+        timeoutMs,
+      }));
+
+    console.info("[routes] Runtime diagnostics", {
+      tripId: trip?.id ?? null,
+      hasPlacesKey: Boolean(placesApiKey),
+      hasRoutesKey: Boolean(routesApiKey),
+      routingMode: routesApiKey ? "google-routes-primary" : "fallback-only",
+      hasCityBounds: Boolean(cityBounds),
     });
 
     for (const day of scopedDays) {
@@ -2495,17 +2511,31 @@ export function createTripRouteService({
           destination,
           fallbackBounds: cityBounds,
         });
+        const geocodedStopCount = dayStops.filter((stop) =>
+          hasCoordinates(stop?.geoCoordinates)
+        ).length;
+        const mapReady = Boolean(
+          dayMapContext.mapViewport || dayMapContext.mapCenter || cityBounds
+        );
 
         routeDays.push({
           dayNumber: day.dayNumber,
           title: normalizeText(day.title, `Day ${day.dayNumber}`),
-          status: "needs-more-stops",
+          status: mapReady ? "map_only" : "needs_places",
+          statusMessage:
+            geocodedStopCount >= 1
+              ? "Add at least two locations to generate a route."
+              : "We’re still locating some stops for this day.",
+          mapReady,
+          routeReady: false,
           objective: normalizedObjective,
           objectiveLabel: formatObjectiveLabel(normalizedObjective),
           algorithm: "not-applicable",
           routeProvider: "not-applicable",
           inputStopCount: dayStops.length,
           resolvedStopCount: dayStops.length,
+          geocodedStopCount,
+          unresolvedStopCount: Math.max(0, dayStops.length - geocodedStopCount),
           orderedStops: dayStops,
           markers: buildMarkersFromOrderedStops(dayStops),
           segments: [],
@@ -2517,7 +2547,7 @@ export function createTripRouteService({
           paretoScore: 0,
           explanation: {
             whySelected:
-              "At least two recognizable stops are required before multi-objective optimization can run.",
+              "Add at least two locations to generate a route.",
             tradeoffDelta: {
               minutesVsFastest: 0,
               costVsFastest: 0,
@@ -2652,17 +2682,28 @@ export function createTripRouteService({
           destination,
           fallbackBounds: cityBounds,
         });
+        const mapReady = Boolean(
+          dayMapContext.mapViewport || dayMapContext.mapCenter || cityBounds
+        );
 
         routeDays.push({
           dayNumber: day.dayNumber,
           title: normalizeText(day.title, `Day ${day.dayNumber}`),
-          status: "insufficient-geocoded-stops",
+          status: mapReady ? "map_only" : "needs_places",
+          statusMessage:
+            resolvedStops.length >= 1
+              ? "Add at least two locations to generate a route."
+              : "We’re still locating some stops for this day.",
+          mapReady,
+          routeReady: false,
           objective: normalizedObjective,
           objectiveLabel: formatObjectiveLabel(normalizedObjective),
           algorithm: "not-applicable",
           routeProvider: "not-applicable",
           inputStopCount: dayStops.length,
           resolvedStopCount: resolvedStops.length,
+          geocodedStopCount: resolvedStops.length,
+          unresolvedStopCount: unresolvedStops.length,
           orderedStops: resolvedStops,
           markers: buildMarkersFromOrderedStops(resolvedStops),
           segments: [],
@@ -2674,7 +2715,7 @@ export function createTripRouteService({
           paretoScore: 0,
           explanation: {
             whySelected:
-              "At least two geocoded stops are required before route optimization can run.",
+              "Add at least two locations to generate a route.",
             tradeoffDelta: {
               minutesVsFastest: 0,
               costVsFastest: 0,
@@ -2892,6 +2933,9 @@ export function createTripRouteService({
         dayNumber: day.dayNumber,
         title: normalizeText(day.title, `Day ${day.dayNumber}`),
         status: "ready",
+        statusMessage: "Optimized route ready.",
+        mapReady: true,
+        routeReady: true,
         objective: normalizedObjective,
         objectiveLabel: formatObjectiveLabel(normalizedObjective),
         algorithm: normalizeText(
@@ -2901,6 +2945,8 @@ export function createTripRouteService({
         routeProvider: matrixResult.provider,
         inputStopCount: dayStops.length,
         resolvedStopCount: resolvedStops.length,
+        geocodedStopCount: resolvedStops.length,
+        unresolvedStopCount: unresolvedStops.length,
         orderedStops: selectedAlternative.orderedStops,
         markers: buildMarkersFromOrderedStops(selectedAlternative.orderedStops),
         segments: selectedAlternative.segments,

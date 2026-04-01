@@ -572,6 +572,74 @@ test("trip route service extracts clean place names from descriptive itinerary t
   );
 });
 
+test("trip route service returns map-only payloads when only one stop is geocoded", async () => {
+  const service = createTripRouteService({
+    resolvePlacesKey: () => "",
+    resolveRoutesKey: () => "",
+    fetchImpl: async () => {
+      throw new Error("fetch should not be called for persisted coordinate fallback");
+    },
+  });
+
+  const routes = await service.getRoutesForTrip({
+    trip: {
+      id: "trip-map-only",
+      userSelection: {
+        location: { label: "Tokyo, Japan" },
+      },
+      itinerary: {
+        days: [
+          {
+            dayNumber: 1,
+            title: "Tokyo arrival",
+            places: [
+              {
+                placeName: "Shibuya Crossing",
+                location: "Shibuya City, Tokyo",
+                mapsUrl: "https://maps.google.com/?q=shibuya",
+                geoCoordinates: { latitude: 35.6595, longitude: 139.7005 },
+              },
+              {
+                placeName: "Mystery Cafe",
+                location: "Tokyo, Japan",
+              },
+            ],
+          },
+        ],
+      },
+      mapEnrichment: {
+        status: "partial",
+        geocodedStopCount: 1,
+        unresolvedStopCount: 1,
+        cityBounds: {
+          north: 35.82,
+          south: 35.55,
+          east: 139.92,
+          west: 139.55,
+        },
+      },
+    },
+  });
+
+  assert.equal(routes.days[0].status, "map_only");
+  assert.equal(routes.days[0].mapReady, true);
+  assert.equal(routes.days[0].routeReady, false);
+  assert.equal(routes.days[0].statusMessage, "Add at least two locations to generate a route.");
+  assert.equal(routes.days[0].geocodedStopCount, 1);
+  assert.equal(routes.days[0].unresolvedStopCount, 1);
+  assert.equal(routes.days[0].markers.length, 1);
+  assert.equal(routes.days[0].orderedStops.length, 1);
+  assert.equal(routes.days[0].orderedStops[0].mapsUrl, "https://maps.google.com/?q=shibuya");
+  assert.equal(routes.days[0].totalDurationSeconds, 0);
+  assert.equal(routes.days[0].totalDistanceMeters, 0);
+  assert.deepEqual(routes.days[0].cityBounds, {
+    north: 35.82,
+    south: 35.55,
+    east: 139.92,
+    west: 139.55,
+  });
+});
+
 test("trip route service returns objective-ranked alternatives", async () => {
   const service = createTripRouteService({
     resolvePlacesKey: () => "",

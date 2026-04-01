@@ -80,14 +80,14 @@ function formatEstimatedCost(cost) {
 
 function formatStatusLabel(dayRoute = {}) {
   if (dayRoute.status === "ready") {
-    return "Ready";
+    return "Route ready";
   }
 
-  if (dayRoute.status === "insufficient-geocoded-stops") {
-    return "More geocodes needed";
+  if (dayRoute.status === "map_only") {
+    return dayRoute.geocodedStopCount > 0 ? "Map ready" : "Locating stops";
   }
 
-  return "Needs more places";
+  return "Need places";
 }
 
 function formatRouteProvider(provider = "") {
@@ -332,7 +332,12 @@ function DaySelector({ dayRoutes, activeDayNumber, onSelectDay }) {
       <div className="voy-route-day-list">
         {dayRoutes.map((dayRoute) => {
           const isActive = dayRoute.dayNumber === activeDayNumber;
-          const hasMap = Array.isArray(dayRoute.markers) && dayRoute.markers.length > 0;
+          const hasMap = Boolean(dayRoute.mapReady);
+          const mappedStopCount = Number.isFinite(dayRoute.geocodedStopCount)
+            ? dayRoute.geocodedStopCount
+            : Array.isArray(dayRoute.markers)
+              ? dayRoute.markers.length
+              : 0;
 
           return (
             <button
@@ -359,7 +364,11 @@ function DaySelector({ dayRoutes, activeDayNumber, onSelectDay }) {
 
               <div className="voy-route-day-meta">
                 <span>{dayRoute.localityLabel || "Destination focus"}</span>
-                <span>{hasMap ? `${dayRoute.markers.length} mapped stops` : "No map yet"}</span>
+                <span>
+                  {hasMap
+                    ? `${mappedStopCount} mapped stop${mappedStopCount === 1 ? "" : "s"}`
+                    : "We’re still locating some stops"}
+                </span>
               </div>
             </button>
           );
@@ -594,10 +603,7 @@ function ActiveDayDetails({
     return (
       <div className="voy-route-card voy-route-empty-state">
         <h3 className="voy-route-empty-title">Route optimization is not available yet</h3>
-        <p className="voy-route-empty-copy">
-          Add at least two recognizable places to a day itinerary to compute an optimized
-          route.
-        </p>
+        <p className="voy-route-empty-copy">Add at least two locations to generate a route.</p>
       </div>
     );
   }
@@ -605,6 +611,7 @@ function ActiveDayDetails({
   const activeObjective = resolveObjectiveMeta(objective);
   const localityLabel = dayRoute.localityLabel || destination || "the selected destination";
   const mapStopCount = Array.isArray(dayRoute.markers) ? dayRoute.markers.length : 0;
+  const hasRoute = dayRoute.routeReady !== false;
 
   return (
     <div className="voy-route-main-stack">
@@ -614,9 +621,19 @@ function ActiveDayDetails({
             <p className="voy-route-eyebrow">Day {dayRoute.dayNumber}</p>
             <h3 className="voy-route-day-heading">{dayRoute.title}</h3>
             <p className="voy-route-card-copy">
-              This day is centered on <strong>{localityLabel}</strong>. The active map stays
-              confined to that local cluster and plots {mapStopCount} pinned stops with the{" "}
-              <strong>{activeObjective.shortLabel}</strong> route.
+              {hasRoute ? (
+                <>
+                  This day is centered on <strong>{localityLabel}</strong>. The active map stays
+                  confined to that local cluster and plots {mapStopCount} pinned stops with the{" "}
+                  <strong>{activeObjective.shortLabel}</strong> route.
+                </>
+              ) : (
+                <>
+                  This day is centered on <strong>{localityLabel}</strong>. The city map stays
+                  focused on that local area and will show route metrics as soon as at least two
+                  locations are mapped.
+                </>
+              )}
             </p>
           </div>
 
@@ -642,6 +659,16 @@ function ActiveDayDetails({
         </div>
 
         <SummaryCards dayRoute={dayRoute} />
+
+        {!hasRoute && dayRoute.statusMessage ? (
+          <div className="voy-route-note-block">
+            <div className="voy-route-note-head">
+              <FaMapPin className="text-[var(--voy-gold)]" />
+              <span>Map status</span>
+            </div>
+            <p>{dayRoute.statusMessage}</p>
+          </div>
+        ) : null}
 
         {dayRoute?.explanation?.whySelected ? (
           <div className="voy-route-note-block">
@@ -727,7 +754,7 @@ function OptimizedRouteSection({
     dayRoutes.find((dayRoute) => dayRoute.dayNumber === activeDayNumber) ??
     dayRoutes[0] ??
     null;
-  const skippedRoutes = dayRoutes.filter((dayRoute) => dayRoute.status !== "ready");
+  const pendingRouteDays = dayRoutes.filter((dayRoute) => dayRoute.routeReady === false);
   const resolvedObjective =
     objective || routes?.objective || routes?.defaultObjective || "fastest";
   const activeObjectiveMeta = resolveObjectiveMeta(resolvedObjective);
@@ -785,17 +812,18 @@ function OptimizedRouteSection({
                 onSelectDay={handleSelectDay}
               />
 
-              {skippedRoutes.length > 0 ? (
+              {pendingRouteDays.length > 0 ? (
                 <div className="voy-route-card voy-route-compact-note">
                   <div className="voy-route-note-head">
                     <FaBolt className="text-[var(--voy-gold)]" />
-                    <span>Days still needing stronger map data</span>
+                    <span>Days still locating stops</span>
                   </div>
                   <p>
-                    {skippedRoutes
+                    {pendingRouteDays
                       .map((dayRoute) => `Day ${dayRoute.dayNumber}`)
                       .join(", ")}{" "}
-                    do not have enough mapped places yet for a full route preview.
+                    already show the city map, but they still need at least two mapped
+                    locations before route metrics and segment details can appear.
                   </p>
                 </div>
               ) : null}
@@ -852,10 +880,7 @@ function OptimizedRouteSection({
         {!isLoading && !errorMessage && dayRoutes.length === 0 ? (
           <div className="voy-route-card voy-route-empty-state">
             <h3 className="voy-route-empty-title">Route optimization is not available yet</h3>
-            <p className="voy-route-empty-copy">
-              Add at least two recognizable places to a day itinerary to compute an optimized
-              route.
-            </p>
+            <p className="voy-route-empty-copy">Add at least two locations to generate a route.</p>
           </div>
         ) : null}
       </div>

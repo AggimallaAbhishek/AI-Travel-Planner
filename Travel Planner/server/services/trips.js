@@ -15,6 +15,7 @@ import {
   buildRepairDiff,
   evaluateTripConstraints,
 } from "./constraints.js";
+import { enrichTripWithPersistedGeocodes } from "./tripMapEnrichment.js";
 
 const COLLECTION_NAME = "AITrips";
 
@@ -84,13 +85,31 @@ export function validateTripRequest(body = {}) {
 export async function createTripForUser({ user, userSelection }) {
   const tripId = randomUUID();
   const buildAndPersistTrip = async (payload) => {
-    const trip = buildStoredTrip({
+    let trip = buildStoredTrip({
       id: tripId,
       ownerId: user.uid,
       ownerEmail: user.email ?? "",
       userSelection,
       ...payload,
     });
+
+    try {
+      const enrichmentResult = await enrichTripWithPersistedGeocodes({ trip });
+      trip = enrichmentResult.trip;
+      console.info("[trips] Trip map enrichment completed", {
+        tripId: trip.id,
+        geocodedStopCount: enrichmentResult.stats.geocodedStopCount,
+        unresolvedStopCount: enrichmentResult.stats.unresolvedStopCount,
+        status: enrichmentResult.stats.status,
+        hasPlacesKey: enrichmentResult.stats.hasPlacesKey,
+        hasCityBounds: enrichmentResult.stats.hasCityBounds,
+      });
+    } catch (error) {
+      console.warn("[trips] Trip map enrichment failed, persisting partial trip", {
+        tripId,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
 
     const docRef = getTripsCollection().doc(trip.id);
     const persistStartedAt = Date.now();
@@ -131,6 +150,24 @@ export async function createTripForUser({ user, userSelection }) {
     latencyBreakdownMs: generatedTrip.latencyBreakdownMs,
     routeAlternatives: generatedTrip.routeAlternatives,
   });
+}
+
+export async function persistTripMapEnrichment({
+  tripId,
+  itinerary,
+  mapEnrichment,
+  updatedAt = new Date().toISOString(),
+}) {
+  const docRef = getTripsCollection().doc(tripId);
+
+  await docRef.set(
+    {
+      itinerary,
+      mapEnrichment,
+      updatedAt,
+    },
+    { merge: true }
+  );
 }
 
 function removeActivityFromDay(day = {}, disruption = {}) {

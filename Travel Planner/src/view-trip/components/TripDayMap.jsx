@@ -525,8 +525,8 @@ function TripDayMap({
 
       {showNoPinsNotice ? (
         <MapOverlayMessage
-          title="Map ready, waiting for pinned stops"
-          body="The map is centered on this day’s local area, but no itinerary places have been geocoded yet. As soon as recognizable stops resolve, pins will appear here."
+          title="We’re still locating some stops"
+          body="City map is ready; pins will appear as stops are located."
         />
       ) : null}
 
@@ -534,8 +534,8 @@ function TripDayMap({
         <StaticMapFallback
           dayRoute={dayRoute}
           destination={destination}
-          title="Localized map pending"
-          body="This day does not have enough mapped places yet to render pins and a route on the city map."
+          title="City map is getting ready"
+          body="We’re still locating this day’s area and stops. Pins will appear once enough locations are recognized."
         />
       ) : null}
     </div>
