@@ -8,7 +8,6 @@ function PlacesToVisit({ trip }) {
   const travelTips = Array.isArray(trip?.aiPlan?.travelTips) ? trip.aiPlan.travelTips : [];
   const hasStructuredPlan = structuredPlanDays.length > 0;
   const safeItinerary = trip?.itinerary?.days ?? [];
-  const destination = trip?.userSelection?.location?.label ?? "";
 
   const totalPlaces = safeItinerary.reduce((total, day) => {
     return total + (Array.isArray(day.places) ? day.places.length : 0);
@@ -172,7 +171,7 @@ function PlacesToVisit({ trip }) {
                             <div className="w-10 h-10 rounded-full bg-[var(--voy-bg2)] flex items-center justify-center mr-3 mt-1">
                               {getPlaceIcon(place.placeName)}
                             </div>
-                            <PlaceCardItem place={place} destination={destination} />
+                            <PlaceCardItem place={place} />
                           </div>
                         ))}
                       </div>

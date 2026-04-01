@@ -12,6 +12,10 @@ const cityItineraryMapPath = path.resolve(
   process.cwd(),
   "src/view-trip/components/CityItineraryMapSection.jsx"
 );
+const placesToVisitPath = path.resolve(
+  process.cwd(),
+  "src/view-trip/components/PlacesToVisit.jsx"
+);
 const mainRouterPath = path.resolve(process.cwd(), "src/main.jsx");
 const createTripPagePath = path.resolve(
   process.cwd(),
@@ -26,10 +30,16 @@ test("optimized route section no longer renders trip-page route editing controls
   assert.equal(source.includes("function ObjectiveToolbar"), false);
 });
 
-test("trip page renders the city itinerary map instead of the unified trip map", () => {
+test("trip page renders the simple pre-map layout", () => {
   const source = fs.readFileSync(tripViewPagePath, "utf8");
 
-  assert.equal(source.includes("CityItineraryMapSection"), true);
+  assert.equal(source.includes("InfoSection"), true);
+  assert.equal(source.includes("Hotels"), true);
+  assert.equal(source.includes("Restaurants"), true);
+  assert.equal(source.includes("PlacesToVisit"), true);
+  assert.equal(source.includes("CityItineraryMapSection"), false);
+  assert.equal(source.includes("Dynamic Replanning Simulator"), false);
+  assert.equal(source.includes("Apply Disruption & Replan"), false);
   assert.equal(source.includes("UnifiedTripRouteMapSection"), false);
   assert.equal(source.includes("OptimizedRouteSection"), false);
   assert.equal(source.includes("clearTripMapCache"), false);
@@ -46,6 +56,15 @@ test("city itinerary map uses the static city-map endpoint and outline-based lay
   assert.equal(source.includes("Approximate pairwise distances"), true);
   assert.equal(source.includes("Supplemental transport context"), false);
   assert.equal(source.includes("Nearby arrival and local transit references"), false);
+});
+
+test("places to visit keeps the older detailed itinerary card layout", () => {
+  const source = fs.readFileSync(placesToVisitPath, "utf8");
+
+  assert.equal(source.includes("Your Journey Itinerary"), true);
+  assert.equal(source.includes("Expand each day to view planned activities, costs, and guidance."), true);
+  assert.equal(source.includes("PlaceCardItem"), true);
+  assert.equal(source.includes("Approximate route legs"), false);
 });
 
 test("main router does not expose the unified trip map preview route", () => {
