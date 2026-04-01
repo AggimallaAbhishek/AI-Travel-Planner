@@ -1,10 +1,25 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { loadGoogleMapsApi } from "@/lib/googleMaps";
 import { decodeGooglePolyline, escapeHtmlText } from "@/lib/maps";
 
 function normalizeMarkerPosition(marker = {}) {
   const latitude = Number.parseFloat(marker.latitude);
   const longitude = Number.parseFloat(marker.longitude);
+
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return null;
+  }
+
+  return {
+    lat: latitude,
+    lng: longitude,
+  };
+}
+
+function normalizeCenterPosition(center = {}) {
+  const latitude = Number.parseFloat(center?.latitude);
+  const longitude = Number.parseFloat(center?.longitude);
 
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
     return null;
@@ -31,22 +46,22 @@ function buildRoutePath(dayRoute = {}) {
     .filter(Boolean);
 }
 
-function buildMapRestriction(cityBounds = null) {
+function buildMapRestriction(viewport = null) {
   if (
-    !cityBounds ||
-    !Number.isFinite(cityBounds.north) ||
-    !Number.isFinite(cityBounds.south) ||
-    !Number.isFinite(cityBounds.east) ||
-    !Number.isFinite(cityBounds.west)
+    !viewport ||
+    !Number.isFinite(viewport.north) ||
+    !Number.isFinite(viewport.south) ||
+    !Number.isFinite(viewport.east) ||
+    !Number.isFinite(viewport.west)
   ) {
     return null;
   }
 
   return {
-    north: cityBounds.north,
-    south: cityBounds.south,
-    east: cityBounds.east,
-    west: cityBounds.west,
+    north: viewport.north,
+    south: viewport.south,
+    east: viewport.east,
+    west: viewport.west,
   };
 }
 
@@ -64,19 +79,19 @@ function createMarkerIcon(googleMaps, isHighlighted) {
 
 function buildInfoWindowMarkup(marker = {}, destination = "") {
   const safeName = escapeHtmlText(marker.name ?? "Stop");
-  const safeDestination = escapeHtmlText(destination ?? "");
+  const safeLocation = escapeHtmlText(marker.location ?? destination ?? "");
 
   return `
-    <div style="min-width: 180px; font-family: ui-sans-serif, system-ui, sans-serif;">
+    <div style="min-width: 180px; font-family: 'DM Sans', ui-sans-serif, system-ui, sans-serif;">
       <div style="font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.08em;">
         Stop ${marker.visitOrder ?? ""}
       </div>
-      <div style="margin-top: 4px; font-size: 16px; font-weight: 600; color: #111827;">
+      <div style="margin-top: 4px; font-size: 16px; font-weight: 700; color: #111827;">
         ${safeName}
       </div>
       ${
-        safeDestination
-          ? `<div style="margin-top: 6px; font-size: 13px; color: #6b7280;">${safeDestination}</div>`
+        safeLocation
+          ? `<div style="margin-top: 6px; font-size: 13px; color: #6b7280;">${safeLocation}</div>`
           : ""
       }
     </div>
@@ -85,10 +100,53 @@ function buildInfoWindowMarkup(marker = {}, destination = "") {
 
 function MapOverlayMessage({ title, body }) {
   return (
-    <div className="absolute inset-4 z-10 flex items-center justify-center rounded-[1.75rem] border border-[var(--voy-border)] bg-[rgba(252,250,245,0.94)] px-6 py-8 text-center shadow-sm backdrop-blur-sm">
+    <div className="pointer-events-none absolute left-4 top-4 z-20 max-w-sm rounded-[1.4rem] border border-[var(--voy-border)] bg-[rgba(252,250,245,0.88)] px-4 py-3 text-left shadow-lg backdrop-blur-md">
       <div>
-        <p className="text-lg font-semibold text-[var(--voy-text)]">{title}</p>
-        <p className="mt-2 max-w-sm text-sm text-[var(--voy-text-muted)]">{body}</p>
+        <p className="text-sm font-semibold text-[var(--voy-text)]">{title}</p>
+        <p className="mt-1 text-sm leading-6 text-[var(--voy-text-muted)]">{body}</p>
+      </div>
+    </div>
+  );
+}
+
+function StaticMapFallback({ dayRoute, destination, title, body }) {
+  const markers = Array.isArray(dayRoute?.markers) ? dayRoute.markers.slice(0, 4) : [];
+
+  return (
+    <div className="voy-route-map-fallback">
+      <div className="voy-route-map-fallback-copy">
+        <p className="voy-route-map-fallback-title">{title}</p>
+        <p className="voy-route-map-fallback-body">{body}</p>
+      </div>
+
+      <div className="voy-route-map-fallback-meta">
+        <div className="voy-route-map-fallback-stat">
+          <span className="voy-route-map-fallback-label">Focused area</span>
+          <strong>{dayRoute?.localityLabel || destination || "Selected destination"}</strong>
+        </div>
+        <div className="voy-route-map-fallback-stat">
+          <span className="voy-route-map-fallback-label">Mapped pins</span>
+          <strong>{markers.length}</strong>
+        </div>
+      </div>
+
+      {markers.length > 0 ? (
+        <div className="voy-route-map-fallback-list">
+          {markers.map((marker) => (
+            <div key={marker.id} className="voy-route-map-fallback-item">
+              <span>{marker.visitOrder}.</span>
+              <span>{marker.name}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="voy-route-actions">
+        {dayRoute?.directionsUrl ? (
+          <a href={dayRoute.directionsUrl} target="_blank" rel="noopener noreferrer">
+            <Button className="voy-create-primary">Open route in Google Maps</Button>
+          </a>
+        ) : null}
       </div>
     </div>
   );
@@ -108,7 +166,7 @@ function TripDayMap({
   const infoWindowRef = useRef(null);
   const fitListenerRef = useRef(null);
   const [mapState, setMapState] = useState({
-    isLoading: true,
+    isLoading: false,
     errorMessage: "",
   });
 
@@ -117,20 +175,40 @@ function TripDayMap({
     [dayRoute?.markers]
   );
   const routePath = useMemo(() => buildRoutePath(dayRoute), [dayRoute]);
-  const restriction = useMemo(
-    () => buildMapRestriction(dayRoute?.cityBounds),
-    [dayRoute?.cityBounds]
+  const localizedViewport = useMemo(
+    () => dayRoute?.mapViewport ?? dayRoute?.cityBounds ?? null,
+    [dayRoute?.cityBounds, dayRoute?.mapViewport]
   );
+  const restriction = useMemo(
+    () => buildMapRestriction(localizedViewport),
+    [localizedViewport]
+  );
+  const mapCenter = useMemo(
+    () => normalizeCenterPosition(dayRoute?.mapCenter),
+    [dayRoute?.mapCenter]
+  );
+  const hasMapContext = Boolean(restriction || mapCenter);
+  const needsInteractiveMap =
+    hasMapContext || mapMarkers.length > 0 || routePath.length >= 2;
 
   useEffect(() => {
     let isCancelled = false;
 
+    if (!needsInteractiveMap) {
+      setMapState({
+        isLoading: false,
+        errorMessage: "",
+      });
+      return () => {
+        isCancelled = true;
+      };
+    }
+
     async function ensureMapReady() {
-      setMapState((current) => ({
-        ...current,
+      setMapState({
         isLoading: true,
         errorMessage: "",
-      }));
+      });
 
       try {
         const googleMaps = await loadGoogleMapsApi();
@@ -143,7 +221,7 @@ function TripDayMap({
           setMapState({
             isLoading: false,
             errorMessage:
-              "Set VITE_GOOGLE_MAPS_BROWSER_KEY to render the interactive map.",
+              "Set VITE_GOOGLE_MAPS_BROWSER_KEY to render the interactive city map.",
           });
           return;
         }
@@ -151,14 +229,14 @@ function TripDayMap({
         if (!containerRef.current) {
           setMapState({
             isLoading: false,
-            errorMessage: "The route map container is unavailable.",
+            errorMessage: "The city map container is unavailable.",
           });
           return;
         }
 
         if (!mapRef.current) {
           mapRef.current = new googleMaps.Map(containerRef.current, {
-            center: { lat: 35.6762, lng: 139.6503 },
+            center: mapCenter ?? { lat: 35.6762, lng: 139.6503 },
             zoom: 12,
             disableDefaultUI: false,
             mapTypeControl: false,
@@ -193,21 +271,25 @@ function TripDayMap({
     return () => {
       isCancelled = true;
     };
-  }, []);
+  }, [mapCenter, needsInteractiveMap]);
 
   useEffect(() => {
     const googleMaps = globalThis?.google?.maps;
     const map = mapRef.current;
 
-    if (!googleMaps || !map) {
+    if (!googleMaps || !map || !needsInteractiveMap || mapState.errorMessage) {
       return undefined;
     }
 
-    console.info("[route-map] Syncing day route map", {
+    console.info("[route-map] Syncing localized day route map", {
       dayNumber: dayRoute?.dayNumber ?? null,
+      localityLabel: dayRoute?.localityLabel ?? destination,
       markerCount: mapMarkers.length,
       hasPolyline: routePath.length >= 2,
+      viewportSource: dayRoute?.viewportSource ?? null,
     });
+
+    infoWindowRef.current?.close();
 
     if (fitListenerRef.current) {
       googleMaps.event.removeListener(fitListenerRef.current);
@@ -237,7 +319,7 @@ function TripDayMap({
     if (restriction) {
       nextMapOptions.restriction = {
         latLngBounds: restriction,
-        strictBounds: false,
+        strictBounds: dayRoute?.viewportSource === "day_cluster",
       };
       nextMapOptions.minZoom = 10;
     } else {
@@ -319,13 +401,16 @@ function TripDayMap({
     }
 
     if (!bounds.isEmpty()) {
-      map.fitBounds(bounds, 56);
+      map.fitBounds(bounds, 48);
       fitListenerRef.current = googleMaps.event.addListenerOnce(map, "idle", () => {
         const currentZoom = map.getZoom();
         if (currentZoom && currentZoom > 15) {
           map.setZoom(15);
         }
       });
+    } else if (mapCenter) {
+      map.setCenter(mapCenter);
+      map.setZoom(restriction ? 13 : 11);
     }
 
     return () => {
@@ -336,8 +421,13 @@ function TripDayMap({
     };
   }, [
     dayRoute?.dayNumber,
+    dayRoute?.localityLabel,
+    dayRoute?.viewportSource,
     destination,
+    mapCenter,
     mapMarkers,
+    mapState.errorMessage,
+    needsInteractiveMap,
     onHighlightStop,
     restriction,
     routePath,
@@ -347,7 +437,7 @@ function TripDayMap({
     const googleMaps = globalThis?.google?.maps;
     const map = mapRef.current;
 
-    if (!googleMaps || !map) {
+    if (!googleMaps || !map || !needsInteractiveMap || mapState.errorMessage) {
       return;
     }
 
@@ -390,33 +480,62 @@ function TripDayMap({
       strokeWeight: 6,
       zIndex: 300,
     });
-  }, [highlightedStopId, mapMarkers]);
+  }, [
+    highlightedStopId,
+    mapMarkers,
+    mapState.errorMessage,
+    needsInteractiveMap,
+  ]);
+
+  const showStaticUnavailableState = !mapState.isLoading && Boolean(mapState.errorMessage);
+  const showStaticEmptyState = !mapState.isLoading && !needsInteractiveMap;
+  const showNoPinsNotice =
+    !mapState.isLoading &&
+    !mapState.errorMessage &&
+    needsInteractiveMap &&
+    mapMarkers.length === 0 &&
+    routePath.length < 2;
 
   return (
-    <div className="relative overflow-hidden rounded-[2rem] border border-[var(--voy-border)] bg-[linear-gradient(180deg,rgba(253,250,244,0.9),rgba(246,239,227,0.96))] shadow-md">
-      <div ref={containerRef} className="h-[420px] w-full lg:h-[620px]" />
-
-      {mapState.isLoading ? (
-        <MapOverlayMessage
-          title="Loading city map"
-          body="Fetching the Google Maps canvas for the selected itinerary day."
+    <div className="voy-route-map-frame relative overflow-hidden rounded-[2rem] border border-[var(--voy-border)] bg-[linear-gradient(180deg,rgba(253,250,244,0.92),rgba(246,239,227,0.96))] shadow-md">
+      {needsInteractiveMap ? (
+        <div
+          ref={containerRef}
+          className={`voy-route-map-canvas h-[320px] w-full sm:h-[360px] lg:h-[420px] xl:h-[460px] 2xl:h-[500px] ${
+            showStaticUnavailableState ? "voy-route-map-canvas-hidden" : ""
+          }`}
         />
       ) : null}
 
-      {!mapState.isLoading && mapState.errorMessage ? (
+      {mapState.isLoading ? (
         <MapOverlayMessage
+          title="Loading localized city map"
+          body="Preparing the active day’s pins, city viewport, and route overlay."
+        />
+      ) : null}
+
+      {showStaticUnavailableState ? (
+        <StaticMapFallback
+          dayRoute={dayRoute}
+          destination={destination}
           title="Interactive map unavailable"
           body={mapState.errorMessage}
         />
       ) : null}
 
-      {!mapState.isLoading &&
-      !mapState.errorMessage &&
-      mapMarkers.length === 0 &&
-      routePath.length < 2 ? (
+      {showNoPinsNotice ? (
         <MapOverlayMessage
-          title="No plotted stops yet"
-          body="This day does not have enough geocoded places to display markers and a route on the city map."
+          title="Map ready, waiting for pinned stops"
+          body="The map is centered on this day’s local area, but no itinerary places have been geocoded yet. As soon as recognizable stops resolve, pins will appear here."
+        />
+      ) : null}
+
+      {showStaticEmptyState ? (
+        <StaticMapFallback
+          dayRoute={dayRoute}
+          destination={destination}
+          title="Localized map pending"
+          body="This day does not have enough mapped places yet to render pins and a route on the city map."
         />
       ) : null}
     </div>

@@ -80,10 +80,17 @@ test("trip route service falls back to estimated haversine routing when Google A
 
   assert.equal(routes.dayCount, 1);
   assert.equal(routes.selectedDayDefault, 1);
+  assert.equal(routes.defaultObjective, "fastest");
   assert.equal(routes.days[0].status, "ready");
+  assert.equal(routes.days[0].algorithm, "dijkstra-fastest");
   assert.equal(routes.days[0].routeProvider, "estimated-haversine");
   assert.equal(routes.days[0].orderedStops.length, 3);
   assert.equal(routes.days[0].markers.length, 3);
+  assert.equal(routes.days[0].viewportSource, "day_cluster");
+  assert.equal(routes.days[0].localityLabel, "Paris");
+  assert.equal(routes.days[0].segmentsDetailed.length, 2);
+  assert.equal(routes.days[0].routeGraph.algorithm, "dijkstra-fastest");
+  assert.deepEqual(routes.days[0].routeGraph.shortestPaths, [0, 344, 316]);
   assert.equal(
     routes.days[0].directionsUrl.startsWith("https://www.google.com/maps/dir/?"),
     true
@@ -94,6 +101,14 @@ test("trip route service falls back to estimated haversine routing when Google A
 test("trip route service geocodes stops and uses Google route data when available", async () => {
   const requests = [];
   const stopFixtures = {
+    "Paris, France": {
+      formattedAddress: "Paris, France",
+      location: { latitude: 48.8566, longitude: 2.3522 },
+      viewport: {
+        northEast: { latitude: 48.9021, longitude: 2.4699 },
+        southWest: { latitude: 48.8156, longitude: 2.2241 },
+      },
+    },
     "Louvre Museum, Paris, France": {
       formattedAddress: "Rue de Rivoli, Paris, France",
       location: { latitude: 48.8606, longitude: 2.3376 },
@@ -113,19 +128,6 @@ test("trip route service geocodes stops and uses Google route data when availabl
   const service = createTripRouteService({
     resolvePlacesKey: () => "places-key",
     resolveRoutesKey: () => "routes-key",
-    pythonRouteOptimizer: async () => ({
-      algorithm: "python-nearest-neighbor-2opt",
-      visitOrder: [0, 2, 1],
-      shortestPathsFromOrigin: [0, 420, 240],
-      previous: [null, 2, 0],
-      mst: {
-        totalWeight: 660,
-        edges: [
-          { fromIndex: 0, toIndex: 2, weight: 240 },
-          { fromIndex: 2, toIndex: 1, weight: 420 },
-        ],
-      },
-    }),
     fetchImpl: async (url, options = {}) => {
       const urlText = String(url);
       requests.push({ url: urlText, options });
@@ -233,6 +235,11 @@ test("trip route service geocodes stops and uses Google route data when availabl
 
   assert.equal(routes.days[0].routeProvider, "google-routes-matrix");
   assert.equal(routes.days[0].algorithm, "dijkstra-fastest");
+  assert.equal(routes.days[0].localityLabel, "Paris");
+  assert.equal(routes.days[0].viewportSource, "day_cluster");
+  assert.equal(routes.days[0].segmentsDetailed.length, 2);
+  assert.equal(routes.days[0].routeGraph.algorithm, "dijkstra-fastest");
+  assert.deepEqual(routes.days[0].routeGraph.shortestPaths, [0, 670, 240]);
   assert.deepEqual(
     routes.days[0].orderedStops.map((stop) => stop.name),
     ["Louvre Museum", "Eiffel Tower", "Arc de Triomphe"]
@@ -248,6 +255,13 @@ test("trip route service geocodes stops and uses Google route data when availabl
   );
   assert.equal(
     routes.days[0].directionsUrl.includes("waypoints=48.8584%2C2.2945"),
+    true
+  );
+  assert.equal(routes.cityBounds !== null, true);
+  assert.equal(routes.days[0].mapViewport !== null, true);
+  assert.equal(
+    routes.days[0].mapViewport.east - routes.days[0].mapViewport.west <
+      routes.cityBounds.east - routes.cityBounds.west,
     true
   );
 
@@ -435,6 +449,13 @@ test("trip route service synthesizes fallback stops when a day has none", async 
   assert.equal(day.routeProvider, "google-routes-matrix");
   assert.equal(day.orderedStops.length, 3);
   assert.equal(day.orderedStops[0].name, "Senso-ji");
+  assert.equal(day.localityLabel, "Taito");
+  assert.equal(day.viewportSource, "day_cluster");
+  assert.equal(day.inferredStopCount, 3);
+  assert.equal(
+    day.orderedStops.every((stop) => stop.source === "inferred"),
+    true
+  );
   assert.equal(day.markers.length, 3);
   assert.equal(day.totalDistanceMeters, 6000);
   assert.equal(day.totalDurationSeconds, 720);
@@ -444,6 +465,111 @@ test("trip route service synthesizes fallback stops when a day has none", async 
     request.url.includes("places.googleapis.com")
   );
   assert.equal(placeRequests.length >= 2, true);
+});
+
+test("trip route service extracts clean place names from descriptive itinerary text", async () => {
+  const placeRequests = [];
+  const viewport = {
+    northEast: { latitude: -8.2, longitude: 115.35 },
+    southWest: { latitude: -8.95, longitude: 114.95 },
+  };
+  const geocodeFixtures = {
+    "Bali, Indonesia": {
+      displayName: { text: "Bali" },
+      formattedAddress: "Bali, Indonesia",
+      location: { latitude: -8.409518, longitude: 115.188919 },
+      viewport,
+      googleMapsUri: "https://maps.google.com/?q=bali",
+    },
+    "Uluwatu Temple, Bali, Indonesia": {
+      displayName: { text: "Uluwatu Temple" },
+      formattedAddress: "Pecatu, Bali, Indonesia",
+      location: { latitude: -8.8291, longitude: 115.0849 },
+      viewport,
+      googleMapsUri: "https://maps.google.com/?q=uluwatu",
+    },
+    "Padang Padang Beach, Bali, Indonesia": {
+      displayName: { text: "Padang Padang Beach" },
+      formattedAddress: "Pecatu, Bali, Indonesia",
+      location: { latitude: -8.8051, longitude: 115.1005 },
+      viewport,
+      googleMapsUri: "https://maps.google.com/?q=padang-padang",
+    },
+  };
+
+  const service = createTripRouteService({
+    resolvePlacesKey: () => "places-key",
+    resolveRoutesKey: () => "",
+    fetchImpl: async (url, options = {}) => {
+      const urlText = String(url);
+
+      if (!urlText.includes("places.googleapis.com")) {
+        throw new Error(`Unexpected URL: ${urlText}`);
+      }
+
+      const query = JSON.parse(options.body).textQuery;
+      placeRequests.push(query);
+      const place = geocodeFixtures[query];
+
+      return {
+        ok: true,
+        headers: {
+          get(name) {
+            return name.toLowerCase() === "content-type"
+              ? "application/json"
+              : "";
+          },
+        },
+        async json() {
+          return {
+            places: place ? [place] : [],
+          };
+        },
+      };
+    },
+  });
+
+  const routes = await service.getRoutesForTrip({
+    trip: {
+      id: "trip-descriptive-text",
+      userSelection: {
+        location: { label: "Bali, Indonesia" },
+      },
+      itinerary: {
+        days: [
+          {
+            dayNumber: 1,
+            title: "Cliff temples and beach farewell",
+            places: [
+              {
+                placeName:
+                  "Visit the majestic Uluwatu Temple, perched on a cliff overlooking the Indian Ocean.",
+              },
+              {
+                placeName:
+                  "Spend some time at Padang Padang Beach or Bingin Beach, known for their beauty.",
+              },
+            ],
+          },
+        ],
+      },
+    },
+  });
+
+  assert.equal(routes.days[0].status, "ready");
+  assert.equal(routes.days[0].routeProvider, "estimated-haversine");
+  assert.deepEqual(
+    routes.days[0].markers.map((marker) => marker.name),
+    ["Uluwatu Temple", "Padang Padang Beach"]
+  );
+  assert.equal(
+    placeRequests.includes("Uluwatu Temple, Bali, Indonesia"),
+    true
+  );
+  assert.equal(
+    placeRequests.includes("Padang Padang Beach, Bali, Indonesia"),
+    true
+  );
 });
 
 test("trip route service returns objective-ranked alternatives", async () => {
@@ -752,6 +878,8 @@ test("trip route service extracts place candidates from verbose aiPlan activitie
 
   assert.equal(routes.days[0].status, "ready");
   assert.equal(routes.days[0].markers.length, 3);
+  assert.equal(routes.days[0].localityLabel, "Ubud");
+  assert.equal(routes.days[0].viewportSource, "day_cluster");
   assert.deepEqual(
     routes.days[0].orderedStops.map((stop) => stop.name),
     ["Ubud Market", "Ubud", "Monkey Forest"]
@@ -919,6 +1047,13 @@ test("trip route service retries city fallback places after geocoding collapses"
 
   assert.equal(routes.days[0].status, "ready");
   assert.equal(routes.days[0].markers.length, 3);
+  assert.equal(routes.days[0].localityLabel, "Sidemen");
+  assert.equal(routes.days[0].viewportSource, "day_cluster");
+  assert.equal(routes.days[0].inferredStopCount, 3);
+  assert.equal(
+    routes.days[0].orderedStops.every((stop) => stop.source === "inferred"),
+    true
+  );
   assert.equal(
     routes.days[0].warning.includes(
       "Some day stops were inferred from Google Places because the itinerary text could not be geocoded directly."

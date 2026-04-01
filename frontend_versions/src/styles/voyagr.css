@@ -3324,3 +3324,648 @@ html[data-theme="light"] .voy-inline-error {
     min-width: 0;
   }
 }
+
+.voy-route-section {
+  margin-top: clamp(2.5rem, 5vw, 4rem);
+  padding: 0;
+}
+
+.voy-route-shell {
+  max-width: 1320px;
+  margin: 0 auto;
+  border: 1px solid var(--voy-border);
+  border-radius: 32px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--voy-surface) 95%, white 5%),
+    color-mix(in srgb, var(--voy-surface) 86%, var(--voy-bg2) 14%)
+  );
+  box-shadow: var(--voy-shadow);
+  padding: clamp(1.4rem, 2vw, 2rem);
+}
+
+.voy-route-header {
+  max-width: 840px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.voy-route-heading-eyebrow,
+.voy-route-eyebrow,
+.voy-route-toolbar-label,
+.voy-route-day-label {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--voy-gold);
+}
+
+.voy-route-heading {
+  margin: 0.4rem 0 0;
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: clamp(2.1rem, 4vw, 3.35rem);
+  line-height: 0.98;
+  letter-spacing: -0.02em;
+  color: var(--voy-text);
+}
+
+.voy-route-subtitle {
+  margin: 0.9rem auto 0;
+  max-width: 760px;
+  font-size: 1rem;
+  line-height: 1.75;
+  color: var(--voy-text-muted);
+}
+
+.voy-route-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  gap: 1.25rem;
+  align-items: start;
+  margin-top: 1.6rem;
+  padding: 1.1rem;
+  border: 1px solid var(--voy-border);
+  border-radius: 28px;
+  background: color-mix(in srgb, var(--voy-surface2) 78%, transparent);
+}
+
+.voy-route-toolbar-main,
+.voy-route-main-stack,
+.voy-route-loading-main,
+.voy-route-loading-rail {
+  min-width: 0;
+}
+
+.voy-route-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.voy-route-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 0.32rem;
+  padding: 0.95rem 1rem;
+  border: 1px solid var(--voy-border);
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--voy-surface) 92%, transparent);
+  text-align: left;
+  transition:
+    transform var(--voy-transition),
+    border-color var(--voy-transition),
+    background var(--voy-transition),
+    box-shadow var(--voy-transition);
+}
+
+.voy-route-tab:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--voy-gold) 55%, var(--voy-border) 45%);
+}
+
+.voy-route-tab.is-active {
+  border-color: color-mix(in srgb, var(--voy-gold) 70%, white 30%);
+  background: color-mix(in srgb, var(--voy-gold-dim) 100%, var(--voy-surface) 0%);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.08);
+}
+
+.voy-route-tab-title {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--voy-text);
+}
+
+.voy-route-tab-hint,
+.voy-route-toolbar-note,
+.voy-route-card-copy,
+.voy-route-list-copy,
+.voy-route-empty-copy {
+  font-size: 0.92rem;
+  line-height: 1.65;
+  color: var(--voy-text-muted);
+}
+
+.voy-route-toolbar-side {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.voy-route-select-label {
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--voy-text-faint);
+}
+
+.voy-route-select {
+  min-height: 48px;
+  border: 1px solid var(--voy-border);
+  border-radius: 18px;
+  background: var(--voy-surface);
+  color: var(--voy-text);
+  padding: 0.85rem 1rem;
+}
+
+.voy-route-layout,
+.voy-route-loading-grid {
+  display: grid;
+  grid-template-columns: minmax(290px, 360px) minmax(0, 1fr);
+  gap: 1.3rem;
+  margin-top: 1.4rem;
+}
+
+.voy-route-rail,
+.voy-route-main,
+.voy-route-loading-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+  min-width: 0;
+}
+
+.voy-route-card {
+  border: 1px solid var(--voy-border);
+  border-radius: 28px;
+  background: color-mix(in srgb, var(--voy-surface) 94%, white 6%);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.08);
+  padding: 1.15rem;
+}
+
+.voy-route-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.9rem;
+  margin-bottom: 0.95rem;
+}
+
+.voy-route-card-header-wide {
+  align-items: flex-start;
+}
+
+.voy-route-card-title {
+  margin: 0.2rem 0 0;
+  font-size: 1.14rem;
+  line-height: 1.25;
+  font-weight: 700;
+  color: var(--voy-text);
+}
+
+.voy-route-day-heading {
+  margin: 0.25rem 0 0;
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: clamp(1.65rem, 2.6vw, 2.35rem);
+  line-height: 1.03;
+  color: var(--voy-text);
+}
+
+.voy-route-badge-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  justify-content: flex-end;
+}
+
+.voy-route-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0.4rem 0.8rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.voy-route-chip-gold {
+  color: var(--voy-gold);
+  background: color-mix(in srgb, var(--voy-gold-dim) 100%, transparent);
+}
+
+.voy-route-chip-soft {
+  color: var(--voy-text-muted);
+  border: 1px solid var(--voy-border);
+  background: color-mix(in srgb, var(--voy-surface2) 85%, transparent);
+}
+
+.voy-route-day-list,
+.voy-route-list,
+.voy-route-segment-list {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.voy-route-day-button,
+.voy-route-list-item,
+.voy-route-segment-item,
+.voy-route-alternative-card {
+  width: 100%;
+  border: 1px solid var(--voy-border);
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--voy-surface2) 82%, transparent);
+  padding: 0.95rem 1rem;
+  text-align: left;
+  transition:
+    border-color var(--voy-transition),
+    background var(--voy-transition),
+    transform var(--voy-transition),
+    box-shadow var(--voy-transition);
+}
+
+.voy-route-day-button:hover,
+.voy-route-list-item:hover,
+.voy-route-segment-item:hover,
+.voy-route-alternative-card:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--voy-gold) 55%, var(--voy-border) 45%);
+}
+
+.voy-route-day-button.is-active,
+.voy-route-list-item.is-highlighted,
+.voy-route-alternative-card.is-active {
+  border-color: color-mix(in srgb, var(--voy-gold) 70%, white 30%);
+  background: color-mix(in srgb, var(--voy-gold-dim) 100%, var(--voy-surface) 0%);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.08);
+}
+
+.voy-route-day-row,
+.voy-route-list-top,
+.voy-route-alternative-top,
+.voy-route-note-head,
+.voy-route-stat-label,
+.voy-route-segment-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.voy-route-day-title,
+.voy-route-list-title,
+.voy-route-segment-title {
+  margin: 0.2rem 0 0;
+  font-size: 1rem;
+  line-height: 1.45;
+  font-weight: 700;
+  color: var(--voy-text);
+}
+
+.voy-route-day-meta,
+.voy-route-segment-foot,
+.voy-route-alternative-meta,
+.voy-route-alternative-delta,
+.voy-route-segment-metric {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem 0.9rem;
+  margin-top: 0.55rem;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: var(--voy-text-muted);
+}
+
+.voy-route-stat-grid,
+.voy-route-detail-grid,
+.voy-route-skeleton-grid {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.voy-route-stat-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 1rem;
+}
+
+.voy-route-stat-card {
+  border: 1px solid var(--voy-border);
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--voy-surface2) 80%, transparent);
+  padding: 0.9rem 1rem;
+}
+
+.voy-route-stat-label {
+  justify-content: flex-start;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--voy-text-muted);
+}
+
+.voy-route-stat-value {
+  margin: 0.55rem 0 0;
+  font-size: 1.15rem;
+  line-height: 1.3;
+  font-weight: 700;
+  color: var(--voy-text);
+}
+
+.voy-route-note-block,
+.voy-route-inline-warning,
+.voy-route-empty-block,
+.voy-route-compact-note {
+  margin-top: 1rem;
+  border-radius: 22px;
+  padding: 0.95rem 1rem;
+}
+
+.voy-route-note-block,
+.voy-route-empty-block,
+.voy-route-compact-note {
+  border: 1px solid var(--voy-border);
+  background: color-mix(in srgb, var(--voy-surface2) 82%, transparent);
+}
+
+.voy-route-note-block p,
+.voy-route-compact-note p {
+  margin: 0.55rem 0 0;
+  font-size: 0.93rem;
+  line-height: 1.7;
+  color: var(--voy-text-muted);
+}
+
+.voy-route-inline-warning {
+  border: 1px solid color-mix(in srgb, var(--voy-gold) 30%, var(--voy-border) 70%);
+  background: color-mix(in srgb, var(--voy-gold-dim) 60%, var(--voy-surface2) 40%);
+  font-size: 0.92rem;
+  line-height: 1.65;
+  color: var(--voy-text);
+}
+
+.voy-route-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+
+.voy-route-detail-grid {
+  grid-template-columns: minmax(0, 0.98fr) minmax(0, 1.02fr);
+}
+
+.voy-route-list-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+}
+
+.voy-route-list-content {
+  min-width: 0;
+  flex: 1;
+}
+
+.voy-route-stop-order,
+.voy-route-segment-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  background: var(--voy-gold);
+  color: #111;
+  font-size: 0.85rem;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.voy-route-segment-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+}
+
+.voy-route-segment-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.voy-route-alternative-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.voy-route-alternative-title {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--voy-text);
+}
+
+.voy-route-alternative-cost {
+  margin: 0.55rem 0 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--voy-text);
+}
+
+.voy-route-map-card {
+  overflow: hidden;
+}
+
+.voy-route-map-frame {
+  position: relative;
+  min-height: 460px;
+  margin-top: 1rem;
+  overflow: hidden;
+  border: 1px solid var(--voy-border);
+  border-radius: 26px;
+  background:
+    radial-gradient(circle at top left, rgba(201, 164, 92, 0.14), transparent 34%),
+    linear-gradient(180deg, rgba(253, 250, 244, 0.95), rgba(244, 237, 226, 0.96));
+}
+
+.voy-route-map-canvas {
+  width: 100%;
+  height: 460px;
+}
+
+.voy-route-map-canvas-hidden {
+  display: none;
+}
+
+.voy-route-map-overlay,
+.voy-route-map-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1rem;
+  padding: clamp(1.2rem, 2vw, 1.8rem);
+  background: rgba(252, 250, 245, 0.96);
+  backdrop-filter: blur(10px);
+}
+
+.voy-route-map-overlay {
+  align-items: center;
+  text-align: center;
+}
+
+.voy-route-map-overlay-title,
+.voy-route-map-fallback-title,
+.voy-route-empty-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--voy-text);
+}
+
+.voy-route-map-overlay-copy,
+.voy-route-map-fallback-body {
+  margin: 0.45rem 0 0;
+  max-width: 520px;
+  font-size: 0.95rem;
+  line-height: 1.7;
+  color: var(--voy-text-muted);
+}
+
+.voy-route-map-fallback-copy {
+  max-width: 640px;
+}
+
+.voy-route-map-fallback-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.voy-route-map-fallback-stat {
+  border: 1px solid var(--voy-border);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--voy-surface2) 78%, transparent);
+  padding: 0.9rem 1rem;
+  color: var(--voy-text);
+}
+
+.voy-route-map-fallback-label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--voy-text-faint);
+}
+
+.voy-route-map-fallback-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.voy-route-map-fallback-item {
+  display: flex;
+  gap: 0.65rem;
+  padding: 0.82rem 0.95rem;
+  border-radius: 18px;
+  border: 1px solid var(--voy-border);
+  background: color-mix(in srgb, var(--voy-surface) 88%, transparent);
+  color: var(--voy-text);
+}
+
+.voy-route-empty-state {
+  margin-top: 1.3rem;
+  text-align: center;
+}
+
+.voy-route-skeleton {
+  border-radius: 16px;
+  background: linear-gradient(
+    90deg,
+    rgba(225, 219, 209, 0.9),
+    rgba(245, 239, 229, 0.96),
+    rgba(225, 219, 209, 0.9)
+  );
+  background-size: 200% 100%;
+  animation: voyRoutePulse 1.35s ease-in-out infinite;
+}
+
+.voy-route-skeleton-title {
+  height: 1.3rem;
+  width: 40%;
+}
+
+.voy-route-skeleton-item {
+  height: 88px;
+}
+
+.voy-route-skeleton-wide {
+  margin-top: 1rem;
+  height: 88px;
+}
+
+.voy-route-skeleton-stat {
+  height: 96px;
+}
+
+.voy-route-skeleton-map {
+  height: 460px;
+}
+
+.voy-route-skeleton-list {
+  display: grid;
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+
+@keyframes voyRoutePulse {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 100% 50%;
+  }
+}
+
+@media (max-width: 1180px) {
+  .voy-route-layout,
+  .voy-route-loading-grid,
+  .voy-route-detail-grid,
+  .voy-route-toolbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .voy-route-alternative-grid,
+  .voy-route-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .voy-route-badge-group {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 780px) {
+  .voy-route-shell {
+    padding: 1rem;
+    border-radius: 24px;
+  }
+
+  .voy-route-tabs,
+  .voy-route-alternative-grid,
+  .voy-route-stat-grid,
+  .voy-route-map-fallback-meta {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .voy-route-card,
+  .voy-route-toolbar,
+  .voy-route-day-button,
+  .voy-route-list-item,
+  .voy-route-segment-item,
+  .voy-route-alternative-card {
+    border-radius: 22px;
+  }
+
+  .voy-route-map-frame,
+  .voy-route-map-canvas,
+  .voy-route-skeleton-map {
+    min-height: 380px;
+    height: 380px;
+  }
+}

@@ -30,7 +30,8 @@ const INITIAL_ROUTE_STATE = {
   days: [],
   destination: "",
   optimizeFor: "duration",
-  objective: "best_experience",
+  defaultObjective: "fastest",
+  objective: "fastest",
   optimizationMeta: null,
   sourceProvenance: null,
   loading: false,
@@ -48,7 +49,7 @@ function Viewtrip() {
     INITIAL_RECOMMENDATION_STATE
   );
   const [routes, setRoutes] = useState(INITIAL_ROUTE_STATE);
-  const [routeObjective, setRouteObjective] = useState("best_experience");
+  const [routeObjective, setRouteObjective] = useState("fastest");
   const [alternativesCount, setAlternativesCount] = useState(3);
   const [disruptionDraft, setDisruptionDraft] = useState({
     type: "traffic_delay",
@@ -111,14 +112,7 @@ function Viewtrip() {
       return;
     }
 
-    const selectionObjective = String(
-      trip.userSelection.objective ?? "best_experience"
-    ).toLowerCase();
-    setRouteObjective(
-      ["fastest", "cheapest", "best_experience"].includes(selectionObjective)
-        ? selectionObjective
-        : "best_experience"
-    );
+    setRouteObjective("fastest");
     const selectionAlternatives = Number.parseInt(
       trip.userSelection.alternativesCount ?? 3,
       10
@@ -460,6 +454,10 @@ function Viewtrip() {
         </section>
         <OptimizedRouteSection
           routes={routes}
+          objective={routeObjective}
+          onObjectiveChange={setRouteObjective}
+          alternativesCount={alternativesCount}
+          onAlternativesCountChange={setAlternativesCount}
           isLoading={routes.loading}
           errorMessage={routes.errorMessage}
           onRetry={handleRetryRoutes}

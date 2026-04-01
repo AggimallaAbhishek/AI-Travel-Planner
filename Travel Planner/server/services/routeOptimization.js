@@ -160,6 +160,15 @@ function cleanPlaceCandidate(value = "") {
 
   candidate = candidate.replace(/^(?:the|central|downtown|local)\s+/i, "");
   candidate = candidate.replace(/\s+(?:and|or)$/i, "");
+  candidate = candidate.replace(/\s*\([^)]*\)\s*$/g, "");
+  candidate = candidate.replace(
+    /(?:,| - |\s+-\s+)\s*(?:known|with|before|after|during|where|which|while|perhaps|perched|overlooking|featuring|including|check|book|head|ending)\b.*$/i,
+    ""
+  );
+  candidate = candidate.replace(
+    /\s+\b(?:known|with|before|after|during|where|which|while|perhaps|perched|overlooking|featuring|including)\b.*$/i,
+    ""
+  );
   candidate = candidate.replace(
     /\s+(?:fun|beauty|wonders?|wonder|grandeur|elegance|adventure|thrills?|immersion|prep|nightlife)$/i,
     ""
@@ -248,6 +257,66 @@ function extractPlaceCandidatesFromText(value = "") {
   }
 
   return candidates;
+}
+
+function buildScopedGeocodeQuery(value = "", destination = "") {
+  const candidate = cleanPlaceCandidate(value);
+  const normalizedDestination = normalizeText(destination);
+
+  if (!candidate) {
+    return "";
+  }
+
+  if (
+    !normalizedDestination ||
+    candidate.toLowerCase().includes(normalizedDestination.toLowerCase())
+  ) {
+    return candidate;
+  }
+
+  return `${candidate}, ${normalizedDestination}`;
+}
+
+function buildGeocodeQueriesForStop(stop = {}, destination = "") {
+  const queries = [];
+  const seen = new Set();
+  const stopName = normalizeText(stop?.name);
+  const stopLocation = normalizeText(stop?.location);
+
+  function pushQuery(value = "", queryDestination = destination) {
+    const query = buildScopedGeocodeQuery(value, queryDestination);
+    const key = query.toLowerCase();
+
+    if (!query || seen.has(key)) {
+      return;
+    }
+
+    seen.add(key);
+    queries.push(query);
+  }
+
+  pushQuery(stopName);
+
+  for (const candidate of extractPlaceCandidatesFromText(stopName)) {
+    pushQuery(candidate);
+  }
+
+  for (const candidate of extractPlaceCandidatesFromText(stop?.description)) {
+    pushQuery(candidate);
+  }
+
+  if (
+    stopLocation &&
+    normalizeLabelKey(stopLocation) !== normalizeLabelKey(destination)
+  ) {
+    pushQuery(stopName, stopLocation);
+
+    for (const candidate of extractPlaceCandidatesFromText(stopName)) {
+      pushQuery(candidate, stopLocation);
+    }
+  }
+
+  return queries.slice(0, 8);
 }
 
 function buildFallbackSearchQueries({
@@ -964,7 +1033,12 @@ function createAiPlanDayStops(aiPlanDay = {}, destination = "", maxStopsPerDay =
       pushStop(candidate, normalizedActivity || details);
     }
 
-    if (extractedPlaces.length === 0 && isLikelyPlaceCandidate(normalizedActivity)) {
+    if (
+      extractedPlaces.length === 0 &&
+      isLikelyPlaceCandidate(normalizedActivity) &&
+      normalizedActivity.split(/\s+/).filter(Boolean).length <= 6 &&
+      normalizedActivity.length <= 72
+    ) {
       pushStop(normalizedActivity, details);
     }
 
@@ -1591,74 +1665,96 @@ async function geocodeStopWithPlaces({
   geocodeCache,
   cityBounds = null,
 }) {
-  const query = normalizeText([stop.name, destination].filter(Boolean).join(", "));
-  if (!query || !apiKey) {
+  const queries = buildGeocodeQueriesForStop(stop, destination);
+  if (queries.length === 0 || !apiKey) {
     return null;
   }
 
-  const cacheKey = query.toLowerCase();
+  const cacheKey = queries.join("||").toLowerCase();
   if (geocodeCache.has(cacheKey)) {
     return geocodeCache.get(cacheKey);
   }
 
   const geocodePromise = (async () => {
-    console.info("[routes] Geocoding itinerary stop", {
-      stopName: stop.name,
-      destination,
-    });
-
-    const response = await fetchImpl(
-      GOOGLE_PLACES_TEXT_SEARCH_URL,
-      buildTimedFetchOptions(
-        {
-          method: "POST",
-          headers: {
-            Accept: "application/json",
-            "Content-Type": "application/json",
-            "X-Goog-Api-Key": apiKey,
-            "X-Goog-FieldMask": GOOGLE_PLACES_ROUTE_FIELD_MASK,
-          },
-          body: JSON.stringify({
-            textQuery: query,
-            languageCode: "en",
-            maxResultCount: 5,
-            rankPreference: "RELEVANCE",
-          }),
-        },
-        timeoutMs
-      )
-    );
-
-    if (!response.ok) {
-      const message = await parseErrorResponse(response);
-      throw new Error(
-        `Place lookup failed with status ${response.status}: ${message}`
-      );
-    }
-
-    const payload = await response.json();
-    const places = Array.isArray(payload?.places) ? payload.places : [];
-    const place =
-      places.find((candidate) =>
-        isWithinBounds(candidate?.location, cityBounds)
-      ) ?? places[0] ?? null;
-
-    if (!place?.location) {
-      return null;
-    }
-
-    return {
-      geoCoordinates: normalizeGeoCoordinates(place.location),
-      location: normalizeText(place.formattedAddress, destination),
-      mapsUrl: normalizeText(
-        place.googleMapsUri,
-        buildGoogleMapsSearchUrl({
-          name: stop.name,
+    for (const query of queries) {
+      try {
+        console.info("[routes] Geocoding itinerary stop", {
+          stopName: stop.name,
           destination,
-          coordinates: place.location,
-        })
-      ),
-    };
+          query,
+        });
+
+        const response = await fetchImpl(
+          GOOGLE_PLACES_TEXT_SEARCH_URL,
+          buildTimedFetchOptions(
+            {
+              method: "POST",
+              headers: {
+                Accept: "application/json",
+                "Content-Type": "application/json",
+                "X-Goog-Api-Key": apiKey,
+                "X-Goog-FieldMask": GOOGLE_PLACES_ROUTE_FIELD_MASK,
+              },
+              body: JSON.stringify({
+                textQuery: query,
+                languageCode: "en",
+                maxResultCount: 5,
+                rankPreference: "RELEVANCE",
+              }),
+            },
+            timeoutMs
+          )
+        );
+
+        if (!response.ok) {
+          const message = await parseErrorResponse(response);
+          console.warn("[routes] Place lookup query failed", {
+            stopName: stop.name,
+            query,
+            message,
+            status: response.status,
+          });
+          continue;
+        }
+
+        const payload = await response.json();
+        const places = Array.isArray(payload?.places) ? payload.places : [];
+        const place =
+          places.find((candidate) =>
+            isWithinBounds(candidate?.location, cityBounds)
+          ) ?? places[0] ?? null;
+
+        if (!place?.location) {
+          continue;
+        }
+
+        return {
+          resolvedName: normalizeText(
+            place?.displayName?.text,
+            cleanPlaceCandidate(query)
+          ),
+          geoCoordinates: normalizeGeoCoordinates(place.location),
+          location: normalizeText(place.formattedAddress, destination),
+          mapsUrl: normalizeText(
+            place.googleMapsUri,
+            buildGoogleMapsSearchUrl({
+              name: stop.name,
+              destination,
+              coordinates: place.location,
+            })
+          ),
+        };
+      } catch (error) {
+        console.warn("[routes] Failed geocode query for itinerary stop", {
+          stopName: stop.name,
+          destination,
+          query,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    return null;
   })().catch((error) => {
     console.warn("[routes] Failed to geocode itinerary stop", {
       stopName: stop.name,
@@ -2506,6 +2602,10 @@ export function createTripRouteService({
 
         resolvedStops.push({
           ...result.stop,
+          name: normalizeText(
+            result?.geocodedStop?.resolvedName,
+            result.stop.name
+          ),
           geoCoordinates: coordinates,
           location: normalizeText(result?.geocodedStop?.location, result.stop.location),
           mapsUrl: normalizeText(result?.geocodedStop?.mapsUrl, result.stop.mapsUrl),

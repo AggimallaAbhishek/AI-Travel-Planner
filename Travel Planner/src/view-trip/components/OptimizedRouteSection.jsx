@@ -1,17 +1,42 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  FaBolt,
   FaClock,
+  FaCoins,
+  FaCompass,
   FaMapMarkedAlt,
   FaMapPin,
   FaRoute,
   FaRoad,
+  FaStar,
 } from "react-icons/fa";
 import { Button } from "@/components/ui/button";
 import TripDayMap from "./TripDayMap";
 
+const OBJECTIVE_OPTIONS = [
+  {
+    value: "fastest",
+    label: "Fastest",
+    shortLabel: "Fastest (Dijkstra)",
+    hint: "Minimize travel time with Dijkstra shortest-path costs.",
+  },
+  {
+    value: "cheapest",
+    label: "Cheapest",
+    shortLabel: "Cheapest",
+    hint: "Reduce route cost while keeping the day feasible.",
+  },
+  {
+    value: "best_experience",
+    label: "Best Experience",
+    shortLabel: "Best Experience",
+    hint: "Balance travel time with stronger stop quality.",
+  },
+];
+
 function formatDuration(durationSeconds) {
   if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
-    return "Duration unavailable";
+    return "Unavailable";
   }
 
   const totalMinutes = Math.round(durationSeconds / 60);
@@ -31,7 +56,7 @@ function formatDuration(durationSeconds) {
 
 function formatDistance(distanceMeters) {
   if (!Number.isFinite(distanceMeters) || distanceMeters <= 0) {
-    return "Distance unavailable";
+    return "Unavailable";
   }
 
   if (distanceMeters < 950) {
@@ -41,9 +66,21 @@ function formatDistance(distanceMeters) {
   return `${(distanceMeters / 1000).toFixed(1)} km`;
 }
 
+function formatEstimatedCost(cost) {
+  if (!Number.isFinite(cost) || cost <= 0) {
+    return "Unavailable";
+  }
+
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(cost);
+}
+
 function formatStatusLabel(dayRoute = {}) {
   if (dayRoute.status === "ready") {
-    return "Route ready";
+    return "Ready";
   }
 
   if (dayRoute.status === "insufficient-geocoded-stops") {
@@ -51,6 +88,100 @@ function formatStatusLabel(dayRoute = {}) {
   }
 
   return "Needs more places";
+}
+
+function formatRouteProvider(provider = "") {
+  const normalized = String(provider ?? "").trim();
+
+  if (normalized === "google-routes-matrix") {
+    return "Google Routes";
+  }
+
+  if (normalized === "estimated-haversine") {
+    return "Estimated fallback";
+  }
+
+  if (!normalized || normalized === "not-applicable") {
+    return "Not available";
+  }
+
+  return normalized.replace(/[-_]/g, " ");
+}
+
+function formatAlgorithmLabel(algorithm = "") {
+  const normalized = String(algorithm ?? "").trim();
+
+  if (normalized === "dijkstra-fastest") {
+    return "Dijkstra shortest path";
+  }
+
+  if (!normalized || normalized === "not-applicable") {
+    return "Not available";
+  }
+
+  return normalized.replace(/[-_]/g, " ");
+}
+
+function formatViewportSourceLabel(viewportSource = "") {
+  if (viewportSource === "day_cluster") {
+    return "Localized city cluster";
+  }
+
+  if (viewportSource === "destination_fallback") {
+    return "Destination fallback";
+  }
+
+  return "Map unavailable";
+}
+
+function formatStopSourceLabel(source = "") {
+  if (source === "inferred") {
+    return "Inferred";
+  }
+
+  if (source === "ai_plan") {
+    return "AI plan";
+  }
+
+  if (source === "itinerary") {
+    return "Itinerary";
+  }
+
+  return "Mapped";
+}
+
+function formatTradeoffDelta(tradeoff = {}) {
+  const parts = [];
+
+  if (Number.isFinite(tradeoff?.minutesVsFastest) && tradeoff.minutesVsFastest !== 0) {
+    parts.push(
+      `${tradeoff.minutesVsFastest > 0 ? "+" : ""}${tradeoff.minutesVsFastest} min`
+    );
+  }
+
+  if (Number.isFinite(tradeoff?.costVsFastest) && tradeoff.costVsFastest !== 0) {
+    parts.push(
+      `${tradeoff.costVsFastest > 0 ? "+" : ""}${tradeoff.costVsFastest} cost`
+    );
+  }
+
+  if (
+    Number.isFinite(tradeoff?.experienceVsFastest) &&
+    tradeoff.experienceVsFastest !== 0
+  ) {
+    parts.push(
+      `${tradeoff.experienceVsFastest > 0 ? "+" : ""}${tradeoff.experienceVsFastest} exp`
+    );
+  }
+
+  return parts.length > 0 ? parts.join(" • ") : "Baseline route";
+}
+
+function resolveObjectiveMeta(objective = "") {
+  return (
+    OBJECTIVE_OPTIONS.find((option) => option.value === objective) ??
+    OBJECTIVE_OPTIONS[0]
+  );
 }
 
 function resolveActiveDayNumber(dayRoutes = [], selectedDayDefault, activeDayNumber) {
@@ -77,27 +208,111 @@ function resolveActiveDayNumber(dayRoutes = [], selectedDayDefault, activeDayNum
 
 function LoadingLayout() {
   return (
-    <div className="mt-10 grid gap-6 xl:grid-cols-[0.95fr_1.35fr]">
-      <div className="space-y-5">
-        <div className="rounded-[1.8rem] border border-[var(--voy-border)] bg-[var(--voy-surface2)] p-5">
-          <div className="h-5 w-40 animate-pulse rounded bg-[var(--voy-bg2)]" />
-          <div className="mt-4 space-y-3">
-            {[1, 2, 3].map((item) => (
-              <div
-                key={item}
-                className="h-20 animate-pulse rounded-2xl bg-[var(--voy-bg2)]"
-              />
+    <div className="voy-route-loading-grid grid items-start gap-6 xl:grid-cols-[minmax(360px,420px)_minmax(0,1fr)]">
+      <div className="voy-route-loading-rail">
+        <div className="voy-route-card voy-route-loading-card">
+          <div className="voy-route-skeleton voy-route-skeleton-title" />
+          <div className="voy-route-skeleton-list">
+            {[1, 2, 3, 4].map((item) => (
+              <div key={item} className="voy-route-skeleton voy-route-skeleton-item" />
             ))}
           </div>
         </div>
-        <div className="rounded-[1.8rem] border border-[var(--voy-border)] bg-[var(--voy-surface2)] p-5">
-          <div className="h-6 w-1/2 animate-pulse rounded bg-[var(--voy-bg2)]" />
-          <div className="mt-4 h-24 animate-pulse rounded-2xl bg-[var(--voy-bg2)]" />
-          <div className="mt-4 h-48 animate-pulse rounded-2xl bg-[var(--voy-bg2)]" />
+      </div>
+
+      <div className="voy-route-loading-main">
+        <div className="voy-route-card voy-route-loading-card">
+          <div className="voy-route-skeleton voy-route-skeleton-title" />
+          <div className="voy-route-skeleton voy-route-skeleton-wide" />
+          <div className="voy-route-skeleton-grid">
+            {[1, 2, 3, 4].map((item) => (
+              <div key={item} className="voy-route-skeleton voy-route-skeleton-stat" />
+            ))}
+          </div>
+        </div>
+        <div className="voy-route-card voy-route-map-card">
+          <div className="voy-route-skeleton voy-route-skeleton-map h-[320px] sm:h-[360px] lg:h-[420px] xl:h-[460px] 2xl:h-[500px]" />
         </div>
       </div>
-      <div className="rounded-[2rem] border border-[var(--voy-border)] bg-[var(--voy-surface2)] p-4">
-        <div className="h-[420px] animate-pulse rounded-[1.75rem] bg-[var(--voy-bg2)] lg:h-[620px]" />
+    </div>
+  );
+}
+
+function ObjectiveToolbar({
+  objective,
+  onObjectiveChange,
+  alternativesCount,
+  onAlternativesCountChange,
+  defaultObjective,
+}) {
+  const activeMeta = resolveObjectiveMeta(objective);
+
+  return (
+    <div className="voy-route-toolbar">
+      <div className="voy-route-toolbar-main">
+        <p className="voy-route-toolbar-label">Route Profiles</p>
+        <div className="voy-route-tabs" role="tablist" aria-label="Route objective profiles">
+          {OBJECTIVE_OPTIONS.map((option) => {
+            const isActive = option.value === objective;
+
+            return (
+              <button
+                key={option.value}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                className={`voy-route-tab ${isActive ? "is-active" : ""}`}
+                onClick={() => {
+                  if (option.value === objective) {
+                    return;
+                  }
+
+                  console.info("[optimized-routes] Objective selected", {
+                    objective: option.value,
+                  });
+                  onObjectiveChange?.(option.value);
+                }}
+              >
+                <span className="voy-route-tab-title">{option.shortLabel}</span>
+                <span className="voy-route-tab-hint">{option.hint}</span>
+              </button>
+            );
+          })}
+        </div>
+        <p className="voy-route-toolbar-note">
+          Default visible profile:{" "}
+          <strong>{resolveObjectiveMeta(defaultObjective).shortLabel}</strong>. Current map
+          view: <strong>{activeMeta.shortLabel}</strong>.
+        </p>
+      </div>
+
+      <div className="voy-route-toolbar-side">
+        <label className="voy-route-select-label" htmlFor="route-alt-count">
+          Alternatives to compare
+        </label>
+        <select
+          id="route-alt-count"
+          className="voy-route-select"
+          value={alternativesCount}
+          onChange={(event) => {
+            const nextValue = Number.parseInt(event.target.value, 10);
+
+            if (!Number.isInteger(nextValue) || nextValue === alternativesCount) {
+              return;
+            }
+
+            console.info("[optimized-routes] Alternatives count changed", {
+              alternativesCount: nextValue,
+            });
+            onAlternativesCountChange?.(nextValue);
+          }}
+        >
+          {[1, 2, 3, 4, 5].map((value) => (
+            <option key={value} value={value}>
+              Top {value}
+            </option>
+          ))}
+        </select>
       </div>
     </div>
   );
@@ -105,54 +320,46 @@ function LoadingLayout() {
 
 function DaySelector({ dayRoutes, activeDayNumber, onSelectDay }) {
   return (
-    <div className="rounded-[1.8rem] border border-[var(--voy-border)] bg-[var(--voy-surface)] p-5 shadow-md">
-      <div className="flex items-center justify-between gap-3">
+    <div className="voy-route-card voy-route-rail-card">
+      <div className="voy-route-card-header">
         <div>
-          <p className="text-xs uppercase tracking-[0.24em] text-[var(--voy-text-faint)]">
-            Day Maps
-          </p>
-          <h3 className="mt-1 text-xl font-semibold text-[var(--voy-text)]">
-            Switch itinerary days
-          </h3>
+          <p className="voy-route-eyebrow">Day Maps</p>
+          <h3 className="voy-route-card-title">Switch itinerary days</h3>
         </div>
-        <span className="rounded-full border border-[var(--voy-border)] bg-[var(--voy-surface2)] px-3 py-1 text-xs text-[var(--voy-text-muted)]">
-          Shared city map
-        </span>
+        <span className="voy-route-chip voy-route-chip-soft">Localized views</span>
       </div>
 
-      <div className="mt-4 space-y-3">
+      <div className="voy-route-day-list">
         {dayRoutes.map((dayRoute) => {
           const isActive = dayRoute.dayNumber === activeDayNumber;
+          const hasMap = Array.isArray(dayRoute.markers) && dayRoute.markers.length > 0;
 
           return (
             <button
               key={`route-day-selector-${dayRoute.dayNumber}`}
               type="button"
+              className={`voy-route-day-button ${isActive ? "is-active" : ""}`}
               onClick={() => onSelectDay(dayRoute.dayNumber)}
-              className={`w-full rounded-[1.5rem] border px-4 py-4 text-left transition ${
-                isActive
-                  ? "border-[var(--voy-gold)] bg-[rgba(201,164,92,0.12)] shadow-sm"
-                  : "border-[var(--voy-border)] bg-[var(--voy-surface2)] hover:border-[var(--voy-gold)]/60"
-              }`}
             >
-              <div className="flex items-start justify-between gap-4">
+              <div className="voy-route-day-row">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.22em] text-[var(--voy-text-faint)]">
-                    Day {dayRoute.dayNumber}
-                  </p>
-                  <p className="mt-1 text-lg font-semibold text-[var(--voy-text)]">
-                    {dayRoute.title}
-                  </p>
+                  <p className="voy-route-day-label">Day {dayRoute.dayNumber}</p>
+                  <p className="voy-route-day-title">{dayRoute.title}</p>
                 </div>
                 <span
-                  className={`rounded-full px-3 py-1 text-xs ${
+                  className={`voy-route-chip ${
                     dayRoute.status === "ready"
-                      ? "bg-[var(--voy-gold-dim)] text-[var(--voy-gold)]"
-                      : "border border-[var(--voy-border)] bg-[var(--voy-surface)] text-[var(--voy-text-muted)]"
+                      ? "voy-route-chip-gold"
+                      : "voy-route-chip-soft"
                   }`}
                 >
                   {formatStatusLabel(dayRoute)}
                 </span>
+              </div>
+
+              <div className="voy-route-day-meta">
+                <span>{dayRoute.localityLabel || "Destination focus"}</span>
+                <span>{hasMap ? `${dayRoute.markers.length} mapped stops` : "No map yet"}</span>
               </div>
             </button>
           );
@@ -163,52 +370,120 @@ function DaySelector({ dayRoutes, activeDayNumber, onSelectDay }) {
 }
 
 function SummaryCards({ dayRoute }) {
+  const cards = [
+    {
+      label: "Travel time",
+      value: formatDuration(dayRoute?.totalDurationSeconds),
+      icon: <FaClock className="text-[var(--voy-gold)]" />,
+    },
+    {
+      label: "Distance",
+      value: formatDistance(dayRoute?.totalDistanceMeters),
+      icon: <FaRoad className="text-[var(--voy-gold)]" />,
+    },
+    {
+      label: "Est. route cost",
+      value: formatEstimatedCost(dayRoute?.estimatedCost),
+      icon: <FaCoins className="text-[var(--voy-gold)]" />,
+    },
+    {
+      label: "Experience score",
+      value: Number.isFinite(dayRoute?.experienceScore)
+        ? String(dayRoute.experienceScore)
+        : "Unavailable",
+      icon: <FaStar className="text-[var(--voy-gold)]" />,
+    },
+  ];
+
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      <div className="rounded-2xl border border-[var(--voy-border)] bg-[var(--voy-surface2)] p-4">
-        <div className="flex items-center gap-2 text-sm text-[var(--voy-text-muted)]">
-          <FaRoad className="text-[var(--voy-gold)]" />
-          <span>Total distance</span>
+    <div className="voy-route-stat-grid">
+      {cards.map((card) => (
+        <div key={card.label} className="voy-route-stat-card">
+          <div className="voy-route-stat-label">
+            {card.icon}
+            <span>{card.label}</span>
+          </div>
+          <p className="voy-route-stat-value">{card.value}</p>
         </div>
-        <p className="mt-2 text-lg font-semibold text-[var(--voy-text)]">
-          {formatDistance(dayRoute.totalDistanceMeters)}
-        </p>
+      ))}
+    </div>
+  );
+}
+
+function AlternativeCards({ alternatives = [], objective, onObjectiveChange }) {
+  if (!Array.isArray(alternatives) || alternatives.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="voy-route-card">
+      <div className="voy-route-card-header">
+        <div>
+          <p className="voy-route-eyebrow">Tradeoffs</p>
+          <h3 className="voy-route-card-title">Compare objective profiles</h3>
+        </div>
       </div>
-      <div className="rounded-2xl border border-[var(--voy-border)] bg-[var(--voy-surface2)] p-4">
-        <div className="flex items-center gap-2 text-sm text-[var(--voy-text-muted)]">
-          <FaClock className="text-[var(--voy-gold)]" />
-          <span>Total travel time</span>
-        </div>
-        <p className="mt-2 text-lg font-semibold text-[var(--voy-text)]">
-          {formatDuration(dayRoute.totalDurationSeconds)}
-        </p>
+
+      <div className="voy-route-alternative-grid">
+        {alternatives.map((alternative) => {
+          const isActive = alternative.objective === objective;
+
+          return (
+            <button
+              key={alternative.objective}
+              type="button"
+              className={`voy-route-alternative-card ${isActive ? "is-active" : ""}`}
+              onClick={() => onObjectiveChange?.(alternative.objective)}
+            >
+              <div className="voy-route-alternative-top">
+                <div>
+                  <p className="voy-route-alternative-title">
+                    {alternative.objective === "fastest"
+                      ? "Fastest (Dijkstra)"
+                      : alternative.objectiveLabel}
+                  </p>
+                  <p className="voy-route-alternative-meta">
+                    {formatDuration(alternative.totalDurationSeconds)} •{" "}
+                    {formatDistance(alternative.totalDistanceMeters)}
+                  </p>
+                </div>
+                <span className="voy-route-chip voy-route-chip-soft">
+                  Rank {alternative.rank}
+                </span>
+              </div>
+
+              <p className="voy-route-alternative-cost">
+                {formatEstimatedCost(alternative.estimatedCost)} • Exp.{" "}
+                {alternative.experienceScore}
+              </p>
+              <p className="voy-route-alternative-delta">
+                {formatTradeoffDelta(alternative.tradeoffDelta)}
+              </p>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-function StopList({
-  dayRoute,
-  highlightedStopId,
-  onHighlightStop,
-}) {
+function StopList({ dayRoute, highlightedStopId, onHighlightStop }) {
   const orderedStops = Array.isArray(dayRoute?.orderedStops) ? dayRoute.orderedStops : [];
-  const title =
-    dayRoute?.status === "ready" ? "Optimized stop order" : "Recognized places";
 
   return (
-    <div className="rounded-[1.8rem] border border-[var(--voy-border)] bg-[var(--voy-surface)] p-5 shadow-md">
-      <div className="flex items-center gap-2 text-sm font-medium text-[var(--voy-text)]">
-        <FaRoute className="text-[var(--voy-gold)]" />
-        <span>{title}</span>
+    <div className="voy-route-card">
+      <div className="voy-route-card-header">
+        <div>
+          <p className="voy-route-eyebrow">Pinned stops</p>
+          <h3 className="voy-route-card-title">
+            {dayRoute?.status === "ready" ? "Optimized stop order" : "Recognized places"}
+          </h3>
+        </div>
       </div>
-      <p className="mt-2 text-sm text-[var(--voy-text-muted)]">
-        Hover or click a stop to highlight the matching map marker.
-      </p>
 
-      <div className="mt-4 space-y-3">
+      <div className="voy-route-list">
         {orderedStops.length === 0 ? (
-          <div className="rounded-2xl border border-[var(--voy-border)] bg-[var(--voy-surface2)] px-4 py-5 text-sm text-[var(--voy-text-muted)]">
+          <div className="voy-route-empty-block">
             No mapped places are available for this day yet.
           </div>
         ) : (
@@ -220,21 +495,20 @@ function StopList({
               <button
                 key={`${dayRoute?.dayNumber}-${stopId}`}
                 type="button"
+                className={`voy-route-list-item ${isHighlighted ? "is-highlighted" : ""}`}
                 onMouseEnter={() => onHighlightStop(stopId)}
                 onMouseLeave={() => onHighlightStop(null)}
                 onClick={() => onHighlightStop(stopId)}
-                className={`flex w-full items-start gap-3 rounded-2xl border px-4 py-4 text-left transition ${
-                  isHighlighted
-                    ? "border-[var(--voy-gold)] bg-[rgba(201,164,92,0.12)] shadow-sm"
-                    : "border-[var(--voy-border)] bg-[var(--voy-surface2)] hover:border-[var(--voy-gold)]/60"
-                }`}
               >
-                <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--voy-gold)] text-xs font-semibold text-black">
-                  {index + 1}
-                </span>
-                <div className="min-w-0">
-                  <p className="font-medium text-[var(--voy-text)]">{stop.name}</p>
-                  <p className="mt-1 text-sm text-[var(--voy-text-muted)]">
+                <span className="voy-route-stop-order">{index + 1}</span>
+                <div className="voy-route-list-content">
+                  <div className="voy-route-list-top">
+                    <p className="voy-route-list-title">{stop.name}</p>
+                    <span className="voy-route-chip voy-route-chip-soft">
+                      {formatStopSourceLabel(stop.source)}
+                    </span>
+                  </div>
+                  <p className="voy-route-list-copy">
                     {stop.location || "Location unavailable"}
                   </p>
                 </div>
@@ -247,102 +521,178 @@ function StopList({
   );
 }
 
+function SegmentTimeline({ dayRoute, onHighlightStop }) {
+  const segments = Array.isArray(dayRoute?.segmentsDetailed)
+    ? dayRoute.segmentsDetailed
+    : [];
+
+  return (
+    <div className="voy-route-card">
+      <div className="voy-route-card-header">
+        <div>
+          <p className="voy-route-eyebrow">Travel path</p>
+          <h3 className="voy-route-card-title">Segment timeline</h3>
+        </div>
+        <span className="voy-route-chip voy-route-chip-soft">
+          {formatAlgorithmLabel(dayRoute?.algorithm)}
+        </span>
+      </div>
+
+      {segments.length === 0 ? (
+        <div className="voy-route-empty-block">
+          Route segments will appear once this day has enough mapped stops.
+        </div>
+      ) : (
+        <div className="voy-route-segment-list">
+          {segments.map((segment) => (
+            <button
+              key={`${segment.fromId}-${segment.toId}-${segment.segmentNumber}`}
+              type="button"
+              className="voy-route-segment-item"
+              onMouseEnter={() => onHighlightStop(segment.toId ?? segment.fromId ?? null)}
+              onMouseLeave={() => onHighlightStop(null)}
+              onClick={() => onHighlightStop(segment.toId ?? segment.fromId ?? null)}
+            >
+              <span className="voy-route-segment-step">{segment.segmentNumber}</span>
+              <div className="voy-route-segment-main">
+                <div className="voy-route-segment-head">
+                  <p className="voy-route-segment-title">
+                    {segment.fromName} → {segment.toName}
+                  </p>
+                  <p className="voy-route-segment-metric">
+                    {formatDuration(segment.durationSeconds)} •{" "}
+                    {formatDistance(segment.distanceMeters)}
+                  </p>
+                </div>
+                <div className="voy-route-segment-foot">
+                  <span>
+                    Cum. {formatDuration(segment.cumulativeDurationSeconds)}
+                  </span>
+                  <span>
+                    Dijkstra from start:{" "}
+                    {formatDuration(segment.shortestPathFromStartSeconds)}
+                  </span>
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ActiveDayDetails({
   dayRoute,
   destination,
+  objective,
+  onObjectiveChange,
   highlightedStopId,
   onHighlightStop,
 }) {
   if (!dayRoute) {
     return (
-      <div className="rounded-[1.8rem] border border-[var(--voy-border)] bg-[var(--voy-surface)] px-6 py-10 text-center shadow-md">
-        <h3 className="text-2xl font-semibold text-[var(--voy-text)]">
-          Route optimization is not available yet
-        </h3>
-        <p className="mx-auto mt-3 max-w-xl text-[var(--voy-text-muted)]">
-          Add at least two recognizable places to a day itinerary to compute an optimized route.
+      <div className="voy-route-card voy-route-empty-state">
+        <h3 className="voy-route-empty-title">Route optimization is not available yet</h3>
+        <p className="voy-route-empty-copy">
+          Add at least two recognizable places to a day itinerary to compute an optimized
+          route.
         </p>
       </div>
     );
   }
 
+  const activeObjective = resolveObjectiveMeta(objective);
+  const localityLabel = dayRoute.localityLabel || destination || "the selected destination";
+  const mapStopCount = Array.isArray(dayRoute.markers) ? dayRoute.markers.length : 0;
+
   return (
-    <article className="rounded-[1.8rem] border border-[var(--voy-border)] bg-[var(--voy-surface)] p-6 shadow-md">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="text-xs uppercase tracking-[0.24em] text-[var(--voy-text-faint)]">
-            Day {dayRoute.dayNumber}
-          </p>
-          <h3 className="mt-1 text-2xl font-semibold text-[var(--voy-text)]">
-            {dayRoute.title}
-          </h3>
-          <p className="mt-2 text-sm text-[var(--voy-text-muted)]">
-            The city map is scoped to {destination || "the selected destination"} and only plots this day’s recognized itinerary places.
-          </p>
+    <div className="voy-route-main-stack">
+      <article className="voy-route-card">
+        <div className="voy-route-card-header voy-route-card-header-wide">
+          <div>
+            <p className="voy-route-eyebrow">Day {dayRoute.dayNumber}</p>
+            <h3 className="voy-route-day-heading">{dayRoute.title}</h3>
+            <p className="voy-route-card-copy">
+              This day is centered on <strong>{localityLabel}</strong>. The active map stays
+              confined to that local cluster and plots {mapStopCount} pinned stops with the{" "}
+              <strong>{activeObjective.shortLabel}</strong> route.
+            </p>
+          </div>
+
+          <div className="voy-route-badge-group">
+            <span className="voy-route-chip voy-route-chip-gold">
+              {dayRoute.objective === "fastest"
+                ? "Fastest (Dijkstra)"
+                : dayRoute.objectiveLabel}
+            </span>
+            <span className="voy-route-chip voy-route-chip-soft">
+              {formatRouteProvider(dayRoute.routeProvider)}
+            </span>
+            <span className="voy-route-chip voy-route-chip-soft">
+              {formatViewportSourceLabel(dayRoute.viewportSource)}
+            </span>
+            {dayRoute.inferredStopCount > 0 ? (
+              <span className="voy-route-chip voy-route-chip-soft">
+                {dayRoute.inferredStopCount} inferred stop
+                {dayRoute.inferredStopCount > 1 ? "s" : ""}
+              </span>
+            ) : null}
+          </div>
         </div>
 
-        <div className="flex flex-wrap gap-2 text-xs">
-          <span className="rounded-full border border-[var(--voy-border)] bg-[var(--voy-surface2)] px-3 py-1 text-[var(--voy-text-muted)]">
-            {dayRoute.algorithm}
-          </span>
-          <span className="rounded-full bg-[var(--voy-gold-dim)] px-3 py-1 text-[var(--voy-gold)]">
-            {dayRoute.routeProvider}
-          </span>
-          <span className="rounded-full border border-[var(--voy-border)] bg-[var(--voy-surface2)] px-3 py-1 text-[var(--voy-text-muted)]">
-            {dayRoute.objectiveLabel}
-          </span>
-        </div>
-      </div>
-
-      <div className="mt-5 rounded-2xl border border-[var(--voy-border)] bg-[var(--voy-surface2)] p-4">
-        <div className="flex items-center gap-2 text-sm font-medium text-[var(--voy-text)]">
-          <FaMapPin className="text-[var(--voy-gold)]" />
-          <span>City-scoped map sync</span>
-        </div>
-        <p className="mt-2 text-sm text-[var(--voy-text-muted)]">
-          Switching days updates the map markers and route instantly. Marker clicks on the map and place selection here stay synchronized.
-        </p>
-      </div>
-
-      <div className="mt-5">
         <SummaryCards dayRoute={dayRoute} />
-      </div>
 
-      <div className="mt-5">
+        {dayRoute?.explanation?.whySelected ? (
+          <div className="voy-route-note-block">
+            <div className="voy-route-note-head">
+              <FaCompass className="text-[var(--voy-gold)]" />
+              <span>Why this route was selected</span>
+            </div>
+            <p>{dayRoute.explanation.whySelected}</p>
+          </div>
+        ) : null}
+
+        {dayRoute.warning ? (
+          <div className="voy-route-inline-warning">{dayRoute.warning}</div>
+        ) : null}
+
+        <div className="voy-route-actions">
+          {dayRoute.directionsUrl ? (
+            <a href={dayRoute.directionsUrl} target="_blank" rel="noopener noreferrer">
+              <Button className="voy-create-primary inline-flex items-center gap-2">
+                <FaMapMarkedAlt />
+                <span>Open route in Google Maps</span>
+              </Button>
+            </a>
+          ) : null}
+        </div>
+      </article>
+
+      <AlternativeCards
+        alternatives={dayRoute.alternatives}
+        objective={objective}
+        onObjectiveChange={onObjectiveChange}
+      />
+
+      <div className="voy-route-detail-grid">
         <StopList
           dayRoute={dayRoute}
           highlightedStopId={highlightedStopId}
           onHighlightStop={onHighlightStop}
         />
+        <SegmentTimeline dayRoute={dayRoute} onHighlightStop={onHighlightStop} />
       </div>
-
-      {dayRoute.warning ? (
-        <div className="mt-5 rounded-2xl border border-[var(--voy-border)] bg-[var(--voy-surface2)] px-4 py-3 text-sm text-[var(--voy-text-muted)]">
-          {dayRoute.warning}
-        </div>
-      ) : null}
-
-      {dayRoute.directionsUrl ? (
-        <div className="mt-5">
-          <a
-            href={dayRoute.directionsUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex"
-          >
-            <Button className="voy-create-primary inline-flex items-center gap-2">
-              <FaMapMarkedAlt />
-              <span>Open Route In Google Maps</span>
-            </Button>
-          </a>
-        </div>
-      ) : null}
-    </article>
+    </div>
   );
 }
 
 function OptimizedRouteSection({
   routes,
+  objective = "fastest",
+  onObjectiveChange,
+  alternativesCount = 3,
+  onAlternativesCountChange,
   isLoading = false,
   errorMessage = "",
   onRetry,
@@ -371,110 +721,140 @@ function OptimizedRouteSection({
 
   useEffect(() => {
     setHighlightedStopId(null);
-  }, [activeDayNumber]);
+  }, [activeDayNumber, objective]);
 
   const activeDayRoute =
     dayRoutes.find((dayRoute) => dayRoute.dayNumber === activeDayNumber) ??
     dayRoutes[0] ??
     null;
   const skippedRoutes = dayRoutes.filter((dayRoute) => dayRoute.status !== "ready");
+  const resolvedObjective =
+    objective || routes?.objective || routes?.defaultObjective || "fastest";
+  const activeObjectiveMeta = resolveObjectiveMeta(resolvedObjective);
 
   const handleSelectDay = (dayNumber) => {
-    console.info("[optimized-routes] Day selected for shared map", {
+    console.info("[optimized-routes] Day selected for localized map", {
       dayNumber,
     });
     setActiveDayNumber(dayNumber);
   };
 
   return (
-    <section className="mt-10 w-full px-0 py-8 md:px-2">
-      <div className="mx-auto max-w-7xl rounded-2xl border border-[var(--voy-border)] bg-[var(--voy-surface)] p-8 shadow-lg">
-        <div className="text-center">
-          <h2 className="text-3xl font-semibold text-[var(--voy-text)] md:text-4xl">
-            Optimized Daily Routes
-          </h2>
-          <p className="mx-auto mt-3 max-w-3xl text-md text-[var(--voy-text-muted)]">
-            Every itinerary day now shares a city-focused map. The plotted markers and route update as you switch days, keeping the itinerary and map in sync.
+    <section className="voy-route-section">
+      <div className="voy-route-shell mx-auto max-w-[1440px]">
+        <div className="voy-route-header">
+          <p className="voy-route-heading-eyebrow">Localized routing</p>
+          <h2 className="voy-route-heading">Optimized daily city routes</h2>
+          <p className="voy-route-subtitle">
+            Each itinerary day now renders against a city-level map viewport, not the full
+            destination region. Switch days to see localized pins, route tradeoffs, and the{" "}
+            <strong>{activeObjectiveMeta.shortLabel}</strong> path in sync.
           </p>
         </div>
+
+        <ObjectiveToolbar
+          objective={resolvedObjective}
+          onObjectiveChange={onObjectiveChange}
+          alternativesCount={alternativesCount}
+          onAlternativesCountChange={onAlternativesCountChange}
+          defaultObjective={routes?.defaultObjective ?? "fastest"}
+        />
 
         {isLoading ? <LoadingLayout /> : null}
 
         {!isLoading && errorMessage ? (
-          <div className="mt-10 rounded-2xl border border-[var(--voy-border)] bg-[var(--voy-surface2)] px-6 py-10 text-center">
-            <h3 className="text-2xl font-semibold text-[var(--voy-text)]">
-              Unable to load optimized routes
-            </h3>
-            <p className="mx-auto mt-3 max-w-xl text-[var(--voy-text-muted)]">
-              {errorMessage}
-            </p>
+          <div className="voy-route-card voy-route-empty-state">
+            <h3 className="voy-route-empty-title">Unable to load optimized routes</h3>
+            <p className="voy-route-empty-copy">{errorMessage}</p>
             {onRetry ? (
-              <Button className="voy-create-primary mt-6" onClick={onRetry}>
-                Try Again
-              </Button>
+              <div className="voy-route-actions">
+                <Button className="voy-create-primary" onClick={onRetry}>
+                  Try again
+                </Button>
+              </div>
             ) : null}
           </div>
         ) : null}
 
         {!isLoading && !errorMessage && dayRoutes.length > 0 ? (
-          <div className="mt-10 grid gap-6 xl:grid-cols-[0.95fr_1.35fr]">
-            <div className="space-y-5">
+          <div className="voy-route-layout grid items-start gap-6 xl:grid-cols-[minmax(360px,420px)_minmax(0,1fr)]">
+            <aside className="voy-route-rail xl:max-w-[420px]">
               <DaySelector
                 dayRoutes={dayRoutes}
                 activeDayNumber={activeDayNumber}
                 onSelectDay={handleSelectDay}
               />
+
+              {skippedRoutes.length > 0 ? (
+                <div className="voy-route-card voy-route-compact-note">
+                  <div className="voy-route-note-head">
+                    <FaBolt className="text-[var(--voy-gold)]" />
+                    <span>Days still needing stronger map data</span>
+                  </div>
+                  <p>
+                    {skippedRoutes
+                      .map((dayRoute) => `Day ${dayRoute.dayNumber}`)
+                      .join(", ")}{" "}
+                    do not have enough mapped places yet for a full route preview.
+                  </p>
+                </div>
+              ) : null}
+            </aside>
+
+            <div className="voy-route-main min-w-0">
               <ActiveDayDetails
                 dayRoute={activeDayRoute}
                 destination={routes?.destination ?? ""}
+                objective={resolvedObjective}
+                onObjectiveChange={onObjectiveChange}
                 highlightedStopId={highlightedStopId}
                 onHighlightStop={setHighlightedStopId}
               />
-              {skippedRoutes.length > 0 ? (
-                <div className="rounded-2xl border border-[var(--voy-border)] bg-[var(--voy-surface2)] px-5 py-4 text-sm text-[var(--voy-text-muted)]">
-                  Route-ready days are still limited. Needs attention:{" "}
-                  {skippedRoutes.map((dayRoute) => `Day ${dayRoute.dayNumber}`).join(", ")}.
-                </div>
-              ) : null}
-            </div>
 
-            <div className="space-y-4">
-              <div className="rounded-[1.8rem] border border-[var(--voy-border)] bg-[var(--voy-surface)] p-5 shadow-md">
-                <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="voy-route-card voy-route-map-card overflow-hidden">
+                <div className="voy-route-card-header">
                   <div>
-                    <p className="text-xs uppercase tracking-[0.24em] text-[var(--voy-text-faint)]">
-                      City map
-                    </p>
-                    <h3 className="mt-1 text-xl font-semibold text-[var(--voy-text)]">
-                      {routes?.destination || "Selected destination"}
+                    <p className="voy-route-eyebrow">City map</p>
+                    <h3 className="voy-route-card-title">
+                      {activeDayRoute?.localityLabel ||
+                        routes?.destination ||
+                        "Selected destination"}
                     </h3>
                   </div>
-                  <span className="rounded-full border border-[var(--voy-border)] bg-[var(--voy-surface2)] px-3 py-1 text-xs text-[var(--voy-text-muted)]">
-                    Day {activeDayRoute?.dayNumber ?? "—"} only
-                  </span>
+                  <div className="voy-route-badge-group">
+                    <span className="voy-route-chip voy-route-chip-soft">
+                      Day {activeDayRoute?.dayNumber ?? "—"} only
+                    </span>
+                    <span className="voy-route-chip voy-route-chip-soft">
+                      {Array.isArray(activeDayRoute?.markers)
+                        ? `${activeDayRoute.markers.length} pins`
+                        : "0 pins"}
+                    </span>
+                  </div>
                 </div>
-                <p className="mt-2 text-sm text-[var(--voy-text-muted)]">
-                  The shared map stays constrained to the destination city bounds and displays only the active day’s pinned itinerary places and optimized route.
-                </p>
-              </div>
 
-              <TripDayMap
-                dayRoute={activeDayRoute}
-                destination={routes?.destination ?? ""}
-                highlightedStopId={highlightedStopId}
-                onHighlightStop={setHighlightedStopId}
-              />
+                <p className="voy-route-card-copy">
+                  The map is fitted from the active day’s stop cluster and kept inside the
+                  local viewport for cleaner city-level navigation.
+                </p>
+
+                <TripDayMap
+                  dayRoute={activeDayRoute}
+                  destination={activeDayRoute?.localityLabel || routes?.destination || ""}
+                  highlightedStopId={highlightedStopId}
+                  onHighlightStop={setHighlightedStopId}
+                />
+              </div>
             </div>
           </div>
         ) : null}
 
         {!isLoading && !errorMessage && dayRoutes.length === 0 ? (
-          <div className="mt-10 rounded-2xl border border-[var(--voy-border)] bg-[var(--voy-surface2)] px-6 py-12 text-center">
-            <h3 className="text-2xl font-semibold text-[var(--voy-text)]">
-              Route optimization is not available yet
-            </h3>
-            <p className="mx-auto mt-3 max-w-2xl text-[var(--voy-text-muted)]">
-              Add at least two recognizable places to a day itinerary to compute an optimized route.
+          <div className="voy-route-card voy-route-empty-state">
+            <h3 className="voy-route-empty-title">Route optimization is not available yet</h3>
+            <p className="voy-route-empty-copy">
+              Add at least two recognizable places to a day itinerary to compute an optimized
+              route.
             </p>
           </div>
         ) : null}
