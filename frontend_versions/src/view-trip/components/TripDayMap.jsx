@@ -103,6 +103,7 @@ function TripDayMap({
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const polylineRef = useRef(null);
+  const activeSegmentRef = useRef(null);
   const markersRef = useRef([]);
   const infoWindowRef = useRef(null);
   const fitListenerRef = useRef(null);
@@ -213,15 +214,20 @@ function TripDayMap({
       fitListenerRef.current = null;
     }
 
-    for (const marker of markersRef.current) {
-      googleMaps.event.clearInstanceListeners(marker);
-      marker.setMap(null);
+    for (const markerEntry of markersRef.current) {
+      googleMaps.event.clearInstanceListeners(markerEntry.marker);
+      markerEntry.marker.setMap(null);
     }
     markersRef.current = [];
 
     if (polylineRef.current) {
       polylineRef.current.setMap(null);
       polylineRef.current = null;
+    }
+
+    if (activeSegmentRef.current) {
+      activeSegmentRef.current.setMap(null);
+      activeSegmentRef.current = null;
     }
 
     const nextMapOptions = {
@@ -270,19 +276,18 @@ function TripDayMap({
 
       bounds.extend(position);
 
-      const isHighlighted = highlightedStopId === markerData.id;
       const marker = new googleMaps.Marker({
         map,
         position,
         title: markerData.name,
-        zIndex: isHighlighted ? 200 : markerData.visitOrder ?? 1,
+        zIndex: markerData.visitOrder ?? 1,
         label: {
           text: String(markerData.visitOrder ?? ""),
           color: "#ffffff",
           fontSize: "12px",
           fontWeight: "700",
         },
-        icon: createMarkerIcon(googleMaps, isHighlighted),
+        icon: createMarkerIcon(googleMaps, false),
       });
 
       marker.addListener("mouseover", () => {
@@ -307,7 +312,10 @@ function TripDayMap({
         });
       });
 
-      markersRef.current.push(marker);
+      markersRef.current.push({
+        data: markerData,
+        marker,
+      });
     }
 
     if (!bounds.isEmpty()) {
@@ -329,12 +337,60 @@ function TripDayMap({
   }, [
     dayRoute?.dayNumber,
     destination,
-    highlightedStopId,
     mapMarkers,
     onHighlightStop,
     restriction,
     routePath,
   ]);
+
+  useEffect(() => {
+    const googleMaps = globalThis?.google?.maps;
+    const map = mapRef.current;
+
+    if (!googleMaps || !map) {
+      return;
+    }
+
+    for (const markerEntry of markersRef.current) {
+      const isHighlighted = highlightedStopId === markerEntry.data.id;
+      markerEntry.marker.setIcon(createMarkerIcon(googleMaps, isHighlighted));
+      markerEntry.marker.setZIndex(
+        isHighlighted ? 200 : markerEntry.data.visitOrder ?? 1
+      );
+    }
+
+    if (activeSegmentRef.current) {
+      activeSegmentRef.current.setMap(null);
+      activeSegmentRef.current = null;
+    }
+
+    if (!highlightedStopId) {
+      return;
+    }
+
+    const activeIndex = mapMarkers.findIndex((marker) => marker.id === highlightedStopId);
+    if (activeIndex === -1) {
+      return;
+    }
+
+    const fromMarker = mapMarkers[activeIndex];
+    const toMarker = mapMarkers[activeIndex + 1] ?? mapMarkers[activeIndex - 1] ?? null;
+    const fromPosition = normalizeMarkerPosition(fromMarker);
+    const toPosition = normalizeMarkerPosition(toMarker);
+
+    if (!fromPosition || !toPosition) {
+      return;
+    }
+
+    activeSegmentRef.current = new googleMaps.Polyline({
+      map,
+      path: [fromPosition, toPosition],
+      strokeColor: "#23344d",
+      strokeOpacity: 0.95,
+      strokeWeight: 6,
+      zIndex: 300,
+    });
+  }, [highlightedStopId, mapMarkers]);
 
   return (
     <div className="relative overflow-hidden rounded-[2rem] border border-[var(--voy-border)] bg-[linear-gradient(180deg,rgba(253,250,244,0.9),rgba(246,239,227,0.96))] shadow-md">

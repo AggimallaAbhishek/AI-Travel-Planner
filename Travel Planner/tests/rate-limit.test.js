@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createTripGenerationRateLimiter } from "../server/middleware/rateLimit.js";
+import {
+  createAdaptiveApiRateLimiter,
+  createTripGenerationRateLimiter,
+} from "../server/middleware/rateLimit.js";
 
 function createMockResponse() {
   return {
@@ -77,4 +80,31 @@ test("trip generation limiter allows requests again after time window passes", (
   const allowedAgain = createMockResponse();
   assert.equal(runLimiter(middleware, request, allowedAgain), true);
   assert.equal(allowedAgain.statusCode, 200);
+});
+
+test("adaptive limiter progressively reduces throughput after repeated violations", () => {
+  let currentTime = 0;
+  const middleware = createAdaptiveApiRateLimiter({
+    name: "replan",
+    windowMs: 1_000,
+    maxRequests: 2,
+    maxPenalty: 2,
+    now: () => currentTime,
+  });
+  const request = { user: { uid: "user-3" }, ip: "127.0.0.1" };
+
+  const first = createMockResponse();
+  assert.equal(runLimiter(middleware, request, first), true);
+
+  const second = createMockResponse();
+  assert.equal(runLimiter(middleware, request, second), true);
+
+  const third = createMockResponse();
+  assert.equal(runLimiter(middleware, request, third), false);
+  assert.equal(third.statusCode, 429);
+
+  currentTime = 1_200;
+  const fourth = createMockResponse();
+  assert.equal(runLimiter(middleware, request, fourth), true);
+  assert.equal(Number(fourth.headers["x-ratelimit-limit"]) <= 2, true);
 });
