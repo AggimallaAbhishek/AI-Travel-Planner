@@ -831,10 +831,31 @@ function selectDestinationAirports({
   airportCatalog = new Map(),
   destination = {},
 }) {
+  function getAirportPriority(record = {}) {
+    let score = 0;
+
+    if (normalizeText(record.scheduledService).toLowerCase() === "yes") {
+      score += 120;
+    }
+    if (normalizeText(record.iata)) {
+      score += 45;
+    }
+    if (record.airportType === "large_airport") {
+      score += 30;
+    } else if (record.airportType === "medium_airport") {
+      score += 22;
+    } else if (record.airportType === "small_airport") {
+      score += 6;
+    }
+
+    return score;
+  }
+
   return [...airportCatalog.values()]
     .map((record) => ({
       ...record,
       _distanceKm: haversineDistanceKm(record.coordinates, destination.center),
+      _priority: getAirportPriority(record),
     }))
     .filter(
       (record) =>
@@ -842,6 +863,9 @@ function selectDestinationAirports({
         isPointInsideBounds(record.coordinates, expandBounds(destination.cityBounds, 0.08))
     )
     .sort((left, right) => {
+      if ((right._priority ?? 0) !== (left._priority ?? 0)) {
+        return (right._priority ?? 0) - (left._priority ?? 0);
+      }
       if ((left._distanceKm ?? Infinity) !== (right._distanceKm ?? Infinity)) {
         return (left._distanceKm ?? Infinity) - (right._distanceKm ?? Infinity);
       }
@@ -849,7 +873,7 @@ function selectDestinationAirports({
       return left.name.localeCompare(right.name);
     })
     .slice(0, MAX_AIRPORTS_PER_DESTINATION)
-    .map(pruneAirportRecord);
+    .map(({ _priority, ...record }) => pruneAirportRecord(record));
 }
 
 function buildFlightRoutesForDestination({
