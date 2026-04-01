@@ -129,10 +129,10 @@ export function buildOverpassBoundaryQuery(destination = "", bounds = {}) {
   return [
     "[out:json][timeout:25];",
     "(",
-    `  relation["boundary"="administrative"]["name"~"^(${namePattern})$",i](${bbox});`,
-    `  relation["boundary"="administrative"]["name:en"~"^(${namePattern})$",i](${bbox});`,
-    `  way["boundary"="administrative"]["name"~"^(${namePattern})$",i](${bbox});`,
-    `  way["boundary"="administrative"]["name:en"~"^(${namePattern})$",i](${bbox});`,
+    `  relation["boundary"="administrative"]["name"~"(${namePattern})",i](${bbox});`,
+    `  relation["boundary"="administrative"]["name:en"~"(${namePattern})",i](${bbox});`,
+    `  way["boundary"="administrative"]["name"~"(${namePattern})",i](${bbox});`,
+    `  way["boundary"="administrative"]["name:en"~"(${namePattern})",i](${bbox});`,
     ");",
     "out tags geom;",
   ].join("\n");

@@ -15,10 +15,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const DEFAULT_CITY_MAP_OUT_DIR = path.resolve(__dirname, "../data/city-maps");
 export const CITY_MAP_DATASET_VERSION = `${WORLD_POI_DATASET_VERSION}-city-maps-v1`;
 const DEFAULT_SIZE_BUDGET_BYTES = 4_500_000;
-const DEFAULT_TIMEOUT_MS = 20_000;
+const DEFAULT_TIMEOUT_MS = 35_000;
 const DEFAULT_ENDPOINTS = [
-  "https://overpass.kumi.systems/api/interpreter",
   "https://overpass-api.de/api/interpreter",
+  "https://overpass.private.coffee/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
 ];
 
 function normalizeText(value, fallback = "") {
@@ -105,6 +106,8 @@ async function fetchBestRemoteBasemap({
   timeoutMs = DEFAULT_TIMEOUT_MS,
 } = {}) {
   let lastBasemap = null;
+  let bestBasemap = null;
+  let bestScore = -1;
 
   for (const endpoint of endpoints) {
     const basemap = await fetchRemoteCityBasemap({
@@ -122,13 +125,19 @@ async function fetchBestRemoteBasemap({
         (basemap.parks?.length ?? 0) >
       0;
     const hasBoundary = basemap.outline?.source === "administrative_boundary";
+    const score = (hasBoundary ? 2 : 0) + (hasFeatures ? 1 : 0);
 
-    if (hasFeatures || hasBoundary) {
+    if (score > bestScore) {
+      bestBasemap = basemap;
+      bestScore = score;
+    }
+
+    if (hasBoundary && hasFeatures) {
       return basemap;
     }
   }
 
-  return lastBasemap;
+  return bestBasemap ?? lastBasemap;
 }
 
 export function buildCityMapArtifactPayload(artifacts = []) {
