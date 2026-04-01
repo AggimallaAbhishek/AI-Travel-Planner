@@ -11,6 +11,7 @@ import {
   normalizeTripConstraints,
   normalizeTripObjective,
 } from "../../shared/trips.js";
+import { createMemoryCacheStore } from "./cacheStore.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -170,7 +171,14 @@ function roundFinite(value) {
   return Number.isFinite(value) ? Math.round(value) : null;
 }
 
-function buildRouteCacheKey({ trip, optimizeFor, dayNumber }) {
+function buildRouteCacheKey({
+  trip,
+  optimizeFor,
+  objective,
+  constraints,
+  alternativesCount,
+  dayNumber,
+}) {
   const itineraryDays = Array.isArray(trip?.itinerary?.days)
     ? trip.itinerary.days
     : [];
@@ -190,11 +198,14 @@ function buildRouteCacheKey({ trip, optimizeFor, dayNumber }) {
   return JSON.stringify({
     version: ROUTE_CACHE_SCHEMA_VERSION,
     tripId: normalizeText(trip?.id),
-    destination: normalizeText(trip?.userSelection?.location?.label),
-    optimizeFor,
-    dayNumber,
-    daySnapshot,
-  });
+      destination: normalizeText(trip?.userSelection?.location?.label),
+      optimizeFor,
+      objective,
+      constraints: normalizeTripConstraints(constraints),
+      alternativesCount: normalizeAlternativesCount(alternativesCount),
+      dayNumber,
+      daySnapshot,
+    });
 }
 
 function createWeightMatrix(routeMatrix = [], weightKey = "durationSeconds") {
@@ -208,6 +219,133 @@ function createWeightMatrix(routeMatrix = [], weightKey = "durationSeconds") {
       return Number.isFinite(value) ? value : Number.POSITIVE_INFINITY;
     })
   );
+}
+
+function resolveBudgetIntensity(userSelection = {}) {
+  const budget = normalizeText(userSelection?.budget).toLowerCase();
+
+  if (/luxury|premium/.test(budget)) {
+    return 1.8;
+  }
+
+  if (/cheap|economy|budget/.test(budget)) {
+    return 0.65;
+  }
+
+  return 1;
+}
+
+function estimateStopExperienceScore(stop = {}, stopIndex = 0) {
+  const category = normalizeText(stop?.category).toLowerCase();
+  const description = normalizeText(stop?.description);
+  let score = 0.5;
+
+  if (category) {
+    score += 0.2;
+  }
+
+  if (/museum|heritage|cultural|historic|landmark/.test(category)) {
+    score += 0.35;
+  } else if (/food|dining|restaurant/.test(category)) {
+    score += 0.22;
+  } else if (/nature|beach|mountain|park/.test(category)) {
+    score += 0.28;
+  } else if (/shopping/.test(category)) {
+    score += 0.12;
+  }
+
+  if (description.length > 80) {
+    score += 0.1;
+  }
+
+  if (stopIndex === 0) {
+    score -= 0.05;
+  }
+
+  return Math.max(0.1, Math.min(1.5, score));
+}
+
+function buildObjectiveWeightMatrix({
+  routeMatrix = [],
+  stops = [],
+  objective = "fastest",
+  constraints = {},
+  userSelection = {},
+}) {
+  const budgetIntensity = resolveBudgetIntensity(userSelection);
+  const dailyTimeLimitHours = normalizeInteger(
+    constraints?.dailyTimeLimitHours,
+    10
+  );
+  const dailyTimePenaltyFactor = dailyTimeLimitHours <= 8 ? 1.18 : 1;
+  const stopScores = stops.map(estimateStopExperienceScore);
+
+  return routeMatrix.map((row, rowIndex) =>
+    row.map((cell, columnIndex) => {
+      if (rowIndex === columnIndex) {
+        return 0;
+      }
+
+      const durationSeconds = Number.isFinite(cell?.durationSeconds)
+        ? cell.durationSeconds
+        : Number.POSITIVE_INFINITY;
+      const distanceMeters = Number.isFinite(cell?.distanceMeters)
+        ? cell.distanceMeters
+        : Number.POSITIVE_INFINITY;
+      if (!Number.isFinite(durationSeconds) || !Number.isFinite(distanceMeters)) {
+        return Number.POSITIVE_INFINITY;
+      }
+
+      const baseTravelCost = (distanceMeters / 1_000) * (4.5 * budgetIntensity);
+      const baseDurationWeight = durationSeconds * dailyTimePenaltyFactor;
+      const experienceBonus =
+        ((stopScores[rowIndex] ?? 0.5) + (stopScores[columnIndex] ?? 0.5)) / 2;
+
+      if (objective === "cheapest") {
+        return baseTravelCost * 45 + baseDurationWeight * 0.18;
+      }
+
+      if (objective === "best_experience") {
+        const scenicPenalty = baseDurationWeight * 0.55 + baseTravelCost * 16;
+        return Math.max(1, scenicPenalty - experienceBonus * 40);
+      }
+
+      return baseDurationWeight;
+    })
+  );
+}
+
+function scoreAlternativeForObjective({
+  objective,
+  durationSeconds,
+  estimatedCost,
+  experienceScore,
+  range,
+}) {
+  const durationRatio =
+    range.duration.max > range.duration.min
+      ? (durationSeconds - range.duration.min) /
+        (range.duration.max - range.duration.min)
+      : 0;
+  const costRatio =
+    range.cost.max > range.cost.min
+      ? (estimatedCost - range.cost.min) / (range.cost.max - range.cost.min)
+      : 0;
+  const experienceRatio =
+    range.experience.max > range.experience.min
+      ? (experienceScore - range.experience.min) /
+        (range.experience.max - range.experience.min)
+      : 0;
+
+  if (objective === "cheapest") {
+    return (1 - costRatio) * 0.65 + (1 - durationRatio) * 0.35;
+  }
+
+  if (objective === "best_experience") {
+    return experienceRatio * 0.6 + (1 - durationRatio) * 0.25 + (1 - costRatio) * 0.15;
+  }
+
+  return (1 - durationRatio) * 0.7 + (1 - costRatio) * 0.2 + experienceRatio * 0.1;
 }
 
 export function runDijkstraOnWeightMatrix(weightMatrix = [], startIndex = 0) {
@@ -450,15 +588,12 @@ function normalizeVisitOrder(visitOrder = [], nodeCount, startIndex, endIndex) {
   return normalizedOrder;
 }
 
-function runLocalRouteOptimizer({
-  routeMatrix,
-  optimizeFor,
+function runLocalRouteOptimizerOnWeightMatrix({
+  weightMatrix,
+  algorithm = "js-nearest-neighbor-2opt",
   originIndex,
   destinationIndex,
 }) {
-  const weightKey =
-    optimizeFor === "distance" ? "distanceMeters" : "durationSeconds";
-  const weightMatrix = createWeightMatrix(routeMatrix, weightKey);
   const initialOrder = buildNearestNeighborOrder({
     weightMatrix,
     startIndex: originIndex,
@@ -472,13 +607,31 @@ function runLocalRouteOptimizer({
   const mst = runPrimOnWeightMatrix(weightMatrix);
 
   return {
-    algorithm: "js-nearest-neighbor-2opt",
+    algorithm,
     visitOrder,
     totalWeight: calculatePathWeight(weightMatrix, visitOrder),
     shortestPathsFromOrigin: shortestPaths.distances,
     previous: shortestPaths.previous,
     mst,
   };
+}
+
+function runLocalRouteOptimizer({
+  routeMatrix,
+  optimizeFor,
+  originIndex,
+  destinationIndex,
+}) {
+  const weightKey =
+    optimizeFor === "distance" ? "distanceMeters" : "durationSeconds";
+  const weightMatrix = createWeightMatrix(routeMatrix, weightKey);
+
+  return runLocalRouteOptimizerOnWeightMatrix({
+    weightMatrix,
+    algorithm: "js-nearest-neighbor-2opt",
+    originIndex,
+    destinationIndex,
+  });
 }
 
 async function runPythonRouteOptimizer({
@@ -938,6 +1091,116 @@ function formatMstWithStopNames(mst = {}, stops = []) {
   };
 }
 
+function estimateRouteCost({
+  totalDistanceMeters,
+  totalDurationSeconds,
+  userSelection = {},
+}) {
+  const budgetIntensity = resolveBudgetIntensity(userSelection);
+  const distanceCost = (totalDistanceMeters / 1_000) * 4.25 * budgetIntensity;
+  const timeCost = (totalDurationSeconds / 60) * 0.42;
+  return roundFinite(distanceCost + timeCost);
+}
+
+function estimateRouteExperience({
+  orderedStops = [],
+  totalDurationSeconds,
+}) {
+  const baseScore = orderedStops.reduce(
+    (total, stop, index) => total + estimateStopExperienceScore(stop, index),
+    0
+  );
+  const durationPenalty = (Number.isFinite(totalDurationSeconds) ? totalDurationSeconds : 0) / 4_800;
+  const score = Math.max(1, baseScore * 10 - durationPenalty * 3.5);
+  return Number(score.toFixed(1));
+}
+
+function computeRange(values = []) {
+  const finiteValues = values.filter(Number.isFinite);
+  if (finiteValues.length === 0) {
+    return {
+      min: 0,
+      max: 0,
+    };
+  }
+
+  return {
+    min: Math.min(...finiteValues),
+    max: Math.max(...finiteValues),
+  };
+}
+
+function formatObjectiveLabel(objective) {
+  if (objective === "best_experience") {
+    return "Best Experience";
+  }
+
+  if (objective === "cheapest") {
+    return "Cheapest";
+  }
+
+  return "Fastest";
+}
+
+function buildTradeoffDelta(selected, baselineFastest) {
+  if (!baselineFastest) {
+    return {
+      minutesVsFastest: 0,
+      costVsFastest: 0,
+      experienceVsFastest: 0,
+    };
+  }
+
+  return {
+    minutesVsFastest: roundFinite(
+      (selected.totalDurationSeconds - baselineFastest.totalDurationSeconds) / 60
+    ),
+    costVsFastest: roundFinite(
+      selected.estimatedCost - baselineFastest.estimatedCost
+    ),
+    experienceVsFastest: Number(
+      (selected.experienceScore - baselineFastest.experienceScore).toFixed(1)
+    ),
+  };
+}
+
+function formatDurationLabelForExplanation(durationSeconds) {
+  if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+    return "unavailable";
+  }
+
+  const minutes = Math.round(durationSeconds / 60);
+  if (minutes < 60) {
+    return `${minutes} min`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainderMinutes = minutes % 60;
+  if (remainderMinutes === 0) {
+    return `${hours} hr`;
+  }
+
+  return `${hours} hr ${remainderMinutes} min`;
+}
+
+function matrixResultProviderFromDays(days = []) {
+  const providers = new Set(
+    (Array.isArray(days) ? days : [])
+      .map((day) => normalizeText(day?.routeProvider))
+      .filter(Boolean)
+  );
+
+  if (providers.size === 0) {
+    return "not-applicable";
+  }
+
+  if (providers.size === 1) {
+    return [...providers][0];
+  }
+
+  return "mixed";
+}
+
 export function createTripRouteService({
   now = () => Date.now(),
   cache = new Map(),
@@ -952,14 +1215,35 @@ export function createTripRouteService({
   async function getRoutesForTrip({
     trip,
     optimizeFor = "duration",
+    objective = "",
+    constraints = {},
+    alternativesCount = null,
     dayNumber = null,
   }) {
+    const derivedObjective =
+      objective ||
+      trip?.userSelection?.objective ||
+      (optimizeFor === "distance" ? "cheapest" : "fastest");
+    const normalizedObjective = normalizeTripObjective(derivedObjective);
+    const normalizedConstraints = normalizeTripConstraints(
+      constraints ?? trip?.userSelection?.constraints
+    );
+    const normalizedAlternativesCount = normalizeAlternativesCount(
+      alternativesCount ?? trip?.userSelection?.alternativesCount
+    );
     const normalizedOptimizeFor =
-      optimizeFor === "distance" ? "distance" : "duration";
+      optimizeFor === "distance"
+        ? "distance"
+        : normalizedObjective === "cheapest"
+          ? "distance"
+          : "duration";
     const normalizedDayNumber = normalizeInteger(dayNumber, null);
     const cacheKey = buildRouteCacheKey({
       trip,
       optimizeFor: normalizedOptimizeFor,
+      objective: normalizedObjective,
+      constraints: normalizedConstraints,
+      alternativesCount: normalizedAlternativesCount,
       dayNumber: normalizedDayNumber,
     });
     const cached = cache.get(cacheKey);
@@ -968,6 +1252,7 @@ export function createTripRouteService({
       console.info("[routes] Returning cached optimized routes", {
         tripId: trip?.id ?? null,
         optimizeFor: normalizedOptimizeFor,
+        objective: normalizedObjective,
         dayNumber: normalizedDayNumber,
       });
       return cached.value;
@@ -995,14 +1280,29 @@ export function createTripRouteService({
           dayNumber: day.dayNumber,
           title: normalizeText(day.title, `Day ${day.dayNumber}`),
           status: "needs-more-stops",
+          objective: normalizedObjective,
+          objectiveLabel: formatObjectiveLabel(normalizedObjective),
           algorithm: "not-applicable",
           routeProvider: "not-applicable",
           inputStopCount: rawDayStops.length,
           resolvedStopCount: rawDayStops.length,
           orderedStops: rawDayStops,
           segments: [],
+          alternatives: [],
           totalDistanceMeters: 0,
           totalDurationSeconds: 0,
+          estimatedCost: 0,
+          experienceScore: 0,
+          paretoScore: 0,
+          explanation: {
+            whySelected:
+              "At least two recognizable stops are required before multi-objective optimization can run.",
+            tradeoffDelta: {
+              minutesVsFastest: 0,
+              costVsFastest: 0,
+              experienceVsFastest: 0,
+            },
+          },
           shortestPathsFromStart: [],
           mst: { totalWeight: 0, edges: [] },
           directionsUrl: rawDayStops.length === 1
@@ -1060,14 +1360,29 @@ export function createTripRouteService({
           dayNumber: day.dayNumber,
           title: normalizeText(day.title, `Day ${day.dayNumber}`),
           status: "insufficient-geocoded-stops",
+          objective: normalizedObjective,
+          objectiveLabel: formatObjectiveLabel(normalizedObjective),
           algorithm: "not-applicable",
           routeProvider: "not-applicable",
           inputStopCount: rawDayStops.length,
           resolvedStopCount: resolvedStops.length,
           orderedStops: resolvedStops,
           segments: [],
+          alternatives: [],
           totalDistanceMeters: 0,
           totalDurationSeconds: 0,
+          estimatedCost: 0,
+          experienceScore: 0,
+          paretoScore: 0,
+          explanation: {
+            whySelected:
+              "At least two geocoded stops are required before route optimization can run.",
+            tradeoffDelta: {
+              minutesVsFastest: 0,
+              costVsFastest: 0,
+              experienceVsFastest: 0,
+            },
+          },
           shortestPathsFromStart: [],
           mst: { totalWeight: 0, edges: [] },
           directionsUrl: "",
@@ -1089,110 +1404,232 @@ export function createTripRouteService({
         fetchImpl,
         timeoutMs,
       });
-      const optimizerInput = {
-        routeMatrix: matrixResult.routeMatrix,
-        optimizeFor: normalizedOptimizeFor,
-        originIndex: 0,
-        destinationIndex: null,
-      };
+      const profileAlternatives = [];
 
-      let optimizerResult = null;
+      for (const profile of OBJECTIVE_PROFILES) {
+        let optimizerResult = null;
 
-      try {
-        optimizerResult = await pythonRouteOptimizer(optimizerInput);
-      } catch (error) {
-        console.warn("[routes] Python route optimizer failed, using JS fallback", {
-          message: error instanceof Error ? error.message : String(error),
+        if (profile === "fastest") {
+          const optimizerInput = {
+            routeMatrix: matrixResult.routeMatrix,
+            optimizeFor: "duration",
+            originIndex: 0,
+            destinationIndex: null,
+          };
+
+          try {
+            optimizerResult = await pythonRouteOptimizer(optimizerInput);
+          } catch (error) {
+            console.warn("[routes] Python route optimizer failed, using JS fallback", {
+              message: error instanceof Error ? error.message : String(error),
+            });
+          }
+
+          if (!optimizerResult) {
+            optimizerResult = runLocalRouteOptimizer(optimizerInput);
+          } else {
+            const normalizedVisitOrder = normalizeVisitOrder(
+              optimizerResult.visitOrder,
+              resolvedStops.length,
+              0,
+              null
+            );
+
+            optimizerResult = normalizedVisitOrder
+              ? {
+                  ...optimizerResult,
+                  visitOrder: normalizedVisitOrder,
+                }
+              : runLocalRouteOptimizer(optimizerInput);
+          }
+        } else {
+          const objectiveWeightMatrix = buildObjectiveWeightMatrix({
+            routeMatrix: matrixResult.routeMatrix,
+            stops: resolvedStops,
+            objective: profile,
+            constraints: normalizedConstraints,
+            userSelection: trip?.userSelection,
+          });
+
+          optimizerResult = runLocalRouteOptimizerOnWeightMatrix({
+            weightMatrix: objectiveWeightMatrix,
+            originIndex: 0,
+            destinationIndex: null,
+            algorithm:
+              profile === "cheapest"
+                ? "js-cheapest-weighted-2opt"
+                : "js-experience-orienteering-2opt",
+          });
+        }
+
+        const orderedStopsWithGraphIndex = optimizerResult.visitOrder.map((graphIndex) => ({
+          ...resolvedStops[graphIndex],
+          graphIndex,
+        }));
+        const segments = [];
+
+        for (let index = 0; index < orderedStopsWithGraphIndex.length - 1; index += 1) {
+          const originStop = orderedStopsWithGraphIndex[index];
+          const destinationStop = orderedStopsWithGraphIndex[index + 1];
+          const segment = matrixResult.routeMatrix[originStop.graphIndex]?.[
+            destinationStop.graphIndex
+          ];
+
+          segments.push({
+            fromName: originStop.name,
+            toName: destinationStop.name,
+            distanceMeters: roundFinite(segment?.distanceMeters),
+            durationSeconds: roundFinite(segment?.durationSeconds),
+          });
+        }
+
+        const totalDistanceMeters = segments.reduce(
+          (total, segment) => total + (segment.distanceMeters ?? 0),
+          0
+        );
+        const totalDurationSeconds = segments.reduce(
+          (total, segment) => total + (segment.durationSeconds ?? 0),
+          0
+        );
+        const estimatedCost = estimateRouteCost({
+          totalDistanceMeters,
+          totalDurationSeconds,
+          userSelection: trip?.userSelection,
+        });
+        const experienceScore = estimateRouteExperience({
+          orderedStops: orderedStopsWithGraphIndex,
+          totalDurationSeconds,
+        });
+
+        profileAlternatives.push({
+          objective: profile,
+          objectiveLabel: formatObjectiveLabel(profile),
+          optimizerResult,
+          orderedStopsWithGraphIndex,
+          orderedStops: orderedStopsWithGraphIndex.map((stop) => ({
+            id: stop.id,
+            name: stop.name,
+            location: stop.location,
+            description: stop.description,
+            category: stop.category,
+            geoCoordinates: stop.geoCoordinates,
+            mapsUrl: stop.mapsUrl,
+          })),
+          segments,
+          totalDistanceMeters: roundFinite(totalDistanceMeters),
+          totalDurationSeconds: roundFinite(totalDurationSeconds),
+          estimatedCost: estimatedCost ?? 0,
+          experienceScore,
         });
       }
 
-      if (!optimizerResult) {
-        optimizerResult = runLocalRouteOptimizer(optimizerInput);
-      } else {
-        const normalizedVisitOrder = normalizeVisitOrder(
-          optimizerResult.visitOrder,
-          resolvedStops.length,
-          0,
-          null
-        );
-
-        optimizerResult = normalizedVisitOrder
-          ? {
-              ...optimizerResult,
-              visitOrder: normalizedVisitOrder,
-            }
-          : runLocalRouteOptimizer(optimizerInput);
-      }
-
-      const orderedStops = optimizerResult.visitOrder.map((graphIndex) => ({
-        ...resolvedStops[graphIndex],
-        graphIndex,
-      }));
+      const range = {
+        duration: computeRange(
+          profileAlternatives.map((alternative) => alternative.totalDurationSeconds)
+        ),
+        cost: computeRange(
+          profileAlternatives.map((alternative) => alternative.estimatedCost)
+        ),
+        experience: computeRange(
+          profileAlternatives.map((alternative) => alternative.experienceScore)
+        ),
+      };
+      const scoredAlternatives = profileAlternatives
+        .map((alternative) => ({
+          ...alternative,
+          score: scoreAlternativeForObjective({
+            objective: normalizedObjective,
+            durationSeconds: alternative.totalDurationSeconds,
+            estimatedCost: alternative.estimatedCost,
+            experienceScore: alternative.experienceScore,
+            range,
+          }),
+        }))
+        .sort((left, right) => right.score - left.score);
+      const selectedAlternative =
+        scoredAlternatives.find(
+          (alternative) => alternative.objective === normalizedObjective
+        ) ?? scoredAlternatives[0];
+      const baselineFastest = scoredAlternatives.find(
+        (alternative) => alternative.objective === "fastest"
+      );
       const routePreview = await fetchGoogleRoutePreview({
-        orderedStops,
+        orderedStops: selectedAlternative.orderedStopsWithGraphIndex,
         apiKey: routesApiKey,
         fetchImpl,
         timeoutMs,
       });
-      const segments = [];
-
-      for (let index = 0; index < orderedStops.length - 1; index += 1) {
-        const originStop = orderedStops[index];
-        const destinationStop = orderedStops[index + 1];
-        const segment = matrixResult.routeMatrix[originStop.graphIndex]?.[
-          destinationStop.graphIndex
-        ];
-
-        segments.push({
-          fromName: originStop.name,
-          toName: destinationStop.name,
-          distanceMeters: roundFinite(segment?.distanceMeters),
-          durationSeconds: roundFinite(segment?.durationSeconds),
-        });
-      }
-
-      const totalDistanceMeters = routePreview?.distanceMeters ?? segments.reduce(
-        (total, segment) => total + (segment.distanceMeters ?? 0),
-        0
+      const selectedTotalDistanceMeters =
+        routePreview?.distanceMeters ?? selectedAlternative.totalDistanceMeters;
+      const selectedTotalDurationSeconds =
+        routePreview?.durationSeconds ?? selectedAlternative.totalDurationSeconds;
+      const selectedTradeoffDelta = buildTradeoffDelta(
+        selectedAlternative,
+        baselineFastest
       );
-      const totalDurationSeconds = routePreview?.durationSeconds ?? segments.reduce(
-        (total, segment) => total + (segment.durationSeconds ?? 0),
-        0
-      );
+      const selectedExplanation = `Selected ${
+        selectedAlternative.objectiveLabel
+      } route balancing travel time ${formatDurationLabelForExplanation(
+        selectedTotalDurationSeconds
+      )}, estimated cost ${selectedAlternative.estimatedCost}, and experience score ${
+        selectedAlternative.experienceScore
+      }.`;
 
       routeDays.push({
         dayNumber: day.dayNumber,
         title: normalizeText(day.title, `Day ${day.dayNumber}`),
         status: "ready",
+        objective: normalizedObjective,
+        objectiveLabel: formatObjectiveLabel(normalizedObjective),
         algorithm: normalizeText(
-          optimizerResult.algorithm,
+          selectedAlternative.optimizerResult.algorithm,
           "js-nearest-neighbor-2opt"
         ),
         routeProvider: matrixResult.provider,
         inputStopCount: rawDayStops.length,
         resolvedStopCount: resolvedStops.length,
-        orderedStops: orderedStops.map((stop) => ({
-          id: stop.id,
-          name: stop.name,
-          location: stop.location,
-          description: stop.description,
-          category: stop.category,
-          geoCoordinates: stop.geoCoordinates,
-          mapsUrl: stop.mapsUrl,
-        })),
-        segments,
-        totalDistanceMeters: roundFinite(totalDistanceMeters),
-        totalDurationSeconds: roundFinite(totalDurationSeconds),
+        orderedStops: selectedAlternative.orderedStops,
+        segments: selectedAlternative.segments,
+        alternatives: scoredAlternatives
+          .slice(0, normalizedAlternativesCount)
+          .map((alternative, index) => ({
+            rank: index + 1,
+            objective: alternative.objective,
+            objectiveLabel: alternative.objectiveLabel,
+            algorithm: normalizeText(alternative.optimizerResult.algorithm),
+            paretoScore: Number(alternative.score.toFixed(3)),
+            totalDistanceMeters: alternative.totalDistanceMeters,
+            totalDurationSeconds: alternative.totalDurationSeconds,
+            estimatedCost: alternative.estimatedCost,
+            experienceScore: alternative.experienceScore,
+            stopNames: alternative.orderedStops.map((stop) => stop.name),
+            tradeoffDelta: buildTradeoffDelta(alternative, baselineFastest),
+          })),
+        totalDistanceMeters: roundFinite(selectedTotalDistanceMeters),
+        totalDurationSeconds: roundFinite(selectedTotalDurationSeconds),
+        estimatedCost: selectedAlternative.estimatedCost,
+        experienceScore: selectedAlternative.experienceScore,
+        paretoScore: Number(selectedAlternative.score.toFixed(3)),
+        explanation: {
+          whySelected: selectedExplanation,
+          tradeoffDelta: selectedTradeoffDelta,
+        },
         shortestPathsFromStart: Array.isArray(
-          optimizerResult.shortestPathsFromOrigin
+          selectedAlternative.optimizerResult.shortestPathsFromOrigin
         )
-          ? optimizerResult.shortestPathsFromOrigin.map(roundFinite)
+          ? selectedAlternative.optimizerResult.shortestPathsFromOrigin.map(roundFinite)
           : [],
-        mst: formatMstWithStopNames(optimizerResult.mst, resolvedStops),
+        mst: formatMstWithStopNames(
+          selectedAlternative.optimizerResult.mst,
+          resolvedStops
+        ),
         directionsUrl: buildGoogleMapsDirectionsUrl({
-          origin: orderedStops[0],
-          destination: orderedStops[orderedStops.length - 1],
-          waypoints: orderedStops.slice(1, -1),
+          origin: selectedAlternative.orderedStopsWithGraphIndex[0],
+          destination:
+            selectedAlternative.orderedStopsWithGraphIndex[
+              selectedAlternative.orderedStopsWithGraphIndex.length - 1
+            ],
+          waypoints: selectedAlternative.orderedStopsWithGraphIndex.slice(1, -1),
           travelMode: "driving",
         }),
         polyline: normalizeText(routePreview?.polyline),
@@ -1213,6 +1650,29 @@ export function createTripRouteService({
       tripId: normalizeText(trip?.id),
       destination,
       optimizeFor: normalizedOptimizeFor,
+      objective: normalizedObjective,
+      constraints: normalizedConstraints,
+      alternativesCount: normalizedAlternativesCount,
+      optimizationMeta: {
+        objective: normalizedObjective,
+        alternativesCount: normalizedAlternativesCount,
+        method: "pareto-multi-objective-routing",
+        generatedAt: new Date().toISOString(),
+        constraints: normalizedConstraints,
+      },
+      sourceProvenance: {
+        primaryProvider: "google-routes",
+        sources: [
+          {
+            provider: matrixResultProviderFromDays(routeDays),
+            sourceType: "routing-api",
+            fetchedAt: new Date().toISOString(),
+          },
+        ],
+        cache: {
+          status: "miss",
+        },
+      },
       dayCount: routeDays.length,
       days: routeDays,
       generatedAt: new Date().toISOString(),
@@ -1227,6 +1687,7 @@ export function createTripRouteService({
       tripId: trip?.id ?? null,
       dayCount: routeDays.length,
       optimizeFor: normalizedOptimizeFor,
+      objective: normalizedObjective,
     });
 
     return result;
