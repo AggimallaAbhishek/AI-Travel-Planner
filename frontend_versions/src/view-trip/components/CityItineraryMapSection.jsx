@@ -240,11 +240,14 @@ export default function CityItineraryMapSection({ trip }) {
 
   const destination =
     cityMapState.cityMap?.destination ?? getDestinationLabel(trip);
-  const rawDays =
-    cityMapState.cityMap?.days ??
-    trip?.mapEnrichment?.markerDays ??
-    trip?.itinerary?.days ??
-    [];
+  const rawDays = useMemo(
+    () =>
+      cityMapState.cityMap?.days ??
+      trip?.mapEnrichment?.markerDays ??
+      trip?.itinerary?.days ??
+      [],
+    [cityMapState.cityMap?.days, trip?.itinerary?.days, trip?.mapEnrichment?.markerDays]
+  );
   const basemap = cityMapState.cityMap?.basemap ?? null;
   const places = useMemo(
     () => flattenPlacesFromDays(rawDays, destination),

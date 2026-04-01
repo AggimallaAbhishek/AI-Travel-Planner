@@ -776,8 +776,6 @@ export async function enrichTripWithPersistedGeocodes({
     Array.isArray(trip?.itinerary?.days) ? trip.itinerary.days : [],
     concurrency,
     async (day) => {
-      const dayNumber = Number.parseInt(day?.dayNumber, 10) || 1;
-      const aiPlanDay = findAiPlanDayByNumber(trip, dayNumber);
       const places = Array.isArray(day?.places) ? day.places : [];
 
       const nextPlaces = await mapConcurrently(
