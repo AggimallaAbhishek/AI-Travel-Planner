@@ -2,6 +2,7 @@ import { normalizeGeoCoordinates } from "../../shared/maps.js";
 
 const SOURCE_CONFIDENCE = {
   "google-places": 0.93,
+  world_poi_index: 0.9,
   openstreetmap: 0.82,
   itinerary: 0.62,
   ai: 0.58,
@@ -122,6 +123,7 @@ export function buildTripFusionIndex({
   trip = {},
   recommendations = {},
   transportSignals = [],
+  worldPoiItems = [],
 }) {
   const destination = normalizeText(
     trip?.userSelection?.location?.label ??
@@ -140,6 +142,9 @@ export function buildTripFusionIndex({
     ? recommendations.restaurants
     : [];
   const recommendationSource = normalizeSourceName(recommendations?.provider);
+  const normalizedWorldPoiItems = Array.isArray(worldPoiItems)
+    ? worldPoiItems
+    : [];
 
   for (const day of itineraryDays) {
     const places = Array.isArray(day?.places) ? day.places : [];
@@ -147,13 +152,35 @@ export function buildTripFusionIndex({
       const candidate = toNormalizedCandidate(place, {
         location: destination,
         category: "activity",
-        source: "itinerary",
+        source:
+          normalizeText(place?.geocodeSource).toLowerCase() === "world_poi_index"
+            ? "world_poi_index"
+            : "itinerary",
         sourceType: "structured",
         fetchedAt: generatedAt,
       });
       if (candidate) {
         upsertFusionItem(itemsByKey, candidate);
       }
+    }
+  }
+
+  for (const poi of normalizedWorldPoiItems) {
+    const candidate = toNormalizedCandidate(poi, {
+      location:
+        normalizeText(
+          [poi?.locality, poi?.countryName].filter(Boolean).join(", "),
+          destination
+        ),
+      category: Array.isArray(poi?.categories)
+        ? normalizeText(poi.categories[0], "place")
+        : normalizeText(poi?.category, "place"),
+      source: "world_poi_index",
+      sourceType: "index",
+      fetchedAt: generatedAt,
+    });
+    if (candidate) {
+      upsertFusionItem(itemsByKey, candidate);
     }
   }
 

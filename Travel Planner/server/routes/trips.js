@@ -5,10 +5,10 @@ import {
   tripGenerationRateLimit,
 } from "../middleware/rateLimit.js";
 import {
+  backfillTripMapEnrichment,
   createTripForUser,
   getTripForUser,
   listTripsForUser,
-  persistTripMapEnrichment,
   replanTripForUser,
   validateReplanRequest,
   validateTripRequest,
@@ -18,7 +18,6 @@ import {
   getRecommendationsForDestination,
 } from "../services/recommendations.js";
 import { getRoutesForTrip } from "../services/routeOptimization.js";
-import { enrichTripWithPersistedGeocodes } from "../services/tripMapEnrichment.js";
 import {
   normalizeAlternativesCount,
   normalizeTripConstraints,
@@ -210,7 +209,7 @@ router.post("/trips/generate", requireAuth, tripGenerationRateLimit, async (req,
 
 router.get("/trips/:tripId", requireAuth, async (req, res) => {
   try {
-    const trip = await getTripForUser({
+    let trip = await getTripForUser({
       tripId: req.params.tripId,
       user: req.user,
     });
@@ -227,6 +226,19 @@ router.get("/trips/:tripId", requireAuth, async (req, res) => {
         message: "You do not have access to this trip.",
       });
       return;
+    }
+
+    try {
+      const enrichmentResult = await backfillTripMapEnrichment({
+        trip,
+        logContext: "trip detail",
+      });
+      trip = enrichmentResult.trip;
+    } catch (error) {
+      console.warn("[trips] Trip detail map enrichment backfill failed", {
+        tripId: trip.id,
+        message: getErrorText(error),
+      });
     }
 
     res.json({ trip });
@@ -333,20 +345,10 @@ router.get("/trips/:tripId/routes", requireAuth, async (req, res) => {
     }
 
     try {
-      const enrichmentResult = await enrichTripWithPersistedGeocodes({ trip });
-      if (enrichmentResult.changed) {
-        await persistTripMapEnrichment({
-          tripId: trip.id,
-          itinerary: enrichmentResult.trip.itinerary,
-          mapEnrichment: enrichmentResult.trip.mapEnrichment,
-        });
-        console.info("[trips] Auto-backfilled trip map enrichment", {
-          tripId: trip.id,
-          geocodedStopCount: enrichmentResult.stats.geocodedStopCount,
-          unresolvedStopCount: enrichmentResult.stats.unresolvedStopCount,
-          status: enrichmentResult.stats.status,
-        });
-      }
+      const enrichmentResult = await backfillTripMapEnrichment({
+        trip,
+        logContext: "routes",
+      });
       trip = enrichmentResult.trip;
     } catch (error) {
       console.warn("[trips] Trip map enrichment backfill failed", {

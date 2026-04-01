@@ -649,7 +649,12 @@ export function normalizeHotel(hotel = {}) {
 }
 
 const PLACE_GEOCODE_STATUSES = ["resolved", "unresolved", "inferred"];
-const PLACE_GEOCODE_SOURCES = ["google_places", "stored", "fallback_inferred"];
+const PLACE_GEOCODE_SOURCES = [
+  "google_places",
+  "world_poi_index",
+  "stored",
+  "fallback_inferred",
+];
 
 function normalizeGeocodeStatus(value, fallback = "unresolved") {
   const normalized = normalizeLowerText(value);

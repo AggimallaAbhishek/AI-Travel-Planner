@@ -9,6 +9,10 @@ import {
   normalizeTripObjective,
 } from "../../shared/trips.js";
 import { createMemoryCacheStore } from "./cacheStore.js";
+import {
+  resolvePlace as resolveWorldPoiPlace,
+  resolvePlacesForDay,
+} from "./worldPoiIndex.js";
 
 const GOOGLE_PLACES_TEXT_SEARCH_URL =
   "https://places.googleapis.com/v1/places:searchText";
@@ -819,21 +823,72 @@ async function fetchFallbackStopsForDay({
   fetchImpl,
   timeoutMs,
   maxStops,
+  telemetry = null,
 }) {
   const queries = buildFallbackSearchQueries({
     day,
     aiPlanDay,
     destination,
   });
+  const localMatches = await resolvePlacesForDay({
+    destination,
+    texts: [
+      normalizeText(day?.title),
+      ...(Array.isArray(day?.places)
+        ? day.places.flatMap((place) => [
+            normalizeText(place?.placeName ?? place?.name),
+            normalizeText(place?.placeDetails ?? place?.description),
+          ])
+        : []),
+      ...(Array.isArray(aiPlanDay?.activities) ? aiPlanDay.activities : []),
+    ],
+    limit: maxStops,
+  }).catch((error) => {
+    console.warn("[routes] World POI fallback lookup failed", {
+      dayNumber: day?.dayNumber ?? null,
+      destination,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return [];
+  });
+  const localFallbackStops = localMatches.map((place, index) => ({
+    id: `${day?.dayNumber ?? 0}-local-${index}`,
+    dayNumber: day?.dayNumber,
+    stopIndex: index,
+    name: normalizeText(place.name),
+    source: "inferred",
+    geocodeSource: "world_poi_index",
+    location: normalizeText(
+      [place.locality, place.countryName].filter(Boolean).join(", "),
+      destination
+    ),
+    description: normalizeText(place.categories?.join(", ")),
+    category: normalizeText(place.categories?.[0], "point_of_interest"),
+    geoCoordinates: normalizeGeoCoordinates(place.geoCoordinates),
+    mapsUrl: normalizeText(place.mapsUrl),
+  }));
+
+  if (localFallbackStops.length > 0) {
+    telemetry && (telemetry.worldPoiIndexHits += localFallbackStops.length);
+    console.info("[routes] Using local world POI fallback stops", {
+      dayNumber: day?.dayNumber ?? null,
+      destination,
+      count: localFallbackStops.length,
+    });
+  }
 
   if (!apiKey || queries.length === 0) {
-    return [];
+    return localFallbackStops.slice(0, maxStops);
   }
   const seen = new Set();
-  const fallbackStops = [];
+  const fallbackStops = [...localFallbackStops];
+  for (const stop of localFallbackStops) {
+    seen.add(normalizeText(stop.name).toLowerCase());
+  }
   const minimumUsefulStopCount = Math.min(maxStops, 4);
 
   for (const query of queries) {
+    telemetry && (telemetry.liveLookupCount += 1);
     const response = await fetchImpl(
       GOOGLE_PLACES_TEXT_SEARCH_URL,
       buildTimedFetchOptions(
@@ -884,6 +939,7 @@ async function fetchFallbackStopsForDay({
         stopIndex: fallbackStops.length,
         name,
         source: "inferred",
+        geocodeSource: "google_places",
         location: normalizeText(place?.formattedAddress, destination),
         description: "",
         category: "point_of_interest",
@@ -1664,9 +1720,10 @@ async function geocodeStopWithPlaces({
   timeoutMs,
   geocodeCache,
   cityBounds = null,
+  telemetry = null,
 }) {
   const queries = buildGeocodeQueriesForStop(stop, destination);
-  if (queries.length === 0 || !apiKey) {
+  if (queries.length === 0) {
     return null;
   }
 
@@ -1677,12 +1734,50 @@ async function geocodeStopWithPlaces({
 
   const geocodePromise = (async () => {
     for (const query of queries) {
+      const worldPoiMatch = await resolveWorldPoiPlace({
+        destination,
+        query,
+      }).catch((error) => {
+        console.warn("[routes] World POI stop lookup failed", {
+          stopName: stop.name,
+          destination,
+          query,
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return null;
+      });
+
+      if (worldPoiMatch?.geoCoordinates) {
+        telemetry && (telemetry.worldPoiIndexHits += 1);
+        console.info("[routes] Resolved itinerary stop from local POI index", {
+          stopName: stop.name,
+          destination,
+          query,
+          matched: worldPoiMatch.name,
+        });
+        return {
+          provider: "world_poi_index",
+          resolvedName: normalizeText(worldPoiMatch.name, cleanPlaceCandidate(query)),
+          geoCoordinates: normalizeGeoCoordinates(worldPoiMatch.geoCoordinates),
+          location: normalizeText(
+            [worldPoiMatch.locality, worldPoiMatch.countryName].filter(Boolean).join(", "),
+            destination
+          ),
+          mapsUrl: normalizeText(worldPoiMatch.mapsUrl),
+        };
+      }
+
+      if (!apiKey) {
+        continue;
+      }
+
       try {
         console.info("[routes] Geocoding itinerary stop", {
           stopName: stop.name,
           destination,
           query,
         });
+        telemetry && (telemetry.liveLookupCount += 1);
 
         const response = await fetchImpl(
           GOOGLE_PLACES_TEXT_SEARCH_URL,
@@ -1729,6 +1824,7 @@ async function geocodeStopWithPlaces({
         }
 
         return {
+          provider: "google_places",
           resolvedName: normalizeText(
             place?.displayName?.text,
             cleanPlaceCandidate(query)
@@ -2020,6 +2116,7 @@ function createRawDayStops({
       stopIndex: uniqueStops.length,
       name,
       source: "itinerary",
+      geocodeSource: normalizeText(place?.geocodeSource),
       location: normalizeText(place?.location ?? destination, destination),
       description: normalizeText(place?.placeDetails ?? place?.description),
       category: normalizeText(place?.category),
@@ -2064,6 +2161,7 @@ function buildMarkersFromOrderedStops(orderedStops = []) {
         visitOrder: index + 1,
         mapsUrl: normalizeText(stop.mapsUrl),
         source: normalizeStopSource(stop?.source),
+        geocodeSource: normalizeText(stop?.geocodeSource),
       };
     })
     .filter(Boolean);
@@ -2463,6 +2561,10 @@ export function createTripRouteService({
 
     for (const day of scopedDays) {
       const aiPlanDay = findAiPlanDayByNumber(trip, day.dayNumber);
+      const dayGeocodeStats = {
+        worldPoiIndexHits: 0,
+        liveLookupCount: 0,
+      };
       let dayStops = createRawDayStops({
         day,
         aiPlanDay,
@@ -2486,6 +2588,7 @@ export function createTripRouteService({
             fetchImpl,
             timeoutMs,
             maxStops: maxStopsPerDay,
+            telemetry: dayGeocodeStats,
           }),
           resolvedStops: [],
           cityBounds,
@@ -2536,6 +2639,7 @@ export function createTripRouteService({
           resolvedStopCount: dayStops.length,
           geocodedStopCount,
           unresolvedStopCount: Math.max(0, dayStops.length - geocodedStopCount),
+          geocodeStats: dayGeocodeStats,
           orderedStops: dayStops,
           markers: buildMarkersFromOrderedStops(dayStops),
           segments: [],
@@ -2598,6 +2702,7 @@ export function createTripRouteService({
             return {
               stop,
               geocodedStop: {
+                provider: normalizeText(stop?.geocodeSource, "stored"),
                 geoCoordinates: normalizeGeoCoordinates(stop.geoCoordinates),
                 location: stop.location,
                 mapsUrl: stop.mapsUrl,
@@ -2613,6 +2718,7 @@ export function createTripRouteService({
             timeoutMs,
             geocodeCache,
             cityBounds,
+            telemetry: dayGeocodeStats,
           });
 
           return {
@@ -2639,6 +2745,10 @@ export function createTripRouteService({
           geoCoordinates: coordinates,
           location: normalizeText(result?.geocodedStop?.location, result.stop.location),
           mapsUrl: normalizeText(result?.geocodedStop?.mapsUrl, result.stop.mapsUrl),
+          geocodeSource: normalizeText(
+            result?.geocodedStop?.provider,
+            result.stop.geocodeSource
+          ),
         });
       }
 
@@ -2652,6 +2762,7 @@ export function createTripRouteService({
             fetchImpl,
             timeoutMs,
             maxStops: maxStopsPerDay,
+            telemetry: dayGeocodeStats,
           }),
           resolvedStops,
           cityBounds,
@@ -2704,6 +2815,7 @@ export function createTripRouteService({
           resolvedStopCount: resolvedStops.length,
           geocodedStopCount: resolvedStops.length,
           unresolvedStopCount: unresolvedStops.length,
+          geocodeStats: dayGeocodeStats,
           orderedStops: resolvedStops,
           markers: buildMarkersFromOrderedStops(resolvedStops),
           segments: [],
@@ -2847,6 +2959,7 @@ export function createTripRouteService({
             category: stop.category,
             geoCoordinates: stop.geoCoordinates,
             mapsUrl: stop.mapsUrl,
+            geocodeSource: stop.geocodeSource,
           })),
           segments,
           segmentsDetailed,
@@ -2947,6 +3060,7 @@ export function createTripRouteService({
         resolvedStopCount: resolvedStops.length,
         geocodedStopCount: resolvedStops.length,
         unresolvedStopCount: unresolvedStops.length,
+        geocodeStats: dayGeocodeStats,
         orderedStops: selectedAlternative.orderedStops,
         markers: buildMarkersFromOrderedStops(selectedAlternative.orderedStops),
         segments: selectedAlternative.segments,
@@ -3017,6 +3131,39 @@ export function createTripRouteService({
 
     const selectedDay =
       routeDays.find((dayRoute) => dayRoute.status === "ready") ?? routeDays[0] ?? null;
+    const routeSourceEntries = [
+      {
+        provider: matrixResultProviderFromDays(routeDays),
+        sourceType: "routing-api",
+        fetchedAt: new Date().toISOString(),
+      },
+    ];
+    const totalWorldPoiHits = routeDays.reduce(
+      (total, dayRoute) => total + (dayRoute?.geocodeStats?.worldPoiIndexHits ?? 0),
+      0
+    );
+    const totalLiveLookupCount = routeDays.reduce(
+      (total, dayRoute) => total + (dayRoute?.geocodeStats?.liveLookupCount ?? 0),
+      0
+    );
+
+    if (totalWorldPoiHits > 0) {
+      routeSourceEntries.push({
+        provider: "world_poi_index",
+        sourceType: "local-index",
+        fetchedAt: new Date().toISOString(),
+        hitCount: totalWorldPoiHits,
+      });
+    }
+
+    if (totalLiveLookupCount > 0) {
+      routeSourceEntries.push({
+        provider: "google_places",
+        sourceType: "geocode-api",
+        fetchedAt: new Date().toISOString(),
+        hitCount: totalLiveLookupCount,
+      });
+    }
 
     const result = {
       tripId: normalizeText(trip?.id),
@@ -3034,14 +3181,11 @@ export function createTripRouteService({
         constraints: normalizedConstraints,
       },
       sourceProvenance: {
-        primaryProvider: "google-routes",
-        sources: [
-          {
-            provider: matrixResultProviderFromDays(routeDays),
-            sourceType: "routing-api",
-            fetchedAt: new Date().toISOString(),
-          },
-        ],
+        primaryProvider:
+          totalWorldPoiHits > 0 && totalLiveLookupCount === 0
+            ? "world_poi_index"
+            : "google-routes",
+        sources: routeSourceEntries,
         cache: {
           status: "miss",
         },

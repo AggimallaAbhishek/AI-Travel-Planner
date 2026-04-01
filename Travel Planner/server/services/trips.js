@@ -170,6 +170,49 @@ export async function persistTripMapEnrichment({
   );
 }
 
+export async function backfillTripMapEnrichment({
+  trip,
+  enrichFn = enrichTripWithPersistedGeocodes,
+  persistFn = persistTripMapEnrichment,
+  logContext = "trip detail",
+} = {}) {
+  if (!trip || typeof trip !== "object") {
+    return {
+      trip,
+      changed: false,
+      stats: {
+        geocodedStopCount: 0,
+        unresolvedStopCount: 0,
+        status: "missing",
+        hasPlacesKey: false,
+        hasCityBounds: false,
+        worldPoiIndexHits: 0,
+        liveLookupCount: 0,
+      },
+    };
+  }
+
+  const enrichmentResult = await enrichFn({ trip });
+
+  if (enrichmentResult.changed) {
+    await persistFn({
+      tripId: enrichmentResult.trip.id,
+      itinerary: enrichmentResult.trip.itinerary,
+      mapEnrichment: enrichmentResult.trip.mapEnrichment,
+    });
+
+    console.info("[trips] Auto-backfilled trip map enrichment", {
+      tripId: enrichmentResult.trip.id,
+      geocodedStopCount: enrichmentResult.stats.geocodedStopCount,
+      unresolvedStopCount: enrichmentResult.stats.unresolvedStopCount,
+      status: enrichmentResult.stats.status,
+      logContext,
+    });
+  }
+
+  return enrichmentResult;
+}
+
 function removeActivityFromDay(day = {}, disruption = {}) {
   const normalizedTarget = String(disruption.placeName ?? "")
     .replace(/\s+/g, " ")

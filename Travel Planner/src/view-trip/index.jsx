@@ -4,15 +4,12 @@ import InfoSection from "./components/InfoSection";
 import Hotels from "./components/Hotels";
 import Restaurants from "./components/Restaurants";
 import PlacesToVisit from "./components/PlacesToVisit";
-import OptimizedRouteSection from "./components/OptimizedRouteSection";
+import CityItineraryMapSection from "./components/CityItineraryMapSection";
 import { toast } from "react-toastify";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/lib/api";
 import { fetchTripRecommendations } from "@/lib/tripRecommendations";
-import {
-  fetchTripRoutes,
-  replanTrip,
-} from "@/lib/tripRoutes";
+import { replanTrip } from "@/lib/tripRoutes";
 import { Button } from "@/components/ui/button";
 import { buildLoginPath } from "@/lib/authRedirect";
 
@@ -22,18 +19,6 @@ const INITIAL_RECOMMENDATION_STATE = {
   provider: "",
   warning: "",
   destination: "",
-  loading: false,
-  errorMessage: "",
-};
-
-const INITIAL_ROUTE_STATE = {
-  days: [],
-  destination: "",
-  optimizeFor: "duration",
-  defaultObjective: "fastest",
-  objective: "fastest",
-  optimizationMeta: null,
-  sourceProvenance: null,
   loading: false,
   errorMessage: "",
 };
@@ -48,7 +33,6 @@ function Viewtrip() {
   const [recommendations, setRecommendations] = useState(
     INITIAL_RECOMMENDATION_STATE
   );
-  const [routes, setRoutes] = useState(INITIAL_ROUTE_STATE);
   const [disruptionDraft, setDisruptionDraft] = useState({
     type: "traffic_delay",
     dayNumber: 1,
@@ -56,7 +40,7 @@ function Viewtrip() {
   });
   const [replanLoading, setReplanLoading] = useState(false);
   const [recommendationReloadToken, setRecommendationReloadToken] = useState(0);
-  const [routeReloadToken, setRouteReloadToken] = useState(0);
+  const [tripReloadToken, setTripReloadToken] = useState(0);
   const loginPath = buildLoginPath(`${location.pathname}${location.search}${location.hash}`);
   const firstItineraryDayNumber =
     Array.isArray(trip?.itinerary?.days) && trip.itinerary.days.length > 0
@@ -70,7 +54,6 @@ function Viewtrip() {
       setLoading(false);
       setTrip(null);
       setRecommendations(INITIAL_RECOMMENDATION_STATE);
-      setRoutes(INITIAL_ROUTE_STATE);
       console.info("[view-trip] Skipping trip detail load without trip id or authenticated user");
       return () => controller.abort();
     }
@@ -92,7 +75,6 @@ function Viewtrip() {
         console.error("[view-trip] Failed to load trip", error);
         setTrip(null);
         setRecommendations(INITIAL_RECOMMENDATION_STATE);
-        setRoutes(INITIAL_ROUTE_STATE);
         setErrorMessage(error.message ?? "Unable to load this trip.");
         toast.error(error.message ?? "Unable to load this trip.");
       } finally {
@@ -103,7 +85,7 @@ function Viewtrip() {
     loadTrip();
 
     return () => controller.abort();
-  }, [tripId, user]);
+  }, [tripId, user, tripReloadToken]);
 
   useEffect(() => {
     if (!trip?.userSelection) {
@@ -115,68 +97,6 @@ function Viewtrip() {
       dayNumber: firstItineraryDayNumber,
     }));
   }, [firstItineraryDayNumber, trip?.id, trip?.userSelection]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    const destination = trip?.userSelection?.location?.label ?? "";
-
-    if (!trip?.id || !user) {
-      setRoutes(INITIAL_ROUTE_STATE);
-      return () => controller.abort();
-    }
-
-    async function loadRoutes() {
-      setRoutes((previous) => ({
-        ...previous,
-        days: routeReloadToken > 0 ? [] : previous.days,
-        destination,
-        loading: true,
-        errorMessage: "",
-      }));
-
-      try {
-        const response = await fetchTripRoutes(trip.id, {
-          signal: controller.signal,
-          force: routeReloadToken > 0,
-        });
-
-        setRoutes({
-          ...response,
-          destination,
-          loading: false,
-          errorMessage: "",
-        });
-      } catch (error) {
-        if (error.name === "AbortError") {
-          return;
-        }
-
-        console.error("[view-trip] Failed to load optimized routes", {
-          tripId: trip.id,
-          destination,
-          message: error?.message,
-        });
-
-        setRoutes((previous) => ({
-          ...previous,
-          destination,
-          loading: false,
-          errorMessage:
-            error.message ?? "Unable to load optimized trip routes right now.",
-        }));
-      }
-    }
-
-    loadRoutes();
-
-    return () => controller.abort();
-  }, [
-    trip?.id,
-    trip?.updatedAt,
-    trip?.userSelection?.location?.label,
-    user,
-    routeReloadToken,
-  ]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -247,10 +167,6 @@ function Viewtrip() {
     setRecommendationReloadToken((previous) => previous + 1);
   };
 
-  const handleRetryRoutes = () => {
-    setRouteReloadToken((previous) => previous + 1);
-  };
-
   const handleReplan = async () => {
     if (!trip?.id) {
       return;
@@ -278,7 +194,7 @@ function Viewtrip() {
       ];
       const response = await replanTrip(trip.id, payload);
       setTrip(response.trip ?? trip);
-      setRouteReloadToken((previous) => previous + 1);
+      setTripReloadToken((previous) => previous + 1);
       setRecommendationReloadToken((previous) => previous + 1);
       toast.success("Trip replanned with the selected disruption.");
     } catch (error) {
@@ -435,12 +351,7 @@ function Viewtrip() {
             </Button>
           </div>
         </section>
-        <OptimizedRouteSection
-          routes={routes}
-          isLoading={routes.loading}
-          errorMessage={routes.errorMessage}
-          onRetry={handleRetryRoutes}
-        />
+        <CityItineraryMapSection trip={trip} />
         <Hotels
           trip={trip}
           hotels={recommendations.hotels}

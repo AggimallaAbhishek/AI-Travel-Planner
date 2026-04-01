@@ -268,7 +268,9 @@ test("trip route service geocodes stops and uses Google route data when availabl
   const placeRequests = requests.filter((request) =>
     request.url.includes("places.googleapis.com")
   );
-  assert.equal(placeRequests.length, 4);
+  assert.equal(placeRequests.length, 2);
+  assert.equal(routes.days[0].geocodeStats.worldPoiIndexHits, 2);
+  assert.equal(routes.days[0].geocodeStats.liveLookupCount, 1);
 });
 
 test("trip route service preserves itinerary coordinates when aiPlan duplicates stop names", async () => {
@@ -469,63 +471,16 @@ test("trip route service synthesizes fallback stops when a day has none", async 
 
 test("trip route service extracts clean place names from descriptive itinerary text", async () => {
   const placeRequests = [];
-  const viewport = {
-    northEast: { latitude: -8.2, longitude: 115.35 },
-    southWest: { latitude: -8.95, longitude: 114.95 },
-  };
-  const geocodeFixtures = {
-    "Bali, Indonesia": {
-      displayName: { text: "Bali" },
-      formattedAddress: "Bali, Indonesia",
-      location: { latitude: -8.409518, longitude: 115.188919 },
-      viewport,
-      googleMapsUri: "https://maps.google.com/?q=bali",
-    },
-    "Uluwatu Temple, Bali, Indonesia": {
-      displayName: { text: "Uluwatu Temple" },
-      formattedAddress: "Pecatu, Bali, Indonesia",
-      location: { latitude: -8.8291, longitude: 115.0849 },
-      viewport,
-      googleMapsUri: "https://maps.google.com/?q=uluwatu",
-    },
-    "Padang Padang Beach, Bali, Indonesia": {
-      displayName: { text: "Padang Padang Beach" },
-      formattedAddress: "Pecatu, Bali, Indonesia",
-      location: { latitude: -8.8051, longitude: 115.1005 },
-      viewport,
-      googleMapsUri: "https://maps.google.com/?q=padang-padang",
-    },
-  };
-
   const service = createTripRouteService({
     resolvePlacesKey: () => "places-key",
     resolveRoutesKey: () => "",
     fetchImpl: async (url, options = {}) => {
       const urlText = String(url);
-
-      if (!urlText.includes("places.googleapis.com")) {
-        throw new Error(`Unexpected URL: ${urlText}`);
-      }
-
-      const query = JSON.parse(options.body).textQuery;
-      placeRequests.push(query);
-      const place = geocodeFixtures[query];
-
-      return {
-        ok: true,
-        headers: {
-          get(name) {
-            return name.toLowerCase() === "content-type"
-              ? "application/json"
-              : "";
-          },
-        },
-        async json() {
-          return {
-            places: place ? [place] : [],
-          };
-        },
-      };
+      placeRequests.push({
+        url: urlText,
+        body: options.body ? JSON.parse(options.body) : null,
+      });
+      throw new Error(`Unexpected live lookup: ${urlText}`);
     },
   });
 
@@ -553,6 +508,17 @@ test("trip route service extracts clean place names from descriptive itinerary t
           },
         ],
       },
+      mapEnrichment: {
+        status: "complete",
+        geocodedStopCount: 2,
+        unresolvedStopCount: 0,
+        cityBounds: {
+          north: -8.2,
+          south: -8.95,
+          east: 115.35,
+          west: 114.95,
+        },
+      },
     },
   });
 
@@ -562,14 +528,9 @@ test("trip route service extracts clean place names from descriptive itinerary t
     routes.days[0].markers.map((marker) => marker.name),
     ["Uluwatu Temple", "Padang Padang Beach"]
   );
-  assert.equal(
-    placeRequests.includes("Uluwatu Temple, Bali, Indonesia"),
-    true
-  );
-  assert.equal(
-    placeRequests.includes("Padang Padang Beach, Bali, Indonesia"),
-    true
-  );
+  assert.equal(routes.days[0].geocodeStats.worldPoiIndexHits >= 2, true);
+  assert.equal(routes.days[0].geocodeStats.liveLookupCount, 0);
+  assert.deepEqual(placeRequests, []);
 });
 
 test("trip route service returns map-only payloads when only one stop is geocoded", async () => {
@@ -842,10 +803,11 @@ test("trip route service derives stops from aiPlan activities and filters places
 
   assert.deepEqual(placeQueries, [
     "Tokyo, Japan",
-    "Shibuya Crossing, Tokyo, Japan",
     "Meiji Shrine, Tokyo, Japan",
     "Kyoto Imperial Palace, Tokyo, Japan",
   ]);
+  assert.equal(routes.days[0].geocodeStats.worldPoiIndexHits, 1);
+  assert.equal(routes.days[0].geocodeStats.liveLookupCount, 2);
 });
 
 test("trip route service extracts place candidates from verbose aiPlan activities", async () => {

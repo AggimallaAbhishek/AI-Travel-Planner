@@ -10,59 +10,6 @@ test("trip map enrichment persists partial geocode results without failing unres
       const query = JSON.parse(options.body).textQuery;
       requests.push(query);
 
-      if (query === "Tokyo, Japan") {
-        return {
-          ok: true,
-          headers: {
-            get(name) {
-              return name.toLowerCase() === "content-type"
-                ? "application/json"
-                : "";
-            },
-          },
-          async json() {
-            return {
-              places: [
-                {
-                  displayName: { text: "Tokyo" },
-                  formattedAddress: "Tokyo, Japan",
-                  location: { latitude: 35.6762, longitude: 139.6503 },
-                  viewport: {
-                    northEast: { latitude: 35.82, longitude: 139.92 },
-                    southWest: { latitude: 35.55, longitude: 139.55 },
-                  },
-                },
-              ],
-            };
-          },
-        };
-      }
-
-      if (query === "Shibuya Crossing, Tokyo, Japan") {
-        return {
-          ok: true,
-          headers: {
-            get(name) {
-              return name.toLowerCase() === "content-type"
-                ? "application/json"
-                : "";
-            },
-          },
-          async json() {
-            return {
-              places: [
-                {
-                  displayName: { text: "Shibuya Crossing" },
-                  formattedAddress: "Shibuya City, Tokyo",
-                  location: { latitude: 35.6595, longitude: 139.7005 },
-                  googleMapsUri: "https://maps.google.com/?q=shibuya",
-                },
-              ],
-            };
-          },
-        };
-      }
-
       return {
         ok: true,
         headers: {
@@ -96,6 +43,17 @@ test("trip map enrichment persists partial geocode results without failing unres
           },
         ],
       },
+      mapEnrichment: {
+        status: "complete",
+        geocodedStopCount: 0,
+        unresolvedStopCount: 2,
+        cityBounds: {
+          north: 35.82,
+          south: 35.55,
+          east: 139.92,
+          west: 139.55,
+        },
+      },
     },
   });
 
@@ -103,15 +61,16 @@ test("trip map enrichment persists partial geocode results without failing unres
   assert.equal(serviceResult.trip.itinerary.days[0].places[0].geocodeStatus, "resolved");
   assert.equal(
     serviceResult.trip.itinerary.days[0].places[0].geocodeSource,
-    "google_places"
+    "world_poi_index"
   );
   assert.equal(
     serviceResult.trip.itinerary.days[0].places[0].location,
-    "Shibuya City, Tokyo"
+    "Tokyo, Japan"
   );
-  assert.equal(
-    serviceResult.trip.itinerary.days[0].places[0].mapsUrl,
-    "https://maps.google.com/?q=shibuya"
+  assert.ok(
+    serviceResult.trip.itinerary.days[0].places[0].mapsUrl.includes(
+      "35.6595%2C139.7005"
+    )
   );
   assert.equal(
     serviceResult.trip.itinerary.days[0].places[1].geocodeStatus,
@@ -121,15 +80,13 @@ test("trip map enrichment persists partial geocode results without failing unres
   assert.equal(serviceResult.stats.geocodedStopCount, 1);
   assert.equal(serviceResult.stats.unresolvedStopCount, 1);
   assert.equal(serviceResult.stats.hasCityBounds, true);
+  assert.equal(serviceResult.stats.worldPoiIndexHits, 1);
+  assert.equal(serviceResult.stats.liveLookupCount, 1);
   assert.deepEqual(serviceResult.trip.mapEnrichment.cityBounds, {
     north: 35.82,
     south: 35.55,
     east: 139.92,
     west: 139.55,
   });
-  assert.deepEqual(requests, [
-    "Tokyo, Japan",
-    "Shibuya Crossing, Tokyo, Japan",
-    "Unknown Hidden Spot, Tokyo, Japan",
-  ]);
+  assert.deepEqual(requests, ["Unknown Hidden Spot, Tokyo, Japan"]);
 });

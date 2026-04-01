@@ -22,6 +22,7 @@ test("buildTripFusionIndex merges itinerary and recommendation sources", () => {
                 placeName: "Fushimi Inari Shrine",
                 location: "Kyoto",
                 category: "activity",
+                geocodeSource: "world_poi_index",
               },
             ],
           },
@@ -53,6 +54,15 @@ test("buildTripFusionIndex merges itinerary and recommendation sources", () => {
         },
       ],
     },
+    worldPoiItems: [
+      {
+        name: "Fushimi Inari Shrine",
+        locality: "Kyoto",
+        countryName: "Japan",
+        categories: ["temple", "landmark"],
+        geoCoordinates: { latitude: 34.9671, longitude: 135.7727 },
+      },
+    ],
   });
 
   assert.equal(fusionIndex.destination, "Kyoto, Japan");
@@ -60,6 +70,12 @@ test("buildTripFusionIndex merges itinerary and recommendation sources", () => {
   assert.equal(fusionIndex.stats.itemCount >= 3, true);
   assert.equal(
     fusionIndex.items.some((item) => item.name === "Atlas Haven"),
+    true
+  );
+  assert.equal(
+    fusionIndex.items.some((item) =>
+      item.sources.some((source) => source.provider === "world_poi_index")
+    ),
     true
   );
 });

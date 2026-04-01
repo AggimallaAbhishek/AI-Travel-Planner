@@ -14,6 +14,7 @@ import {
 } from "./constraints.js";
 import { buildTripFusionIndex, findLowConfidenceActivities } from "./dataFusion.js";
 import { getRecommendationsForDestination } from "./recommendations.js";
+import { listDestinationPois } from "./worldPoiIndex.js";
 
 let model;
 const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
@@ -340,16 +341,28 @@ export async function generateTripPlan(userSelection) {
       });
 
       const fusionStartedAt = Date.now();
+      const fusionDestination =
+        deterministicRepaired?.aiPlan?.destination ??
+        normalizedSelection.location.label;
       const fusionRecommendations = await loadFusionRecommendationsWithTimeout({
-        destination:
-          deterministicRepaired?.aiPlan?.destination ??
-          normalizedSelection.location.label,
+        destination: fusionDestination,
         userSelection: normalizedSelection,
+      });
+      const worldPoiItems = await listDestinationPois({
+        destination: fusionDestination,
+        limit: 24,
+      }).catch((error) => {
+        console.warn("[gemini] World POI index lookup failed", {
+          destination: fusionDestination,
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return [];
       });
       latencyBreakdownMs.fusion = Date.now() - fusionStartedAt;
       const fusionIndex = buildTripFusionIndex({
         trip: deterministicRepaired,
         recommendations: fusionRecommendations ?? {},
+        worldPoiItems,
       });
       const lowConfidenceActivities = findLowConfidenceActivities({
         trip: deterministicRepaired,

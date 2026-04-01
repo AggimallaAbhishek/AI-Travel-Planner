@@ -1,0 +1,122 @@
+{
+  "datasetVersion": "2026.04-starter-global-v1",
+  "generatedAt": "2026-04-01T11:17:47.119Z",
+  "schemaVersion": 1,
+  "totalItemCount": 56,
+  "destinationCount": 14,
+  "shardCount": 14,
+  "shardMap": [
+    {
+      "destinationKey": "bali__id",
+      "file": "shards/001-bali-id.json.gz",
+      "itemCount": 4,
+      "locality": "Bali",
+      "countryCode": "ID",
+      "countryName": "Indonesia"
+    },
+    {
+      "destinationKey": "cairo__eg",
+      "file": "shards/002-cairo-eg.json.gz",
+      "itemCount": 4,
+      "locality": "Cairo",
+      "countryCode": "EG",
+      "countryName": "Egypt"
+    },
+    {
+      "destinationKey": "dubai__ae",
+      "file": "shards/003-dubai-ae.json.gz",
+      "itemCount": 4,
+      "locality": "Dubai",
+      "countryCode": "AE",
+      "countryName": "United Arab Emirates"
+    },
+    {
+      "destinationKey": "jaipur__in",
+      "file": "shards/004-jaipur-in.json.gz",
+      "itemCount": 4,
+      "locality": "Jaipur",
+      "countryCode": "IN",
+      "countryName": "India"
+    },
+    {
+      "destinationKey": "kyoto__jp",
+      "file": "shards/005-kyoto-jp.json.gz",
+      "itemCount": 4,
+      "locality": "Kyoto",
+      "countryCode": "JP",
+      "countryName": "Japan"
+    },
+    {
+      "destinationKey": "london__gb",
+      "file": "shards/006-london-gb.json.gz",
+      "itemCount": 4,
+      "locality": "London",
+      "countryCode": "GB",
+      "countryName": "United Kingdom"
+    },
+    {
+      "destinationKey": "new york city__us",
+      "file": "shards/007-new-york-city-us.json.gz",
+      "itemCount": 4,
+      "locality": "New York City",
+      "countryCode": "US",
+      "countryName": "United States"
+    },
+    {
+      "destinationKey": "paris__fr",
+      "file": "shards/008-paris-fr.json.gz",
+      "itemCount": 4,
+      "locality": "Paris",
+      "countryCode": "FR",
+      "countryName": "France"
+    },
+    {
+      "destinationKey": "petra__jo",
+      "file": "shards/009-petra-jo.json.gz",
+      "itemCount": 4,
+      "locality": "Petra",
+      "countryCode": "JO",
+      "countryName": "Jordan"
+    },
+    {
+      "destinationKey": "rio de janeiro__br",
+      "file": "shards/010-rio-de-janeiro-br.json.gz",
+      "itemCount": 4,
+      "locality": "Rio de Janeiro",
+      "countryCode": "BR",
+      "countryName": "Brazil"
+    },
+    {
+      "destinationKey": "rome__it",
+      "file": "shards/011-rome-it.json.gz",
+      "itemCount": 4,
+      "locality": "Rome",
+      "countryCode": "IT",
+      "countryName": "Italy"
+    },
+    {
+      "destinationKey": "singapore__sg",
+      "file": "shards/012-singapore-sg.json.gz",
+      "itemCount": 4,
+      "locality": "Singapore",
+      "countryCode": "SG",
+      "countryName": "Singapore"
+    },
+    {
+      "destinationKey": "sydney__au",
+      "file": "shards/013-sydney-au.json.gz",
+      "itemCount": 4,
+      "locality": "Sydney",
+      "countryCode": "AU",
+      "countryName": "Australia"
+    },
+    {
+      "destinationKey": "tokyo__jp",
+      "file": "shards/014-tokyo-jp.json.gz",
+      "itemCount": 4,
+      "locality": "Tokyo",
+      "countryCode": "JP",
+      "countryName": "Japan"
+    }
+  ]
+}

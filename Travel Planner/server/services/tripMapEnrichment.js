@@ -1,4 +1,5 @@
 import { buildGoogleMapsSearchUrl, normalizeGeoCoordinates } from "../../shared/maps.js";
+import { resolvePlace as resolveWorldPoiPlace } from "./worldPoiIndex.js";
 
 const GOOGLE_PLACES_TEXT_SEARCH_URL =
   "https://places.googleapis.com/v1/places:searchText";
@@ -394,9 +395,10 @@ async function geocodePlaceWithPlaces({
   timeoutMs,
   geocodeCache,
   cityBounds = null,
+  telemetry = null,
 }) {
   const queries = buildGeocodeQueriesForPlace(place, destination);
-  if (queries.length === 0 || !apiKey) {
+  if (queries.length === 0) {
     return null;
   }
 
@@ -407,12 +409,48 @@ async function geocodePlaceWithPlaces({
 
   const geocodePromise = (async () => {
     for (const query of queries) {
+      const worldPoiMatch = await resolveWorldPoiPlace({
+        destination,
+        query,
+      }).catch((error) => {
+        console.warn("[trip-map-enrichment] World POI lookup failed", {
+          query,
+          destination,
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return null;
+      });
+
+      if (worldPoiMatch?.geoCoordinates) {
+        telemetry && (telemetry.worldPoiIndexHits += 1);
+        console.info("[trip-map-enrichment] Resolved itinerary place from local POI index", {
+          destination,
+          query,
+          matched: worldPoiMatch.name,
+        });
+        return {
+          provider: "world_poi_index",
+          resolvedName: normalizeText(worldPoiMatch.name, cleanPlaceCandidate(query)),
+          geoCoordinates: normalizeGeoCoordinates(worldPoiMatch.geoCoordinates),
+          location: normalizeText(
+            [worldPoiMatch.locality, worldPoiMatch.countryName].filter(Boolean).join(", "),
+            destination
+          ),
+          mapsUrl: normalizeText(worldPoiMatch.mapsUrl),
+        };
+      }
+
+      if (!apiKey) {
+        continue;
+      }
+
       try {
         console.info("[trip-map-enrichment] Geocoding itinerary place", {
           placeName: normalizeText(place?.placeName ?? place?.name),
           destination,
           query,
         });
+        telemetry && (telemetry.liveLookupCount += 1);
 
         const response = await fetchImpl(
           GOOGLE_PLACES_TEXT_SEARCH_URL,
@@ -458,6 +496,7 @@ async function geocodePlaceWithPlaces({
         }
 
         return {
+          provider: "google_places",
           resolvedName: normalizeText(
             resolvedPlace?.displayName?.text,
             cleanPlaceCandidate(query)
@@ -573,6 +612,10 @@ export async function enrichTripWithPersistedGeocodes({
   const destination = resolveDestination(trip);
   const attemptedAt = new Date().toISOString();
   const geocodeCache = new Map();
+  const telemetry = {
+    worldPoiIndexHits: 0,
+    liveLookupCount: 0,
+  };
   let cityBounds =
     trip?.mapEnrichment?.cityBounds && typeof trip.mapEnrichment.cityBounds === "object"
       ? trip.mapEnrichment.cityBounds
@@ -628,17 +671,6 @@ export async function enrichTripWithPersistedGeocodes({
             };
           }
 
-          if (!apiKey) {
-            return {
-              ...basePlace,
-              geoCoordinates: existingCoordinates,
-              mapsUrl: buildPlaceMapsUrl(basePlace, destination, existingCoordinates),
-              geocodeStatus: "unresolved",
-              geocodeSource: "",
-              geocodedAt: normalizeText(basePlace.geocodedAt),
-            };
-          }
-
           const geocodedPlace = await geocodePlaceWithPlaces({
             place: basePlace,
             destination,
@@ -647,6 +679,7 @@ export async function enrichTripWithPersistedGeocodes({
             timeoutMs,
             geocodeCache,
             cityBounds,
+            telemetry,
           });
           const resolvedCoordinates = normalizeGeoCoordinates(
             geocodedPlace?.geoCoordinates
@@ -676,7 +709,10 @@ export async function enrichTripWithPersistedGeocodes({
               buildPlaceMapsUrl(basePlace, destination, resolvedCoordinates)
             ),
             geocodeStatus: "resolved",
-            geocodeSource: "google_places",
+            geocodeSource:
+              normalizeLowerText(geocodedPlace?.provider) === "world_poi_index"
+                ? "world_poi_index"
+                : "google_places",
             geocodedAt: attemptedAt,
           };
         }
@@ -712,6 +748,8 @@ export async function enrichTripWithPersistedGeocodes({
       status: mapEnrichment.status,
       hasPlacesKey: Boolean(apiKey),
       hasCityBounds: Boolean(cityBounds),
+      worldPoiIndexHits: telemetry.worldPoiIndexHits,
+      liveLookupCount: telemetry.liveLookupCount,
     },
   };
 }
