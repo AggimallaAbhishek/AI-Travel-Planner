@@ -138,55 +138,79 @@ test("unified trip map service aggregates route, recommendation, and transit lay
 
       return null;
     },
-    async listDestinationPoisImpl({ categories }) {
-      const key = Array.isArray(categories) ? categories.join(",") : String(categories);
-
-      if (key === "airport") {
-        return [
+    async getDestinationTransportImpl() {
+      return {
+        destination: {
+          destinationLabel: "Tokyo, Japan",
+        },
+        airports: [
           {
             id: "airport-1",
             name: "Haneda Airport",
-            categories: ["airport"],
+            transportType: "airport",
             locality: "Tokyo",
             countryName: "Japan",
-            geoCoordinates: { latitude: 35.5494, longitude: 139.7798 },
+            coordinates: { latitude: 35.5494, longitude: 139.7798 },
+            address: "Ota, Tokyo",
             mapsUrl: "https://maps.example/haneda",
-            confidence: 0.92,
+            provider: "ourairports",
+            iata: "HND",
           },
-        ];
-      }
-
-      if (key === "rail_station,metro_station") {
-        return [
+        ],
+        railStations: [
           {
             id: "station-1",
             name: "Tokyo Station",
-            categories: ["rail_station"],
+            transportType: "rail_station",
             locality: "Tokyo",
             countryName: "Japan",
-            geoCoordinates: { latitude: 35.6812, longitude: 139.7671 },
+            coordinates: { latitude: 35.6812, longitude: 139.7671 },
+            address: "Chiyoda, Tokyo",
             mapsUrl: "https://maps.example/tokyo-station",
-            confidence: 0.91,
+            provider: "openstreetmap-overpass",
           },
-        ];
-      }
-
-      if (key === "bus_terminal") {
-        return [
+        ],
+        metroStations: [
+          {
+            id: "metro-1",
+            name: "Shibuya Station",
+            transportType: "metro_station",
+            locality: "Tokyo",
+            countryName: "Japan",
+            coordinates: { latitude: 35.658, longitude: 139.7016 },
+            address: "Shibuya, Tokyo",
+            mapsUrl: "https://maps.example/shibuya-station",
+            provider: "openstreetmap-overpass",
+          },
+        ],
+        busTerminals: [
           {
             id: "bus-1",
             name: "Busta Shinjuku",
-            categories: ["bus_terminal"],
+            transportType: "bus_terminal",
             locality: "Tokyo",
             countryName: "Japan",
-            geoCoordinates: { latitude: 35.6886, longitude: 139.7006 },
+            coordinates: { latitude: 35.6886, longitude: 139.7006 },
+            address: "Shinjuku, Tokyo",
             mapsUrl: "https://maps.example/busta",
-            confidence: 0.79,
+            provider: "openstreetmap-overpass",
           },
-        ];
-      }
-
-      return [];
+        ],
+        flightRoutes: [
+          {
+            id: "route-1",
+            originAirportId: "airport-1",
+            destinationAirportId: "airport-2",
+            originLabel: "Haneda Airport, Tokyo",
+            destinationLabel: "Singapore Changi Airport, Singapore",
+            airlineName: "Singapore Airlines",
+            airlineIata: "SQ",
+            airlineIcao: "SIA",
+            equipmentCodes: ["359"],
+            provider: "openflights",
+          },
+        ],
+      };
     },
   });
 
@@ -207,8 +231,11 @@ test("unified trip map service aggregates route, recommendation, and transit lay
   assert.equal(tripMap.layers.hotels.length, 1);
   assert.equal(tripMap.layers.restaurants.length, 1);
   assert.equal(tripMap.layers.airports.length, 1);
-  assert.equal(tripMap.layers.railMetroStations.length, 1);
+  assert.equal(tripMap.layers.railStations.length, 1);
+  assert.equal(tripMap.layers.metroStations.length, 1);
   assert.equal(tripMap.layers.busTerminals.length, 1);
+  assert.equal(tripMap.layers.flightRoutes.length, 1);
+  assert.equal(tripMap.stats.categoryCounts.flightRoutes, 1);
   assert.equal(tripMap.stats.stopCount, 2);
   assert.equal(tripMap.stats.unresolvedCount, 1);
   assert.equal(typeof tripMap.latencyBreakdownMs.totalMs, "number");
@@ -283,6 +310,18 @@ test("unified trip map service tolerates missing recommendation and transit laye
     async listDestinationPoisImpl() {
       return [];
     },
+    async getDestinationTransportImpl() {
+      return {
+        destination: {
+          destinationLabel: "Bali, Indonesia",
+        },
+        airports: [],
+        railStations: [],
+        metroStations: [],
+        busTerminals: [],
+        flightRoutes: [],
+      };
+    },
   });
 
   const tripMap = await service.getUnifiedTripMap({
@@ -297,6 +336,9 @@ test("unified trip map service tolerates missing recommendation and transit laye
   assert.equal(tripMap.layers.hotels.length, 0);
   assert.equal(tripMap.layers.restaurants.length, 0);
   assert.equal(tripMap.layers.airports.length, 0);
+  assert.equal(tripMap.layers.railStations.length, 0);
+  assert.equal(tripMap.layers.metroStations.length, 0);
+  assert.equal(tripMap.layers.flightRoutes.length, 0);
   assert.equal(tripMap.days[0].segments.length, 1);
   assert.equal(tripMap.viewport.center !== null, true);
 });

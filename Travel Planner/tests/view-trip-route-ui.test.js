@@ -41,8 +41,11 @@ test("unified trip route map uses the Leaflet template structure and unified map
   assert.equal(source.includes("tripMapOverride"), true);
   assert.equal(source.includes("leaflet/dist/leaflet.css"), true);
   assert.equal(source.includes("CITYROUTE"), false);
-  assert.equal(source.includes("Deterministic route graph"), true);
+  assert.equal(source.includes("Dedicated transport dataset"), true);
   assert.equal(source.includes("Tourist Spots"), true);
+  assert.equal(source.includes("Rail Stations"), true);
+  assert.equal(source.includes("Metro Stations"), true);
+  assert.equal(source.includes("Air Connections"), true);
   assert.equal(source.includes("All Days"), true);
   assert.equal(source.includes("voy-unified-map__map-canvas"), true);
   assert.equal(source.includes("route label"), false);
