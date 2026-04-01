@@ -171,7 +171,11 @@ function collectVisibleCoordinates(routeStops = [], overlayNodes = []) {
     .map((coordinates) => [coordinates.latitude, coordinates.longitude]);
 }
 
-export default function UnifiedTripRouteMapSection({ trip, reloadToken = 0 }) {
+export default function UnifiedTripRouteMapSection({
+  trip,
+  reloadToken = 0,
+  tripMapOverride = null,
+}) {
   const [mapState, setMapState] = useState(INITIAL_MAP_STATE);
   const [selectedDay, setSelectedDay] = useState("all");
   const [activeStopId, setActiveStopId] = useState("");
@@ -207,7 +211,35 @@ export default function UnifiedTripRouteMapSection({ trip, reloadToken = 0 }) {
   }, []);
 
   useEffect(() => {
+    if (!tripMapOverride) {
+      return undefined;
+    }
+
+    console.info("[unified-trip-map] Using preview payload override", {
+      destination: tripMapOverride?.destination ?? null,
+      dayCount: Array.isArray(tripMapOverride?.days) ? tripMapOverride.days.length : 0,
+    });
+
+    setMapState({
+      tripMap: tripMapOverride,
+      loading: false,
+      errorMessage: "",
+    });
+    setSelectedDay(
+      tripMapOverride?.activeDayDefault
+        ? String(tripMapOverride.activeDayDefault)
+        : "all"
+    );
+
+    return undefined;
+  }, [tripMapOverride]);
+
+  useEffect(() => {
     const controller = new AbortController();
+
+    if (tripMapOverride) {
+      return () => controller.abort();
+    }
 
     if (!trip?.id) {
       setMapState(INITIAL_MAP_STATE);
@@ -256,9 +288,9 @@ export default function UnifiedTripRouteMapSection({ trip, reloadToken = 0 }) {
     loadTripMap();
 
     return () => controller.abort();
-  }, [reloadToken, trip?.id]);
+  }, [reloadToken, trip?.id, tripMapOverride]);
 
-  const tripMap = mapState.tripMap;
+  const tripMap = tripMapOverride ?? mapState.tripMap;
   const dayOptions = useMemo(
     () => (Array.isArray(tripMap?.days) ? tripMap.days : []),
     [tripMap?.days]

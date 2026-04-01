@@ -56,6 +56,7 @@ frontend_versions/src/constants/options.jsx
 frontend_versions/src/context/AuthContext.jsx
 frontend_versions/src/context/ThemeContext.jsx
 frontend_versions/src/create-trip/index.jsx
+frontend_versions/src/dev/unifiedTripMapPreviewData.js
 frontend_versions/src/index.css
 frontend_versions/src/lib/api.js
 frontend_versions/src/lib/authRedirect.js
@@ -96,6 +97,7 @@ frontend_versions/src/pages/OurStory.jsx
 frontend_versions/src/pages/PrivacyPolicy.jsx
 frontend_versions/src/pages/Team.jsx
 frontend_versions/src/pages/TravelGuides.jsx
+frontend_versions/src/pages/UnifiedTripMapPreview.jsx
 frontend_versions/src/service/firebaseConfig.js
 frontend_versions/src/styles/unified-trip-map.css
 frontend_versions/src/styles/voyagr-login.css

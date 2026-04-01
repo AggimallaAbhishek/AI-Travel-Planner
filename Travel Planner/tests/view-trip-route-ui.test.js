@@ -12,6 +12,7 @@ const unifiedTripMapPath = path.resolve(
   process.cwd(),
   "src/view-trip/components/UnifiedTripRouteMapSection.jsx"
 );
+const mainRouterPath = path.resolve(process.cwd(), "src/main.jsx");
 const createTripPagePath = path.resolve(
   process.cwd(),
   "src/create-trip/index.jsx"
@@ -37,6 +38,7 @@ test("unified trip route map uses the Leaflet template structure and unified map
   const source = fs.readFileSync(unifiedTripMapPath, "utf8");
 
   assert.equal(source.includes("fetchTripMap"), true);
+  assert.equal(source.includes("tripMapOverride"), true);
   assert.equal(source.includes("leaflet/dist/leaflet.css"), true);
   assert.equal(source.includes("CITYROUTE"), false);
   assert.equal(source.includes("Deterministic route graph"), true);
@@ -44,6 +46,14 @@ test("unified trip route map uses the Leaflet template structure and unified map
   assert.equal(source.includes("All Days"), true);
   assert.equal(source.includes("voy-unified-map__map-canvas"), true);
   assert.equal(source.includes("route label"), false);
+});
+
+test("dev router exposes a unified trip map preview route without touching production trip auth", () => {
+  const source = fs.readFileSync(mainRouterPath, "utf8");
+
+  assert.equal(source.includes("import.meta.env.DEV"), true);
+  assert.equal(source.includes("dev/unified-trip-map-preview"), true);
+  assert.equal(source.includes("UnifiedTripMapPreview"), true);
 });
 
 test("create trip page remains the place where route preferences are chosen", () => {
