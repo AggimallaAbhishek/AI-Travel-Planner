@@ -25,6 +25,14 @@ test("normalizeUserSelection maps legacy keys into canonical shape", () => {
     travelers: "Friends",
     travelType: "",
     travelerCount: null,
+    objective: "best_experience",
+    constraints: {
+      dailyTimeLimitHours: 10,
+      budgetCap: null,
+      mobilityPref: "balanced",
+      mealPrefs: [],
+    },
+    alternativesCount: 3,
   });
 });
 

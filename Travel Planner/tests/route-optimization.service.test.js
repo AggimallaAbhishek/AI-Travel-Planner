@@ -248,3 +248,136 @@ test("trip route service geocodes stops and uses Google route data when availabl
   );
   assert.equal(placeRequests.length, 3);
 });
+
+test("trip route service synthesizes fallback stops when a day has none", async () => {
+  const requests = [];
+  const service = createTripRouteService({
+    resolvePlacesKey: () => "places-key",
+    resolveRoutesKey: () => "routes-key",
+    pythonRouteOptimizer: null,
+    fetchImpl: async (url, options = {}) => {
+      const urlText = String(url);
+      requests.push({ url: urlText, options });
+
+      if (urlText.includes("places.googleapis.com")) {
+        return {
+          ok: true,
+          headers: {
+            get(name) {
+              return name.toLowerCase() === "content-type"
+                ? "application/json"
+                : "";
+            },
+          },
+          async json() {
+            return {
+              places: [
+                {
+                  displayName: { text: "Senso-ji" },
+                  formattedAddress: "Taito City, Tokyo",
+                  location: { latitude: 35.7148, longitude: 139.7967 },
+                  googleMapsUri: "https://maps.google.com/?q=sensoji",
+                },
+                {
+                  displayName: { text: "Tokyo Skytree" },
+                  formattedAddress: "Sumida City, Tokyo",
+                  location: { latitude: 35.7101, longitude: 139.8107 },
+                  googleMapsUri: "https://maps.google.com/?q=skytree",
+                },
+                {
+                  displayName: { text: "Akihabara" },
+                  formattedAddress: "Chiyoda City, Tokyo",
+                  location: { latitude: 35.6984, longitude: 139.7730 },
+                  googleMapsUri: "https://maps.google.com/?q=akiba",
+                },
+              ],
+            };
+          },
+        };
+      }
+
+      if (urlText.includes("distanceMatrix")) {
+        return {
+          ok: true,
+          headers: {
+            get(name) {
+              return name.toLowerCase() === "content-type"
+                ? "application/json"
+                : "";
+            },
+          },
+          async json() {
+            return [
+              { originIndex: 0, destinationIndex: 1, distanceMeters: 1800, duration: "420s", condition: "ROUTE_EXISTS" },
+              { originIndex: 0, destinationIndex: 2, distanceMeters: 2500, duration: "520s", condition: "ROUTE_EXISTS" },
+              { originIndex: 1, destinationIndex: 0, distanceMeters: 1800, duration: "430s", condition: "ROUTE_EXISTS" },
+              { originIndex: 1, destinationIndex: 2, distanceMeters: 2200, duration: "480s", condition: "ROUTE_EXISTS" },
+              { originIndex: 2, destinationIndex: 0, distanceMeters: 2500, duration: "500s", condition: "ROUTE_EXISTS" },
+              { originIndex: 2, destinationIndex: 1, distanceMeters: 2200, duration: "460s", condition: "ROUTE_EXISTS" },
+            ];
+          },
+        };
+      }
+
+      if (urlText.includes("directions")) {
+        return {
+          ok: true,
+          headers: {
+            get(name) {
+              return name.toLowerCase() === "content-type"
+                ? "application/json"
+                : "";
+            },
+          },
+          async json() {
+            return {
+              routes: [
+                {
+                  distanceMeters: 6000,
+                  duration: "720s",
+                  polyline: {
+                    encodedPolyline: "_p~iF~ps|U_ulLnnqC_mqNvxq`@",
+                  },
+                },
+              ],
+            };
+          },
+        };
+      }
+
+      throw new Error(`Unexpected URL: ${urlText}`);
+    },
+  });
+
+  const routes = await service.getRoutesForTrip({
+    trip: {
+      id: "trip-tokyo",
+      userSelection: {
+        location: { label: "Tokyo, Japan" },
+      },
+      itinerary: {
+        days: [
+          {
+            dayNumber: 1,
+            title: "Arrival & Shinjuku Nightlife",
+            places: [],
+          },
+        ],
+      },
+    },
+  });
+
+  const day = routes.days[0];
+  assert.equal(day.status, "ready");
+  assert.equal(day.routeProvider, "google-routes-matrix");
+  assert.equal(day.orderedStops.length, 3);
+  assert.equal(day.orderedStops[0].name, "Senso-ji");
+  assert.equal(day.totalDistanceMeters, 6000);
+  assert.equal(day.totalDurationSeconds, 720);
+  assert.equal(day.polyline, "_p~iF~ps|U_ulLnnqC_mqNvxq`@");
+
+  const placeRequests = requests.filter((request) =>
+    request.url.includes("places.googleapis.com")
+  );
+  assert.equal(placeRequests.length, 1);
+});

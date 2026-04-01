@@ -170,6 +170,95 @@ function roundFinite(value) {
   return Number.isFinite(value) ? Math.round(value) : null;
 }
 
+async function fetchFallbackStopsForDay({
+  day,
+  destination,
+  apiKey,
+  fetchImpl,
+  timeoutMs,
+  maxStops,
+}) {
+  const query = normalizeText(
+    [normalizeText(day?.title), destination].filter(Boolean).join(" in ")
+  );
+
+  if (!apiKey || !query) {
+    return [];
+  }
+
+  const response = await fetchImpl(
+    GOOGLE_PLACES_TEXT_SEARCH_URL,
+    buildTimedFetchOptions(
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": apiKey,
+          "X-Goog-FieldMask": GOOGLE_PLACES_ROUTE_FIELD_MASK,
+        },
+        body: JSON.stringify({
+          textQuery: query,
+          languageCode: "en",
+          maxResultCount: Math.max(3, Math.min(maxStops, 8)),
+          rankPreference: "RELEVANCE",
+        }),
+      },
+      timeoutMs
+    )
+  );
+
+  if (!response.ok) {
+    const message = await parseErrorResponse(response);
+    console.warn("[routes] Fallback Places lookup failed", {
+      query,
+      message,
+    });
+    return [];
+  }
+
+  const payload = await response.json();
+  const places = Array.isArray(payload?.places) ? payload.places : [];
+  const seen = new Set();
+
+  return places
+    .map((place, index) => {
+      const name = normalizeText(place?.displayName?.text);
+      if (!name) {
+        return null;
+      }
+
+      const key = name.toLowerCase();
+      if (seen.has(key)) {
+        return null;
+      }
+      seen.add(key);
+
+      const geoCoordinates = normalizeGeoCoordinates(place?.location);
+
+      return {
+        id: `${day?.dayNumber ?? 0}-fallback-${index}`,
+        dayNumber: day?.dayNumber,
+        stopIndex: index,
+        name,
+        location: normalizeText(place?.formattedAddress, destination),
+        description: "",
+        category: "point_of_interest",
+        geoCoordinates,
+        mapsUrl: normalizeText(
+          place?.googleMapsUri,
+          buildGoogleMapsSearchUrl({
+            name,
+            destination,
+            coordinates: geoCoordinates,
+          })
+        ),
+      };
+    })
+    .filter(Boolean)
+    .slice(0, maxStops);
+}
+
 function buildRouteCacheKey({
   trip,
   optimizeFor,
@@ -1270,11 +1359,32 @@ export function createTripRouteService({
     const routeDays = [];
 
     for (const day of scopedDays) {
-      const rawDayStops = createRawDayStops(day, destination, maxStopsPerDay);
-      const truncatedStops =
-        Array.isArray(day?.places) && day.places.length > rawDayStops.length;
+      let dayStops = createRawDayStops(day, destination, maxStopsPerDay);
+      let truncatedStops =
+        Array.isArray(day?.places) && day.places.length > dayStops.length;
 
-      if (rawDayStops.length < 2) {
+      if (dayStops.length < 2) {
+        const fallbackStops = await fetchFallbackStopsForDay({
+          day,
+          destination,
+          apiKey: placesApiKey,
+          fetchImpl,
+          timeoutMs,
+          maxStops: maxStopsPerDay,
+        });
+
+        if (fallbackStops.length >= 2) {
+          dayStops = fallbackStops;
+          truncatedStops = false;
+          console.info("[routes] Applied fallback Places stops for day", {
+            dayNumber: day.dayNumber,
+            destination,
+            count: dayStops.length,
+          });
+        }
+      }
+
+      if (dayStops.length < 2) {
         routeDays.push({
           dayNumber: day.dayNumber,
           title: normalizeText(day.title, `Day ${day.dayNumber}`),
@@ -1283,9 +1393,9 @@ export function createTripRouteService({
           objectiveLabel: formatObjectiveLabel(normalizedObjective),
           algorithm: "not-applicable",
           routeProvider: "not-applicable",
-          inputStopCount: rawDayStops.length,
-          resolvedStopCount: rawDayStops.length,
-          orderedStops: rawDayStops,
+          inputStopCount: dayStops.length,
+          resolvedStopCount: dayStops.length,
+          orderedStops: dayStops,
           segments: [],
           alternatives: [],
           totalDistanceMeters: 0,
@@ -1304,11 +1414,11 @@ export function createTripRouteService({
           },
           shortestPathsFromStart: [],
           mst: { totalWeight: 0, edges: [] },
-          directionsUrl: rawDayStops.length === 1
+          directionsUrl: dayStops.length === 1
             ? buildGoogleMapsSearchUrl({
-                name: rawDayStops[0].name,
+                name: dayStops[0].name,
                 destination,
-                coordinates: rawDayStops[0].geoCoordinates,
+                coordinates: dayStops[0].geoCoordinates,
               })
             : "",
           polyline: "",
@@ -1326,7 +1436,7 @@ export function createTripRouteService({
       const resolvedStops = [];
       const unresolvedStops = [];
 
-      for (const stop of rawDayStops) {
+      for (const stop of dayStops) {
         if (hasCoordinates(stop.geoCoordinates)) {
           resolvedStops.push(stop);
           continue;
@@ -1363,7 +1473,7 @@ export function createTripRouteService({
           objectiveLabel: formatObjectiveLabel(normalizedObjective),
           algorithm: "not-applicable",
           routeProvider: "not-applicable",
-          inputStopCount: rawDayStops.length,
+          inputStopCount: dayStops.length,
           resolvedStopCount: resolvedStops.length,
           orderedStops: resolvedStops,
           segments: [],
@@ -1585,7 +1695,7 @@ export function createTripRouteService({
           "js-nearest-neighbor-2opt"
         ),
         routeProvider: matrixResult.provider,
-        inputStopCount: rawDayStops.length,
+        inputStopCount: dayStops.length,
         resolvedStopCount: resolvedStops.length,
         orderedStops: selectedAlternative.orderedStops,
         segments: selectedAlternative.segments,
