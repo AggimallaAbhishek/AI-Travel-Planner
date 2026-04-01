@@ -1,4 +1,9 @@
 import { buildGoogleMapsSearchUrl, normalizeGeoCoordinates } from "../../shared/maps.js";
+import {
+  fetchWithExternalRequest,
+  resolveExternalReadRetries,
+  resolveExternalTimeoutMs,
+} from "./externalRequest.js";
 import { resolvePlace as resolveWorldPoiPlace } from "./worldPoiIndex.js";
 
 const GOOGLE_PLACES_TEXT_SEARCH_URL =
@@ -112,6 +117,15 @@ export function resolvePlacesApiKey() {
   return normalizeText(
     process.env.GOOGLE_PLACES_API_KEY ?? process.env.GOOGLE_MAPS_API_KEY
   );
+}
+
+function resolveTripGeocodeTimeoutMs() {
+  return resolveExternalTimeoutMs({
+    envVar: "TRIP_MAP_GEOCODE_TIMEOUT_MS",
+    fallbackMs: DEFAULT_TRIP_GEOCODE_TIMEOUT_MS,
+    minMs: 2_000,
+    maxMs: 30_000,
+  });
 }
 
 export function hasCoordinates(value) {
@@ -335,43 +349,28 @@ function buildGeocodeQueriesForPlace(place = {}, destination = "") {
   return queries.slice(0, 8);
 }
 
-function buildTimedFetchOptions(options = {}, timeoutMs) {
-  return {
-    ...options,
-    ...(typeof AbortSignal !== "undefined" &&
-    typeof AbortSignal.timeout === "function"
-      ? { signal: AbortSignal.timeout(timeoutMs) }
-      : {}),
-  };
-}
-
-async function parseErrorResponse(response) {
-  const contentType = response.headers.get("content-type") ?? "";
-
-  if (contentType.includes("application/json")) {
-    const payload = await response.json();
-    return payload?.error?.message ?? payload?.message ?? `HTTP ${response.status}`;
-  }
-
-  const text = await response.text();
-  return normalizeText(text, `HTTP ${response.status}`);
-}
-
 async function geocodeCityBounds({
   destination,
   apiKey,
   fetchImpl,
   timeoutMs,
+  retries = 0,
 }) {
   const query = normalizeText(destination);
   if (!apiKey || !query) {
     return null;
   }
 
-  const response = await fetchImpl(
-    GOOGLE_PLACES_TEXT_SEARCH_URL,
-    buildTimedFetchOptions(
-      {
+  try {
+    const response = await fetchWithExternalRequest({
+      provider: "google-places",
+      operation: "trip-map-city-bounds",
+      url: GOOGLE_PLACES_TEXT_SEARCH_URL,
+      fetchImpl,
+      timeoutMs,
+      retries,
+      fallbackPath: "continue without destination city bounds",
+      request: {
         method: "POST",
         headers: {
           Accept: "application/json",
@@ -386,22 +385,17 @@ async function geocodeCityBounds({
           rankPreference: "RELEVANCE",
         }),
       },
-      timeoutMs
-    )
-  );
-
-  if (!response.ok) {
-    const message = await parseErrorResponse(response);
+    });
+    const payload = await response.json();
+    const place = Array.isArray(payload?.places) ? payload.places[0] : null;
+    return normalizeBounds(place?.viewport);
+  } catch (error) {
     console.warn("[trip-map-enrichment] City bounds lookup failed", {
       destination,
-      message,
+      message: error instanceof Error ? error.message : String(error),
     });
     return null;
   }
-
-  const payload = await response.json();
-  const place = Array.isArray(payload?.places) ? payload.places[0] : null;
-  return normalizeBounds(place?.viewport);
 }
 
 async function geocodePlaceWithPlaces({
@@ -413,6 +407,7 @@ async function geocodePlaceWithPlaces({
   geocodeCache,
   cityBounds = null,
   telemetry = null,
+  retries = 0,
 }) {
   const queries = buildGeocodeQueriesForPlace(place, destination);
   if (queries.length === 0) {
@@ -424,6 +419,7 @@ async function geocodePlaceWithPlaces({
     return geocodeCache.get(cacheKey);
   }
 
+  let shouldRetainCacheEntry = false;
   const geocodePromise = (async () => {
     for (const query of queries) {
       const worldPoiMatch = await resolveWorldPoiPlace({
@@ -469,37 +465,30 @@ async function geocodePlaceWithPlaces({
         });
         telemetry && (telemetry.liveLookupCount += 1);
 
-        const response = await fetchImpl(
-          GOOGLE_PLACES_TEXT_SEARCH_URL,
-          buildTimedFetchOptions(
-            {
-              method: "POST",
-              headers: {
-                Accept: "application/json",
-                "Content-Type": "application/json",
-                "X-Goog-Api-Key": apiKey,
-                "X-Goog-FieldMask": GOOGLE_PLACES_ROUTE_FIELD_MASK,
-              },
-              body: JSON.stringify({
-                textQuery: query,
-                languageCode: "en",
-                maxResultCount: 5,
-                rankPreference: "RELEVANCE",
-              }),
+        const response = await fetchWithExternalRequest({
+          provider: "google-places",
+          operation: "trip-map-place-geocode",
+          url: GOOGLE_PLACES_TEXT_SEARCH_URL,
+          fetchImpl,
+          timeoutMs,
+          retries,
+          fallbackPath: "leave stop unresolved and continue trip map enrichment",
+          request: {
+            method: "POST",
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+              "X-Goog-Api-Key": apiKey,
+              "X-Goog-FieldMask": GOOGLE_PLACES_ROUTE_FIELD_MASK,
             },
-            timeoutMs
-          )
-        );
-
-        if (!response.ok) {
-          const message = await parseErrorResponse(response);
-          console.warn("[trip-map-enrichment] Place geocode query failed", {
-            query,
-            message,
-            status: response.status,
-          });
-          continue;
-        }
+            body: JSON.stringify({
+              textQuery: query,
+              languageCode: "en",
+              maxResultCount: 5,
+              rankPreference: "RELEVANCE",
+            }),
+          },
+        });
 
         const payload = await response.json();
         const places = Array.isArray(payload?.places) ? payload.places : [];
@@ -512,6 +501,7 @@ async function geocodePlaceWithPlaces({
           continue;
         }
 
+        shouldRetainCacheEntry = true;
         return {
           provider: "google_places",
           resolvedName: normalizeText(
@@ -545,6 +535,10 @@ async function geocodePlaceWithPlaces({
       message: error instanceof Error ? error.message : String(error),
     });
     return null;
+  }).finally(() => {
+    if (!shouldRetainCacheEntry) {
+      geocodeCache.delete(cacheKey);
+    }
   });
 
   geocodeCache.set(cacheKey, geocodePromise);
@@ -729,8 +723,9 @@ export async function enrichTripWithPersistedGeocodes({
   trip,
   fetchImpl = fetch,
   apiKey = resolvePlacesApiKey(),
-  timeoutMs = DEFAULT_TRIP_GEOCODE_TIMEOUT_MS,
+  timeoutMs = resolveTripGeocodeTimeoutMs(),
   concurrency = DEFAULT_GEOCODE_CONCURRENCY,
+  readRetries = resolveExternalReadRetries(),
 } = {}) {
   if (!trip || typeof trip !== "object") {
     return {
@@ -761,6 +756,9 @@ export async function enrichTripWithPersistedGeocodes({
     destination,
     hasPlacesKey: Boolean(apiKey),
     hasExistingCityBounds: Boolean(cityBounds),
+    timeoutMs,
+    concurrency,
+    readRetries,
   });
 
   if (!cityBounds && apiKey && destination) {
@@ -769,6 +767,7 @@ export async function enrichTripWithPersistedGeocodes({
       apiKey,
       fetchImpl,
       timeoutMs,
+      retries: readRetries,
     });
   }
 
@@ -815,6 +814,7 @@ export async function enrichTripWithPersistedGeocodes({
             geocodeCache,
             cityBounds,
             telemetry,
+            retries: readRetries,
           });
           const resolvedCoordinates = normalizeGeoCoordinates(
             geocodedPlace?.geoCoordinates

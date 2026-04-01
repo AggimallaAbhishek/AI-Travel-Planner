@@ -4,7 +4,6 @@ import { enrichDestinationRecommendationImages } from "./recommendationImages.js
 import { createMemoryCacheStore } from "./cacheStore.js";
 import {
   fetchWithExternalRequest,
-  parseExternalErrorResponse as parseErrorResponse,
   resolveExternalReadRetries,
   resolveExternalTimeoutMs,
 } from "./externalRequest.js";
@@ -987,6 +986,7 @@ async function fetchOpenStreetMapRecommendations({
   fetchImpl,
   limit,
   timeoutMs,
+  retries = 0,
   userAgent,
   nominatimSearchUrl,
   overpassApiUrl,
@@ -998,6 +998,7 @@ async function fetchOpenStreetMapRecommendations({
     destination,
     fetchImpl,
     timeoutMs,
+    retries,
     userAgent,
     searchUrl: nominatimSearchUrl,
     minIntervalMs,
@@ -1011,6 +1012,7 @@ async function fetchOpenStreetMapRecommendations({
       fetchImpl,
       limit,
       timeoutMs,
+      retries,
       userAgent,
       overpassApiUrl,
       radiusMeters,
@@ -1022,6 +1024,7 @@ async function fetchOpenStreetMapRecommendations({
       fetchImpl,
       limit,
       timeoutMs,
+      retries,
       userAgent,
       overpassApiUrl,
       radiusMeters,

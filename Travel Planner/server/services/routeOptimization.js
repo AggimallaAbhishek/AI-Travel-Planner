@@ -10,6 +10,11 @@ import {
 } from "../../shared/trips.js";
 import { createMemoryCacheStore } from "./cacheStore.js";
 import {
+  fetchWithExternalRequest,
+  resolveExternalReadRetries,
+  resolveExternalTimeoutMs,
+} from "./externalRequest.js";
+import {
   resolvePlace as resolveWorldPoiPlace,
   resolvePlacesForDay,
 } from "./worldPoiIndex.js";
@@ -504,16 +509,6 @@ function resolveDominantLocalityLabel(stops = [], destination = "") {
   );
 }
 
-function buildTimedFetchOptions(options = {}, timeoutMs) {
-  return {
-    ...options,
-    ...(typeof AbortSignal !== "undefined" &&
-    typeof AbortSignal.timeout === "function"
-      ? { signal: AbortSignal.timeout(timeoutMs) }
-      : {}),
-  };
-}
-
 function resolvePlacesApiKey() {
   return normalizeText(
     process.env.GOOGLE_PLACES_API_KEY ?? process.env.GOOGLE_MAPS_API_KEY
@@ -524,6 +519,15 @@ function resolveRoutesApiKey() {
   return normalizeText(
     process.env.GOOGLE_MAPS_API_KEY ?? process.env.GOOGLE_PLACES_API_KEY
   );
+}
+
+function resolveRouteRequestTimeoutMs() {
+  return resolveExternalTimeoutMs({
+    envVar: "ROUTE_REQUEST_TIMEOUT_MS",
+    fallbackMs: DEFAULT_ROUTE_REQUEST_TIMEOUT_MS,
+    minMs: 2_000,
+    maxMs: 30_000,
+  });
 }
 
 function resolveMaxStopsPerDay() {
@@ -822,6 +826,7 @@ async function fetchFallbackStopsForDay({
   apiKey,
   fetchImpl,
   timeoutMs,
+  retries = 0,
   maxStops,
   telemetry = null,
 }) {
@@ -888,11 +893,17 @@ async function fetchFallbackStopsForDay({
   const minimumUsefulStopCount = Math.min(maxStops, 4);
 
   for (const query of queries) {
-    telemetry && (telemetry.liveLookupCount += 1);
-    const response = await fetchImpl(
-      GOOGLE_PLACES_TEXT_SEARCH_URL,
-      buildTimedFetchOptions(
-        {
+    try {
+      telemetry && (telemetry.liveLookupCount += 1);
+      const response = await fetchWithExternalRequest({
+        provider: "google-places",
+        operation: "route-fallback-stops",
+        url: GOOGLE_PLACES_TEXT_SEARCH_URL,
+        fetchImpl,
+        timeoutMs,
+        retries,
+        fallbackPath: "continue with the current resolved stops for this route day",
+        request: {
           method: "POST",
           headers: {
             Accept: "application/json",
@@ -907,60 +918,55 @@ async function fetchFallbackStopsForDay({
             rankPreference: "RELEVANCE",
           }),
         },
-        timeoutMs
-      )
-    );
+      });
 
-    if (!response.ok) {
-      const message = await parseErrorResponse(response);
+      const payload = await response.json();
+      const places = Array.isArray(payload?.places) ? payload.places : [];
+
+      for (const place of places) {
+        const name = normalizeText(place?.displayName?.text);
+        const key = name.toLowerCase();
+
+        if (!name || seen.has(key)) {
+          continue;
+        }
+
+        seen.add(key);
+        const geoCoordinates = normalizeGeoCoordinates(place?.location);
+        fallbackStops.push({
+          id: `${day?.dayNumber ?? 0}-fallback-${fallbackStops.length}`,
+          dayNumber: day?.dayNumber,
+          stopIndex: fallbackStops.length,
+          name,
+          source: "inferred",
+          geocodeSource: "google_places",
+          location: normalizeText(place?.formattedAddress, destination),
+          description: "",
+          category: "point_of_interest",
+          geoCoordinates,
+          mapsUrl: normalizeText(
+            place?.googleMapsUri,
+            buildGoogleMapsSearchUrl({
+              name,
+              destination,
+              coordinates: geoCoordinates,
+            })
+          ),
+        });
+
+        if (fallbackStops.length >= maxStops) {
+          return fallbackStops;
+        }
+      }
+
+      if (fallbackStops.length >= minimumUsefulStopCount) {
+        break;
+      }
+    } catch (error) {
       console.warn("[routes] Fallback Places lookup failed", {
         query,
-        message,
+        message: error instanceof Error ? error.message : String(error),
       });
-      continue;
-    }
-
-    const payload = await response.json();
-    const places = Array.isArray(payload?.places) ? payload.places : [];
-
-    for (const place of places) {
-      const name = normalizeText(place?.displayName?.text);
-      const key = name.toLowerCase();
-
-      if (!name || seen.has(key)) {
-        continue;
-      }
-
-      seen.add(key);
-      const geoCoordinates = normalizeGeoCoordinates(place?.location);
-      fallbackStops.push({
-        id: `${day?.dayNumber ?? 0}-fallback-${fallbackStops.length}`,
-        dayNumber: day?.dayNumber,
-        stopIndex: fallbackStops.length,
-        name,
-        source: "inferred",
-        geocodeSource: "google_places",
-        location: normalizeText(place?.formattedAddress, destination),
-        description: "",
-        category: "point_of_interest",
-        geoCoordinates,
-        mapsUrl: normalizeText(
-          place?.googleMapsUri,
-          buildGoogleMapsSearchUrl({
-            name,
-            destination,
-            coordinates: geoCoordinates,
-          })
-        ),
-      });
-
-      if (fallbackStops.length >= maxStops) {
-        return fallbackStops;
-      }
-    }
-
-    if (fallbackStops.length >= minimumUsefulStopCount) {
-      break;
     }
   }
 
@@ -1666,22 +1672,6 @@ function runLocalRouteOptimizerOnWeightMatrix({
   };
 }
 
-async function parseErrorResponse(response) {
-  const contentType = response.headers.get("content-type") ?? "";
-
-  if (contentType.includes("application/json")) {
-    const payload = await response.json();
-    return (
-      payload?.error?.message ??
-      payload?.message ??
-      `HTTP ${response.status}`
-    );
-  }
-
-  const text = await response.text();
-  return normalizeText(text, `HTTP ${response.status}`);
-}
-
 function createFallbackRouteMatrix(stops = []) {
   const fallbackSpeedMetersPerSecond = normalizePositiveNumber(
     process.env.ROUTE_OPTIMIZER_FALLBACK_SPEED_MPS,
@@ -1718,6 +1708,7 @@ async function geocodeStopWithPlaces({
   apiKey,
   fetchImpl,
   timeoutMs,
+  retries = 0,
   geocodeCache,
   cityBounds = null,
   telemetry = null,
@@ -1732,6 +1723,7 @@ async function geocodeStopWithPlaces({
     return geocodeCache.get(cacheKey);
   }
 
+  let shouldRetainCacheEntry = false;
   const geocodePromise = (async () => {
     for (const query of queries) {
       const worldPoiMatch = await resolveWorldPoiPlace({
@@ -1778,40 +1770,30 @@ async function geocodeStopWithPlaces({
           query,
         });
         telemetry && (telemetry.liveLookupCount += 1);
-
-        const response = await fetchImpl(
-          GOOGLE_PLACES_TEXT_SEARCH_URL,
-          buildTimedFetchOptions(
-            {
-              method: "POST",
-              headers: {
-                Accept: "application/json",
-                "Content-Type": "application/json",
-                "X-Goog-Api-Key": apiKey,
-                "X-Goog-FieldMask": GOOGLE_PLACES_ROUTE_FIELD_MASK,
-              },
-              body: JSON.stringify({
-                textQuery: query,
-                languageCode: "en",
-                maxResultCount: 5,
-                rankPreference: "RELEVANCE",
-              }),
+        const response = await fetchWithExternalRequest({
+          provider: "google-places",
+          operation: "route-stop-geocode",
+          url: GOOGLE_PLACES_TEXT_SEARCH_URL,
+          fetchImpl,
+          timeoutMs,
+          retries,
+          fallbackPath: "leave stop unresolved and continue route planning",
+          request: {
+            method: "POST",
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+              "X-Goog-Api-Key": apiKey,
+              "X-Goog-FieldMask": GOOGLE_PLACES_ROUTE_FIELD_MASK,
             },
-            timeoutMs
-          )
-        );
-
-        if (!response.ok) {
-          const message = await parseErrorResponse(response);
-          console.warn("[routes] Place lookup query failed", {
-            stopName: stop.name,
-            query,
-            message,
-            status: response.status,
-          });
-          continue;
-        }
-
+            body: JSON.stringify({
+              textQuery: query,
+              languageCode: "en",
+              maxResultCount: 5,
+              rankPreference: "RELEVANCE",
+            }),
+          },
+        });
         const payload = await response.json();
         const places = Array.isArray(payload?.places) ? payload.places : [];
         const place =
@@ -1823,6 +1805,7 @@ async function geocodeStopWithPlaces({
           continue;
         }
 
+        shouldRetainCacheEntry = true;
         return {
           provider: "google_places",
           resolvedName: normalizeText(
@@ -1858,6 +1841,10 @@ async function geocodeStopWithPlaces({
       message: error instanceof Error ? error.message : String(error),
     });
     return null;
+  }).finally(() => {
+    if (!shouldRetainCacheEntry) {
+      geocodeCache.delete(cacheKey);
+    }
   });
 
   geocodeCache.set(cacheKey, geocodePromise);
@@ -1869,16 +1856,23 @@ async function geocodeCityBounds({
   apiKey,
   fetchImpl,
   timeoutMs,
+  retries = 0,
 }) {
   const query = normalizeText(destination);
   if (!apiKey || !query) {
     return null;
   }
 
-  const response = await fetchImpl(
-    GOOGLE_PLACES_TEXT_SEARCH_URL,
-    buildTimedFetchOptions(
-      {
+  try {
+    const response = await fetchWithExternalRequest({
+      provider: "google-places",
+      operation: "route-city-bounds",
+      url: GOOGLE_PLACES_TEXT_SEARCH_URL,
+      fetchImpl,
+      timeoutMs,
+      retries,
+      fallbackPath: "continue without destination city bounds",
+      request: {
         method: "POST",
         headers: {
           Accept: "application/json",
@@ -1893,24 +1887,23 @@ async function geocodeCityBounds({
           rankPreference: "RELEVANCE",
         }),
       },
-      timeoutMs
-    )
-  );
+    });
 
-  if (!response.ok) {
-    const message = await parseErrorResponse(response);
-    console.warn("[routes] City bounds lookup failed", { destination, message });
+    const payload = await response.json();
+    const place = Array.isArray(payload?.places) ? payload.places[0] : null;
+    const bounds = normalizeBounds(place?.viewport);
+    if (!bounds) {
+      return null;
+    }
+
+    return bounds;
+  } catch (error) {
+    console.warn("[routes] City bounds lookup failed", {
+      destination,
+      message: error instanceof Error ? error.message : String(error),
+    });
     return null;
   }
-
-  const payload = await response.json();
-  const place = Array.isArray(payload?.places) ? payload.places[0] : null;
-  const bounds = normalizeBounds(place?.viewport);
-  if (!bounds) {
-    return null;
-  }
-
-  return bounds;
 }
 
 async function fetchGoogleRouteMatrix({
@@ -1918,6 +1911,7 @@ async function fetchGoogleRouteMatrix({
   apiKey,
   fetchImpl,
   timeoutMs,
+  retries = 0,
 }) {
   const routeMatrix = createFallbackRouteMatrix(stops);
 
@@ -1929,10 +1923,17 @@ async function fetchGoogleRouteMatrix({
     };
   }
 
-  const response = await fetchImpl(
-    GOOGLE_ROUTES_MATRIX_URL,
-    buildTimedFetchOptions(
-      {
+  let response;
+  try {
+    response = await fetchWithExternalRequest({
+      provider: "google-routes",
+      operation: "route-matrix",
+      url: GOOGLE_ROUTES_MATRIX_URL,
+      fetchImpl,
+      timeoutMs,
+      retries,
+      fallbackPath: "use estimated haversine route matrix",
+      request: {
         method: "POST",
         headers: {
           Accept: "application/json",
@@ -1949,14 +1950,10 @@ async function fetchGoogleRouteMatrix({
           units: "METRIC",
         }),
       },
-      timeoutMs
-    )
-  );
-
-  if (!response.ok) {
-    const message = await parseErrorResponse(response);
+    });
+  } catch (error) {
     console.warn("[routes] Route matrix request failed, using estimated fallback", {
-      message,
+      message: error instanceof Error ? error.message : String(error),
     });
     return {
       routeMatrix,
@@ -2029,15 +2026,23 @@ async function fetchGoogleRoutePreview({
   apiKey,
   fetchImpl,
   timeoutMs,
+  retries = 0,
 }) {
   if (!apiKey || orderedStops.length < 2) {
     return null;
   }
 
-  const response = await fetchImpl(
-    GOOGLE_ROUTES_COMPUTE_URL,
-    buildTimedFetchOptions(
-      {
+  let response;
+  try {
+    response = await fetchWithExternalRequest({
+      provider: "google-routes",
+      operation: "route-preview",
+      url: GOOGLE_ROUTES_COMPUTE_URL,
+      fetchImpl,
+      timeoutMs,
+      retries,
+      fallbackPath: "skip encoded route preview and continue with stop markers only",
+      request: {
         method: "POST",
         headers: {
           Accept: "application/json",
@@ -2061,14 +2066,10 @@ async function fetchGoogleRoutePreview({
           units: "METRIC",
         }),
       },
-      timeoutMs
-    )
-  );
-
-  if (!response.ok) {
-    const message = await parseErrorResponse(response);
+    });
+  } catch (error) {
     console.warn("[routes] Route preview request failed", {
-      message,
+      message: error instanceof Error ? error.message : String(error),
     });
     return null;
   }
@@ -2445,10 +2446,11 @@ export function createTripRouteService({
   cache = new Map(),
   cacheStore = null,
   cacheTtlMs = DEFAULT_ROUTE_CACHE_TTL_MS,
-  timeoutMs = DEFAULT_ROUTE_REQUEST_TIMEOUT_MS,
+  timeoutMs = resolveRouteRequestTimeoutMs(),
   fetchImpl = fetch,
   resolvePlacesKey = resolvePlacesApiKey,
   resolveRoutesKey = resolveRoutesApiKey,
+  readRetries = resolveExternalReadRetries(),
   maxStopsPerDay = resolveMaxStopsPerDay(),
 } = {}) {
   const localCacheStore =
@@ -2549,6 +2551,7 @@ export function createTripRouteService({
         apiKey: placesApiKey || routesApiKey,
         fetchImpl,
         timeoutMs,
+        retries: readRetries,
       }));
 
     console.info("[routes] Runtime diagnostics", {
@@ -2557,6 +2560,8 @@ export function createTripRouteService({
       hasRoutesKey: Boolean(routesApiKey),
       routingMode: routesApiKey ? "google-routes-primary" : "fallback-only",
       hasCityBounds: Boolean(cityBounds),
+      timeoutMs,
+      readRetries,
     });
 
     for (const day of scopedDays) {
@@ -2587,6 +2592,7 @@ export function createTripRouteService({
             apiKey: placesApiKey,
             fetchImpl,
             timeoutMs,
+            retries: readRetries,
             maxStops: maxStopsPerDay,
             telemetry: dayGeocodeStats,
           }),
@@ -2716,6 +2722,7 @@ export function createTripRouteService({
             apiKey: placesApiKey,
             fetchImpl,
             timeoutMs,
+            retries: readRetries,
             geocodeCache,
             cityBounds,
             telemetry: dayGeocodeStats,
@@ -2761,6 +2768,7 @@ export function createTripRouteService({
             apiKey: placesApiKey,
             fetchImpl,
             timeoutMs,
+            retries: readRetries,
             maxStops: maxStopsPerDay,
             telemetry: dayGeocodeStats,
           }),
@@ -2869,6 +2877,7 @@ export function createTripRouteService({
         apiKey: routesApiKey,
         fetchImpl,
         timeoutMs,
+        retries: readRetries,
       });
       const profileAlternatives = [];
 
@@ -3014,6 +3023,7 @@ export function createTripRouteService({
         apiKey: routesApiKey,
         fetchImpl,
         timeoutMs,
+        retries: readRetries,
       });
       const selectedTotalDistanceMeters =
         routePreview?.distanceMeters ?? selectedAlternative.totalDistanceMeters;
