@@ -4,6 +4,7 @@ import {
   buildGoogleMapsDirectionsUrl,
   buildGoogleMapsSearchUrl,
   decodeGooglePolyline,
+  escapeHtmlText,
   normalizeGeoCoordinates,
   resolveGoogleMapsUrl,
 } from "../../shared/maps.js";
@@ -106,4 +107,11 @@ test("decodeGooglePolyline decodes an encoded polyline into coordinates", () => 
     { latitude: 40.7, longitude: -120.95 },
     { latitude: 43.252, longitude: -126.453 },
   ]);
+});
+
+test("escapeHtmlText neutralizes HTML-significant characters", () => {
+  assert.equal(
+    escapeHtmlText(`<Shibuya & "Harajuku"> 'Tokyo'`),
+    "&lt;Shibuya &amp; &quot;Harajuku&quot;&gt; &#39;Tokyo&#39;"
+  );
 });
