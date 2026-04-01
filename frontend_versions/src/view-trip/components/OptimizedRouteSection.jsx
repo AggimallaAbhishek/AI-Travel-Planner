@@ -6,7 +6,6 @@ import {
   FaCompass,
   FaMapMarkedAlt,
   FaMapPin,
-  FaRoute,
   FaRoad,
   FaStar,
 } from "react-icons/fa";
@@ -80,14 +79,14 @@ function formatEstimatedCost(cost) {
 
 function formatStatusLabel(dayRoute = {}) {
   if (dayRoute.status === "ready") {
-    return "Ready";
+    return "Route ready";
   }
 
-  if (dayRoute.status === "insufficient-geocoded-stops") {
-    return "More geocodes needed";
+  if (dayRoute.status === "map_only") {
+    return dayRoute.geocodedStopCount > 0 ? "Map ready" : "Locating stops";
   }
 
-  return "Needs more places";
+  return "Need places";
 }
 
 function formatRouteProvider(provider = "") {
@@ -238,86 +237,6 @@ function LoadingLayout() {
   );
 }
 
-function ObjectiveToolbar({
-  objective,
-  onObjectiveChange,
-  alternativesCount,
-  onAlternativesCountChange,
-  defaultObjective,
-}) {
-  const activeMeta = resolveObjectiveMeta(objective);
-
-  return (
-    <div className="voy-route-toolbar">
-      <div className="voy-route-toolbar-main">
-        <p className="voy-route-toolbar-label">Route Profiles</p>
-        <div className="voy-route-tabs" role="tablist" aria-label="Route objective profiles">
-          {OBJECTIVE_OPTIONS.map((option) => {
-            const isActive = option.value === objective;
-
-            return (
-              <button
-                key={option.value}
-                type="button"
-                role="tab"
-                aria-selected={isActive}
-                className={`voy-route-tab ${isActive ? "is-active" : ""}`}
-                onClick={() => {
-                  if (option.value === objective) {
-                    return;
-                  }
-
-                  console.info("[optimized-routes] Objective selected", {
-                    objective: option.value,
-                  });
-                  onObjectiveChange?.(option.value);
-                }}
-              >
-                <span className="voy-route-tab-title">{option.shortLabel}</span>
-                <span className="voy-route-tab-hint">{option.hint}</span>
-              </button>
-            );
-          })}
-        </div>
-        <p className="voy-route-toolbar-note">
-          Default visible profile:{" "}
-          <strong>{resolveObjectiveMeta(defaultObjective).shortLabel}</strong>. Current map
-          view: <strong>{activeMeta.shortLabel}</strong>.
-        </p>
-      </div>
-
-      <div className="voy-route-toolbar-side">
-        <label className="voy-route-select-label" htmlFor="route-alt-count">
-          Alternatives to compare
-        </label>
-        <select
-          id="route-alt-count"
-          className="voy-route-select"
-          value={alternativesCount}
-          onChange={(event) => {
-            const nextValue = Number.parseInt(event.target.value, 10);
-
-            if (!Number.isInteger(nextValue) || nextValue === alternativesCount) {
-              return;
-            }
-
-            console.info("[optimized-routes] Alternatives count changed", {
-              alternativesCount: nextValue,
-            });
-            onAlternativesCountChange?.(nextValue);
-          }}
-        >
-          {[1, 2, 3, 4, 5].map((value) => (
-            <option key={value} value={value}>
-              Top {value}
-            </option>
-          ))}
-        </select>
-      </div>
-    </div>
-  );
-}
-
 function DaySelector({ dayRoutes, activeDayNumber, onSelectDay }) {
   return (
     <div className="voy-route-card voy-route-rail-card">
@@ -332,7 +251,12 @@ function DaySelector({ dayRoutes, activeDayNumber, onSelectDay }) {
       <div className="voy-route-day-list">
         {dayRoutes.map((dayRoute) => {
           const isActive = dayRoute.dayNumber === activeDayNumber;
-          const hasMap = Array.isArray(dayRoute.markers) && dayRoute.markers.length > 0;
+          const hasMap = Boolean(dayRoute.mapReady);
+          const mappedStopCount = Number.isFinite(dayRoute.geocodedStopCount)
+            ? dayRoute.geocodedStopCount
+            : Array.isArray(dayRoute.markers)
+              ? dayRoute.markers.length
+              : 0;
 
           return (
             <button
@@ -359,7 +283,11 @@ function DaySelector({ dayRoutes, activeDayNumber, onSelectDay }) {
 
               <div className="voy-route-day-meta">
                 <span>{dayRoute.localityLabel || "Destination focus"}</span>
-                <span>{hasMap ? `${dayRoute.markers.length} mapped stops` : "No map yet"}</span>
+                <span>
+                  {hasMap
+                    ? `${mappedStopCount} mapped stop${mappedStopCount === 1 ? "" : "s"}`
+                    : "We’re still locating some stops"}
+                </span>
               </div>
             </button>
           );
@@ -410,7 +338,7 @@ function SummaryCards({ dayRoute }) {
   );
 }
 
-function AlternativeCards({ alternatives = [], objective, onObjectiveChange }) {
+function AlternativeCards({ alternatives = [], objective }) {
   if (!Array.isArray(alternatives) || alternatives.length === 0) {
     return null;
   }
@@ -429,11 +357,9 @@ function AlternativeCards({ alternatives = [], objective, onObjectiveChange }) {
           const isActive = alternative.objective === objective;
 
           return (
-            <button
+            <div
               key={alternative.objective}
-              type="button"
               className={`voy-route-alternative-card ${isActive ? "is-active" : ""}`}
-              onClick={() => onObjectiveChange?.(alternative.objective)}
             >
               <div className="voy-route-alternative-top">
                 <div>
@@ -459,7 +385,7 @@ function AlternativeCards({ alternatives = [], objective, onObjectiveChange }) {
               <p className="voy-route-alternative-delta">
                 {formatTradeoffDelta(alternative.tradeoffDelta)}
               </p>
-            </button>
+            </div>
           );
         })}
       </div>
@@ -586,7 +512,6 @@ function ActiveDayDetails({
   dayRoute,
   destination,
   objective,
-  onObjectiveChange,
   highlightedStopId,
   onHighlightStop,
 }) {
@@ -594,10 +519,7 @@ function ActiveDayDetails({
     return (
       <div className="voy-route-card voy-route-empty-state">
         <h3 className="voy-route-empty-title">Route optimization is not available yet</h3>
-        <p className="voy-route-empty-copy">
-          Add at least two recognizable places to a day itinerary to compute an optimized
-          route.
-        </p>
+        <p className="voy-route-empty-copy">Add at least two locations to generate a route.</p>
       </div>
     );
   }
@@ -605,6 +527,7 @@ function ActiveDayDetails({
   const activeObjective = resolveObjectiveMeta(objective);
   const localityLabel = dayRoute.localityLabel || destination || "the selected destination";
   const mapStopCount = Array.isArray(dayRoute.markers) ? dayRoute.markers.length : 0;
+  const hasRoute = dayRoute.routeReady !== false;
 
   return (
     <div className="voy-route-main-stack">
@@ -614,9 +537,19 @@ function ActiveDayDetails({
             <p className="voy-route-eyebrow">Day {dayRoute.dayNumber}</p>
             <h3 className="voy-route-day-heading">{dayRoute.title}</h3>
             <p className="voy-route-card-copy">
-              This day is centered on <strong>{localityLabel}</strong>. The active map stays
-              confined to that local cluster and plots {mapStopCount} pinned stops with the{" "}
-              <strong>{activeObjective.shortLabel}</strong> route.
+              {hasRoute ? (
+                <>
+                  This day is centered on <strong>{localityLabel}</strong>. The active map stays
+                  confined to that local cluster and plots {mapStopCount} pinned stops with the{" "}
+                  <strong>{activeObjective.shortLabel}</strong> route.
+                </>
+              ) : (
+                <>
+                  This day is centered on <strong>{localityLabel}</strong>. The city map stays
+                  focused on that local area and will show route metrics as soon as at least two
+                  locations are mapped.
+                </>
+              )}
             </p>
           </div>
 
@@ -642,6 +575,16 @@ function ActiveDayDetails({
         </div>
 
         <SummaryCards dayRoute={dayRoute} />
+
+        {!hasRoute && dayRoute.statusMessage ? (
+          <div className="voy-route-note-block">
+            <div className="voy-route-note-head">
+              <FaMapPin className="text-[var(--voy-gold)]" />
+              <span>Map status</span>
+            </div>
+            <p>{dayRoute.statusMessage}</p>
+          </div>
+        ) : null}
 
         {dayRoute?.explanation?.whySelected ? (
           <div className="voy-route-note-block">
@@ -672,7 +615,6 @@ function ActiveDayDetails({
       <AlternativeCards
         alternatives={dayRoute.alternatives}
         objective={objective}
-        onObjectiveChange={onObjectiveChange}
       />
 
       <div className="voy-route-detail-grid">
@@ -689,10 +631,6 @@ function ActiveDayDetails({
 
 function OptimizedRouteSection({
   routes,
-  objective = "fastest",
-  onObjectiveChange,
-  alternativesCount = 3,
-  onAlternativesCountChange,
   isLoading = false,
   errorMessage = "",
   onRetry,
@@ -721,15 +659,15 @@ function OptimizedRouteSection({
 
   useEffect(() => {
     setHighlightedStopId(null);
-  }, [activeDayNumber, objective]);
+  }, [activeDayNumber, routes?.objective, routes?.defaultObjective]);
 
   const activeDayRoute =
     dayRoutes.find((dayRoute) => dayRoute.dayNumber === activeDayNumber) ??
     dayRoutes[0] ??
     null;
-  const skippedRoutes = dayRoutes.filter((dayRoute) => dayRoute.status !== "ready");
+  const pendingRouteDays = dayRoutes.filter((dayRoute) => dayRoute.routeReady === false);
   const resolvedObjective =
-    objective || routes?.objective || routes?.defaultObjective || "fastest";
+    routes?.objective || routes?.defaultObjective || "fastest";
   const activeObjectiveMeta = resolveObjectiveMeta(resolvedObjective);
 
   const handleSelectDay = (dayNumber) => {
@@ -750,15 +688,10 @@ function OptimizedRouteSection({
             destination region. Switch days to see localized pins, route tradeoffs, and the{" "}
             <strong>{activeObjectiveMeta.shortLabel}</strong> path in sync.
           </p>
+          <p className="voy-route-subtitle">
+            Route preferences shown here come from the options selected during trip generation.
+          </p>
         </div>
-
-        <ObjectiveToolbar
-          objective={resolvedObjective}
-          onObjectiveChange={onObjectiveChange}
-          alternativesCount={alternativesCount}
-          onAlternativesCountChange={onAlternativesCountChange}
-          defaultObjective={routes?.defaultObjective ?? "fastest"}
-        />
 
         {isLoading ? <LoadingLayout /> : null}
 
@@ -785,17 +718,18 @@ function OptimizedRouteSection({
                 onSelectDay={handleSelectDay}
               />
 
-              {skippedRoutes.length > 0 ? (
+              {pendingRouteDays.length > 0 ? (
                 <div className="voy-route-card voy-route-compact-note">
                   <div className="voy-route-note-head">
                     <FaBolt className="text-[var(--voy-gold)]" />
-                    <span>Days still needing stronger map data</span>
+                    <span>Days still locating stops</span>
                   </div>
                   <p>
-                    {skippedRoutes
+                    {pendingRouteDays
                       .map((dayRoute) => `Day ${dayRoute.dayNumber}`)
                       .join(", ")}{" "}
-                    do not have enough mapped places yet for a full route preview.
+                    already show the city map, but they still need at least two mapped
+                    locations before route metrics and segment details can appear.
                   </p>
                 </div>
               ) : null}
@@ -806,7 +740,6 @@ function OptimizedRouteSection({
                 dayRoute={activeDayRoute}
                 destination={routes?.destination ?? ""}
                 objective={resolvedObjective}
-                onObjectiveChange={onObjectiveChange}
                 highlightedStopId={highlightedStopId}
                 onHighlightStop={setHighlightedStopId}
               />
@@ -852,10 +785,7 @@ function OptimizedRouteSection({
         {!isLoading && !errorMessage && dayRoutes.length === 0 ? (
           <div className="voy-route-card voy-route-empty-state">
             <h3 className="voy-route-empty-title">Route optimization is not available yet</h3>
-            <p className="voy-route-empty-copy">
-              Add at least two recognizable places to a day itinerary to compute an optimized
-              route.
-            </p>
+            <p className="voy-route-empty-copy">Add at least two locations to generate a route.</p>
           </div>
         ) : null}
       </div>

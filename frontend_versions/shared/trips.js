@@ -648,16 +648,44 @@ export function normalizeHotel(hotel = {}) {
   };
 }
 
+const PLACE_GEOCODE_STATUSES = ["resolved", "unresolved", "inferred"];
+const PLACE_GEOCODE_SOURCES = ["google_places", "stored", "fallback_inferred"];
+
+function normalizeGeocodeStatus(value, fallback = "unresolved") {
+  const normalized = normalizeLowerText(value);
+  return PLACE_GEOCODE_STATUSES.includes(normalized) ? normalized : fallback;
+}
+
+function normalizeGeocodeSource(value, fallback = "") {
+  const normalized = normalizeLowerText(value);
+  return PLACE_GEOCODE_SOURCES.includes(normalized) ? normalized : fallback;
+}
+
 export function normalizePlace(place = {}) {
+  const coordinates = normalizeCoordinates(
+    place.geoCoordinates ?? place.coordinates ?? place.location
+  );
+  const hasCoordinates =
+    coordinates.latitude !== null && coordinates.longitude !== null;
+
   return {
     placeName: normalizeText(place.placeName ?? place.name, "Recommended Stop"),
     placeDetails: normalizeText(
       place.placeDetails ?? place.description ?? place.details
     ),
     placeImageUrl: isRemoteImageUrl(place.placeImageUrl) ? place.placeImageUrl : "",
-    geoCoordinates: normalizeCoordinates(
-      place.geoCoordinates ?? place.coordinates ?? place.location
+    geoCoordinates: coordinates,
+    location: normalizeText(place.location ?? place.address),
+    mapsUrl: normalizeText(place.mapsUrl ?? place.googleMapsUri),
+    geocodeStatus: normalizeGeocodeStatus(
+      place.geocodeStatus,
+      hasCoordinates ? "resolved" : "unresolved"
     ),
+    geocodeSource: normalizeGeocodeSource(
+      place.geocodeSource,
+      hasCoordinates ? "stored" : ""
+    ),
+    geocodedAt: normalizeText(place.geocodedAt),
     ticketPricing: normalizeText(place.ticketPricing ?? place.ticketPrice, "N/A"),
     rating: normalizeRating(place.rating),
     travelTime: normalizeText(place.travelTime, "N/A"),
@@ -831,6 +859,76 @@ function normalizeSerializableObject(value, fallback = {}) {
   }
 }
 
+function normalizeMapBounds(value = {}) {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const north = Number.parseFloat(value.north);
+  const south = Number.parseFloat(value.south);
+  const east = Number.parseFloat(value.east);
+  const west = Number.parseFloat(value.west);
+
+  if (
+    !Number.isFinite(north) ||
+    !Number.isFinite(south) ||
+    !Number.isFinite(east) ||
+    !Number.isFinite(west) ||
+    north < south ||
+    east < west
+  ) {
+    return null;
+  }
+
+  return { north, south, east, west };
+}
+
+function normalizeMapEnrichment(value = {}, fallbackTrip = {}) {
+  const source = value && typeof value === "object" ? value : {};
+  const fallbackPlaces = Array.isArray(fallbackTrip?.itinerary?.days)
+    ? fallbackTrip.itinerary.days.flatMap((day) =>
+        Array.isArray(day?.places) ? day.places : []
+      )
+    : [];
+  const inferredGeocodedStopCount = fallbackPlaces.filter(
+    (place) =>
+      place?.geoCoordinates?.latitude !== null &&
+      place?.geoCoordinates?.longitude !== null
+  ).length;
+  const inferredUnresolvedStopCount = Math.max(
+    0,
+    fallbackPlaces.length - inferredGeocodedStopCount
+  );
+  const geocodedStopCount = clampInteger(
+    source.geocodedStopCount,
+    0,
+    500,
+    inferredGeocodedStopCount
+  );
+  const unresolvedStopCount = clampInteger(
+    source.unresolvedStopCount,
+    0,
+    500,
+    inferredUnresolvedStopCount
+  );
+  const explicitStatus = normalizeLowerText(source.status);
+  const status = ["complete", "partial", "missing"].includes(explicitStatus)
+    ? explicitStatus
+    : geocodedStopCount > 0
+      ? unresolvedStopCount > 0
+        ? "partial"
+        : "complete"
+      : "missing";
+
+  return {
+    status,
+    lastAttemptedAt: normalizeText(source.lastAttemptedAt),
+    geocodedStopCount,
+    unresolvedStopCount,
+    cityBounds: normalizeMapBounds(source.cityBounds),
+  };
+}
+
 function normalizeLatencyBreakdown(value = {}) {
   const source = value && typeof value === "object" ? value : {};
 
@@ -902,6 +1000,7 @@ export function buildStoredTrip({
   sourceProvenance = {},
   latencyBreakdownMs = {},
   routeAlternatives = [],
+  mapEnrichment = {},
 }) {
   const normalizedGeneratedTrip = normalizeGeneratedTrip(generatedTrip, {
     userSelection,
@@ -932,6 +1031,10 @@ export function buildStoredTrip({
     ),
     latencyBreakdownMs: normalizeLatencyBreakdown(
       generatedTrip?.latencyBreakdownMs ?? latencyBreakdownMs
+    ),
+    mapEnrichment: normalizeMapEnrichment(
+      generatedTrip?.mapEnrichment ?? mapEnrichment,
+      normalizedGeneratedTrip
     ),
     routeAlternatives: Array.isArray(generatedTrip?.routeAlternatives)
       ? generatedTrip.routeAlternatives
@@ -970,6 +1073,7 @@ export function normalizeStoredTrip(input = {}) {
       constraintReport: input.constraintReport,
       sourceProvenance: input.sourceProvenance,
       latencyBreakdownMs: input.latencyBreakdownMs,
+      mapEnrichment: input.mapEnrichment,
       routeAlternatives: input.routeAlternatives,
     },
     createdAt: normalizeCreatedAt(input.createdAt) ?? new Date().toISOString(),
@@ -979,6 +1083,7 @@ export function normalizeStoredTrip(input = {}) {
     constraintReport: input.constraintReport,
     sourceProvenance: input.sourceProvenance,
     latencyBreakdownMs: input.latencyBreakdownMs,
+    mapEnrichment: input.mapEnrichment,
     routeAlternatives: input.routeAlternatives,
   });
 
