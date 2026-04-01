@@ -8,9 +8,9 @@ const optimizedRouteSectionPath = path.resolve(
   "src/view-trip/components/OptimizedRouteSection.jsx"
 );
 const tripViewPagePath = path.resolve(process.cwd(), "src/view-trip/index.jsx");
-const unifiedTripMapPath = path.resolve(
+const cityItineraryMapPath = path.resolve(
   process.cwd(),
-  "src/view-trip/components/UnifiedTripRouteMapSection.jsx"
+  "src/view-trip/components/CityItineraryMapSection.jsx"
 );
 const mainRouterPath = path.resolve(process.cwd(), "src/main.jsx");
 const createTripPagePath = path.resolve(
@@ -26,37 +26,31 @@ test("optimized route section no longer renders trip-page route editing controls
   assert.equal(source.includes("function ObjectiveToolbar"), false);
 });
 
-test("trip page renders the unified trip route map instead of the old route section", () => {
+test("trip page renders the city itinerary map instead of the unified trip map", () => {
   const source = fs.readFileSync(tripViewPagePath, "utf8");
 
-  assert.equal(source.includes("UnifiedTripRouteMapSection"), true);
+  assert.equal(source.includes("CityItineraryMapSection"), true);
+  assert.equal(source.includes("UnifiedTripRouteMapSection"), false);
   assert.equal(source.includes("OptimizedRouteSection"), false);
-  assert.equal(source.includes("CityItineraryMapSection"), false);
+  assert.equal(source.includes("clearTripMapCache"), false);
 });
 
-test("unified trip route map uses the Leaflet template structure and unified map endpoint", () => {
-  const source = fs.readFileSync(unifiedTripMapPath, "utf8");
+test("city itinerary map uses the static city-map endpoint and outline-based layout", () => {
+  const source = fs.readFileSync(cityItineraryMapPath, "utf8");
 
-  assert.equal(source.includes("fetchTripMap"), true);
-  assert.equal(source.includes("tripMapOverride"), true);
-  assert.equal(source.includes("leaflet/dist/leaflet.css"), true);
-  assert.equal(source.includes("CITYROUTE"), false);
-  assert.equal(source.includes("Dedicated transport dataset"), true);
-  assert.equal(source.includes("Tourist Spots"), true);
-  assert.equal(source.includes("Rail Stations"), true);
-  assert.equal(source.includes("Metro Stations"), true);
-  assert.equal(source.includes("Air Connections"), true);
-  assert.equal(source.includes("All Days"), true);
-  assert.equal(source.includes("voy-unified-map__map-canvas"), true);
-  assert.equal(source.includes("route label"), false);
+  assert.equal(source.includes("fetchTripCityMap"), true);
+  assert.equal(source.includes("buildCityMapDistanceMatrix"), true);
+  assert.equal(source.includes("buildZoomedCityMapBounds"), true);
+  assert.equal(source.includes("clipPath"), true);
+  assert.equal(source.includes("Zoom in city map"), true);
+  assert.equal(source.includes("Approximate pairwise distances"), true);
 });
 
-test("dev router exposes a unified trip map preview route without touching production trip auth", () => {
+test("main router does not expose the unified trip map preview route", () => {
   const source = fs.readFileSync(mainRouterPath, "utf8");
 
-  assert.equal(source.includes("import.meta.env.DEV"), true);
-  assert.equal(source.includes("dev/unified-trip-map-preview"), true);
-  assert.equal(source.includes("UnifiedTripMapPreview"), true);
+  assert.equal(source.includes("dev/unified-trip-map-preview"), false);
+  assert.equal(source.includes("UnifiedTripMapPreview"), false);
 });
 
 test("create trip page remains the place where route preferences are chosen", () => {
