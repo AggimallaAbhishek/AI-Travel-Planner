@@ -1,4 +1,5 @@
 import { normalizeGeoCoordinates, resolveGoogleMapsUrl } from "../../shared/maps.js";
+import { buildTransportContextForCityMap } from "./transportContext.js";
 
 function normalizeText(value, fallback = "") {
   if (typeof value !== "string") {
@@ -172,6 +173,14 @@ export function buildTripCityMapPayload({
   const places = days.flatMap((day) => day.places);
   const markers = places.filter((place) => place.isPinned);
   const unresolvedPlaces = places.filter((place) => !place.isPinned);
+  const transportContext = buildTransportContextForCityMap({
+    destination,
+    cityBounds,
+    markers: markers.map((place) => ({
+      id: place.id,
+      coordinates: place.geoCoordinates,
+    })),
+  });
 
   return {
     destination,
@@ -186,6 +195,7 @@ export function buildTripCityMapPayload({
     mappedPlaceCount: markers.length,
     unresolvedPlaceCount: unresolvedPlaces.length,
     days,
+    transportContext,
     markers: markers.map((place) => ({
       id: place.id,
       name: place.placeName,

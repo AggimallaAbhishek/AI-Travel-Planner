@@ -520,6 +520,9 @@ router.get("/trips/:tripId/city-map", requireAuth, async (req, res) => {
       mappedPlaceCount: cityMap.mappedPlaceCount,
       unresolvedPlaceCount: cityMap.unresolvedPlaceCount,
       roadFeatures: cityMap.basemap?.roads?.length ?? 0,
+      transportAirports: cityMap.transportContext?.nearestAirports?.length ?? 0,
+      transportStations: cityMap.transportContext?.nearestStations?.length ?? 0,
+      transportSourceVersion: cityMap.transportContext?.sourceVersion ?? null,
     });
 
     res.json({ cityMap });
