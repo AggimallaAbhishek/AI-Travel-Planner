@@ -246,7 +246,7 @@ test("trip route service geocodes stops and uses Google route data when availabl
   const placeRequests = requests.filter((request) =>
     request.url.includes("places.googleapis.com")
   );
-  assert.equal(placeRequests.length, 3);
+  assert.equal(placeRequests.length, 4);
 });
 
 test("trip route service synthesizes fallback stops when a day has none", async () => {
@@ -379,5 +379,5 @@ test("trip route service synthesizes fallback stops when a day has none", async 
   const placeRequests = requests.filter((request) =>
     request.url.includes("places.googleapis.com")
   );
-  assert.equal(placeRequests.length, 1);
+  assert.equal(placeRequests.length, 2);
 });

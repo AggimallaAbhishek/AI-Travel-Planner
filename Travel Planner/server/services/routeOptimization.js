@@ -26,6 +26,7 @@ const GOOGLE_PLACES_ROUTE_FIELD_MASK = [
   "places.formattedAddress",
   "places.location",
   "places.googleMapsUri",
+  "places.viewport",
 ].join(",");
 const GOOGLE_ROUTE_MATRIX_FIELD_MASK = [
   "originIndex",
@@ -63,6 +64,11 @@ function normalizeText(value, fallback = "") {
 function normalizeInteger(value, fallback = null) {
   const parsed = Number.parseInt(value ?? "", 10);
   return Number.isInteger(parsed) ? parsed : fallback;
+}
+
+function parseCoordinate(value) {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function normalizePositiveNumber(value, fallback) {
@@ -168,6 +174,39 @@ function parseDurationSeconds(value) {
 
 function roundFinite(value) {
   return Number.isFinite(value) ? Math.round(value) : null;
+}
+
+function normalizeBounds(viewport = {}) {
+  const north = parseCoordinate(viewport?.northEast?.latitude);
+  const east = parseCoordinate(viewport?.northEast?.longitude);
+  const south = parseCoordinate(viewport?.southWest?.latitude);
+  const west = parseCoordinate(viewport?.southWest?.longitude);
+
+  if (
+    north === null ||
+    east === null ||
+    south === null ||
+    west === null ||
+    north < south
+  ) {
+    return null;
+  }
+
+  return { north, south, east, west };
+}
+
+function isWithinBounds(coordinates = {}, bounds = null) {
+  if (!bounds) return true;
+  const point = normalizeGeoCoordinates(coordinates);
+  if (point.latitude === null || point.longitude === null) {
+    return false;
+  }
+  return (
+    point.latitude <= bounds.north &&
+    point.latitude >= bounds.south &&
+    point.longitude <= bounds.east &&
+    point.longitude >= bounds.west
+  );
 }
 
 async function fetchFallbackStopsForDay({
@@ -916,6 +955,55 @@ async function geocodeStopWithPlaces({
   return geocodePromise;
 }
 
+async function geocodeCityBounds({
+  destination,
+  apiKey,
+  fetchImpl,
+  timeoutMs,
+}) {
+  const query = normalizeText(destination);
+  if (!apiKey || !query) {
+    return null;
+  }
+
+  const response = await fetchImpl(
+    GOOGLE_PLACES_TEXT_SEARCH_URL,
+    buildTimedFetchOptions(
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": apiKey,
+          "X-Goog-FieldMask": GOOGLE_PLACES_ROUTE_FIELD_MASK,
+        },
+        body: JSON.stringify({
+          textQuery: query,
+          languageCode: "en",
+          maxResultCount: 1,
+          rankPreference: "RELEVANCE",
+        }),
+      },
+      timeoutMs
+    )
+  );
+
+  if (!response.ok) {
+    const message = await parseErrorResponse(response);
+    console.warn("[routes] City bounds lookup failed", { destination, message });
+    return null;
+  }
+
+  const payload = await response.json();
+  const place = Array.isArray(payload?.places) ? payload.places[0] : null;
+  const bounds = normalizeBounds(place?.viewport);
+  if (!bounds) {
+    return null;
+  }
+
+  return bounds;
+}
+
 async function fetchGoogleRouteMatrix({
   stops,
   apiKey,
@@ -1357,6 +1445,12 @@ export function createTripRouteService({
     const routesApiKey = resolveRoutesKey();
     const geocodeCache = new Map();
     const routeDays = [];
+    const cityBounds = await geocodeCityBounds({
+      destination,
+      apiKey: placesApiKey || routesApiKey,
+      fetchImpl,
+      timeoutMs,
+    });
 
     for (const day of scopedDays) {
       let dayStops = createRawDayStops(day, destination, maxStopsPerDay);
@@ -1429,6 +1523,7 @@ export function createTripRouteService({
             truncatedStops,
           }),
           unresolvedStops: [],
+          cityBounds,
         });
         continue;
       }
@@ -1438,7 +1533,9 @@ export function createTripRouteService({
 
       for (const stop of dayStops) {
         if (hasCoordinates(stop.geoCoordinates)) {
-          resolvedStops.push(stop);
+          if (isWithinBounds(stop.geoCoordinates, cityBounds)) {
+            resolvedStops.push(stop);
+          }
           continue;
         }
 
@@ -1451,7 +1548,11 @@ export function createTripRouteService({
           geocodeCache,
         });
 
-        if (!geocodedStop?.geoCoordinates || !hasCoordinates(geocodedStop.geoCoordinates)) {
+        if (
+          !geocodedStop?.geoCoordinates ||
+          !hasCoordinates(geocodedStop.geoCoordinates) ||
+          !isWithinBounds(geocodedStop.geoCoordinates, cityBounds)
+        ) {
           unresolvedStops.push(stop);
           continue;
         }
@@ -1503,6 +1604,7 @@ export function createTripRouteService({
             truncatedStops,
           }),
           unresolvedStops,
+          cityBounds,
         });
         continue;
       }
@@ -1752,6 +1854,7 @@ export function createTripRouteService({
           id: stop.id,
           name: stop.name,
         })),
+        cityBounds,
       });
     }
 
@@ -1785,6 +1888,9 @@ export function createTripRouteService({
       dayCount: routeDays.length,
       days: routeDays,
       generatedAt: new Date().toISOString(),
+      cityBounds,
+      mapPolyline:
+        routeDays.find((dayRoute) => dayRoute.polyline)?.polyline ?? "",
     };
 
     cache.set(cacheKey, {
