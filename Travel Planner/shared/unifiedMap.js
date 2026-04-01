@@ -103,8 +103,12 @@ export function normalizeUnifiedMapNodeCategory(value, fallback = "tourist_spot"
 export function resolveUnifiedMapFilterCategory(category = "") {
   const normalized = normalizeUnifiedMapNodeCategory(category);
 
-  if (normalized === "rail_station" || normalized === "metro_station") {
-    return "rail_metro";
+  if (normalized === "rail_station") {
+    return "rail_stations";
+  }
+
+  if (normalized === "metro_station") {
+    return "metro_stations";
   }
 
   if (normalized === "tourist_spot") {

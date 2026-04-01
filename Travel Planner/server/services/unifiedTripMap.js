@@ -11,6 +11,7 @@ import {
   listDestinationPois,
   resolvePlace as resolveWorldPoiPlace,
 } from "./worldPoiIndex.js";
+import { getDestinationTransport } from "./transportDataset.js";
 
 const OVERLAY_RESULT_LIMIT = 6;
 
@@ -410,46 +411,45 @@ async function resolveRecommendationOverlayNodes({
   return dedupeByNameAndCategory(combined).slice(0, OVERLAY_RESULT_LIMIT);
 }
 
-async function buildTransitOverlayNodes({
-  destination,
-  categories = [],
-  listDestinationPoisImpl,
-  sourceCategory,
-}) {
-  const pois = await listDestinationPoisImpl({
-    destination,
-    limit: OVERLAY_RESULT_LIMIT,
-    categories,
-  }).catch((error) => {
-    console.warn("[unified-map] Transit overlay listing failed", {
-      destination,
-      categories: categories.join(","),
-      message: error instanceof Error ? error.message : String(error),
-    });
-    return [];
-  });
-
-  return pois.map((poi) =>
+function buildTransportOverlayNodes(records = [], sourceCategory = "") {
+  return (Array.isArray(records) ? records : []).map((record) =>
     normalizeUnifiedMapNode(
       {
-        id: poi.id,
-        name: poi.name,
-        category: poi.categories?.[0] ?? sourceCategory,
-        subcategory: poi.categories?.[0],
-        coordinates: poi.geoCoordinates,
-        address: [poi.locality, poi.countryName].filter(Boolean).join(", "),
-        source: "world_poi_index",
-        confidence: poi.confidence ?? poi.popularityScore ?? 0.82,
-        mapsUrl: poi.mapsUrl,
-        provider: "world_poi_index",
+        id: record.id,
+        name: record.name,
+        category: record.transportType ?? sourceCategory,
+        subcategory: record.network ?? record.airportType ?? record.transportType,
+        coordinates: record.coordinates,
+        address: record.address,
+        source: "transport_dataset",
+        confidence: 0.9,
+        mapsUrl: record.mapsUrl,
+        provider: record.provider ?? "transport_dataset",
       },
       {
-        category: poi.categories?.[0] ?? sourceCategory,
-        source: "world_poi_index",
-        provider: "world_poi_index",
+        category: record.transportType ?? sourceCategory,
+        source: "transport_dataset",
+        provider: record.provider ?? "transport_dataset",
       }
     )
   );
+}
+
+function buildFlightRoutePayload(routes = []) {
+  return (Array.isArray(routes) ? routes : []).map((route) => ({
+    id: normalizeText(route?.id),
+    originAirportId: normalizeText(route?.originAirportId),
+    destinationAirportId: normalizeText(route?.destinationAirportId),
+    originLabel: normalizeText(route?.originLabel),
+    destinationLabel: normalizeText(route?.destinationLabel),
+    airlineName: normalizeText(route?.airlineName),
+    airlineIata: normalizeText(route?.airlineIata),
+    airlineIcao: normalizeText(route?.airlineIcao),
+    equipmentCodes: Array.isArray(route?.equipmentCodes)
+      ? route.equipmentCodes.map((code) => normalizeText(code)).filter(Boolean)
+      : [],
+    provider: normalizeText(route?.provider, "transport_dataset"),
+  }));
 }
 
 function buildStats({ days = [], layers = {} }) {
@@ -469,10 +469,10 @@ function buildStats({ days = [], layers = {} }) {
   const hotels = Array.isArray(layers.hotels) ? layers.hotels.length : 0;
   const restaurants = Array.isArray(layers.restaurants) ? layers.restaurants.length : 0;
   const airports = Array.isArray(layers.airports) ? layers.airports.length : 0;
-  const railMetroStations = Array.isArray(layers.railMetroStations)
-    ? layers.railMetroStations.length
-    : 0;
+  const railStations = Array.isArray(layers.railStations) ? layers.railStations.length : 0;
+  const metroStations = Array.isArray(layers.metroStations) ? layers.metroStations.length : 0;
   const busTerminals = Array.isArray(layers.busTerminals) ? layers.busTerminals.length : 0;
+  const flightRoutes = Array.isArray(layers.flightRoutes) ? layers.flightRoutes.length : 0;
   const firstReadyDay = days.find((day) => day.routeStatus === "ready") ?? days[0] ?? null;
 
   return {
@@ -486,8 +486,10 @@ function buildStats({ days = [], layers = {} }) {
       hotels,
       restaurants,
       airports,
-      railMetroStations,
+      railStations,
+      metroStations,
       busTerminals,
+      flightRoutes,
     },
     algorithmLabel: normalizeText(
       firstReadyDay?.routeSummary?.algorithm,
@@ -501,6 +503,7 @@ export function createUnifiedTripMapService({
   getRecommendationsForDestinationImpl = getRecommendationsForDestination,
   resolvePlaceImpl = resolveWorldPoiPlace,
   listDestinationPoisImpl = listDestinationPois,
+  getDestinationTransportImpl = getDestinationTransport,
 } = {}) {
   async function getUnifiedTripMap({
     trip,
@@ -530,6 +533,9 @@ export function createUnifiedTripMapService({
     const recommendationMs = Date.now() - recommendationStart;
 
     const overlayStart = Date.now();
+    const transportLayers = await getDestinationTransportImpl({
+      destination,
+    });
     const days = (Array.isArray(routes?.days) ? routes.days : []).map(buildDayPayload);
     const touristSpots = mergeNodesById(days.flatMap((day) => day.stops));
     const hotels = await resolveRecommendationOverlayNodes({
@@ -546,24 +552,23 @@ export function createUnifiedTripMapService({
       resolvePlaceImpl,
       listDestinationPoisImpl,
     });
-    const airports = await buildTransitOverlayNodes({
-      destination,
-      categories: ["airport"],
-      listDestinationPoisImpl,
-      sourceCategory: "airport",
-    });
-    const railMetroStations = await buildTransitOverlayNodes({
-      destination,
-      categories: ["rail_station", "metro_station"],
-      listDestinationPoisImpl,
-      sourceCategory: "rail_station",
-    });
-    const busTerminals = await buildTransitOverlayNodes({
-      destination,
-      categories: ["bus_terminal"],
-      listDestinationPoisImpl,
-      sourceCategory: "bus_terminal",
-    });
+    const airports = buildTransportOverlayNodes(
+      transportLayers?.airports,
+      "airport"
+    );
+    const railStations = buildTransportOverlayNodes(
+      transportLayers?.railStations,
+      "rail_station"
+    );
+    const metroStations = buildTransportOverlayNodes(
+      transportLayers?.metroStations,
+      "metro_station"
+    );
+    const busTerminals = buildTransportOverlayNodes(
+      transportLayers?.busTerminals,
+      "bus_terminal"
+    );
+    const flightRoutes = buildFlightRoutePayload(transportLayers?.flightRoutes);
     const overlayMs = Date.now() - overlayStart;
 
     const layers = {
@@ -571,15 +576,18 @@ export function createUnifiedTripMapService({
       hotels,
       restaurants,
       airports,
-      railMetroStations,
+      railStations,
+      metroStations,
       busTerminals,
+      flightRoutes,
     };
     const allNodes = [
       ...touristSpots,
       ...hotels,
       ...restaurants,
       ...airports,
-      ...railMetroStations,
+      ...railStations,
+      ...metroStations,
       ...busTerminals,
     ];
     const viewport = deriveViewport(allNodes, routes?.cityBounds ?? null);
@@ -597,8 +605,10 @@ export function createUnifiedTripMapService({
       hotels: hotels.length,
       restaurants: restaurants.length,
       airports: airports.length,
-      railMetroStations: railMetroStations.length,
+      railStations: railStations.length,
+      metroStations: metroStations.length,
       busTerminals: busTerminals.length,
+      flightRoutes: flightRoutes.length,
       unresolvedCount: stats.unresolvedCount,
       routeMs,
       recommendationMs,
@@ -628,8 +638,8 @@ export function createUnifiedTripMapService({
               ? recommendations.sourceProvenance.sources
               : []),
             {
-              provider: "world_poi_index",
-              category: "local-index",
+              provider: "transport_dataset",
+              category: "transport-overlay",
             },
           ].map((source, index) => ({
             id: `source-${index}-${normalizeText(source?.provider, "unknown")}`,

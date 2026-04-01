@@ -19,7 +19,8 @@ const FILTER_OPTIONS = [
   { key: "hotels", label: "Hotels" },
   { key: "restaurants", label: "Restaurants" },
   { key: "airports", label: "Airports" },
-  { key: "rail_metro", label: "Rail / Metro" },
+  { key: "rail_stations", label: "Rail Stations" },
+  { key: "metro_stations", label: "Metro Stations" },
   { key: "bus_terminals", label: "Bus Terminals" },
 ];
 
@@ -149,8 +150,12 @@ function createOverlayStyle(node = {}) {
     return { tint: "#7db8ff", shortLabel: "A" };
   }
 
-  if (category === "rail_metro") {
-    return { tint: "#c89bff", shortLabel: "M" };
+  if (category === "rail_stations") {
+    return { tint: "#c89bff", shortLabel: "T" };
+  }
+
+  if (category === "metro_stations") {
+    return { tint: "#53d7ff", shortLabel: "M" };
   }
 
   if (category === "bus_terminals") {
@@ -352,8 +357,11 @@ export default function UnifiedTripRouteMapSection({
     if (filters.airports) {
       nodes.push(...(tripMap.layers.airports ?? []));
     }
-    if (filters.rail_metro) {
-      nodes.push(...(tripMap.layers.railMetroStations ?? []));
+    if (filters.rail_stations) {
+      nodes.push(...(tripMap.layers.railStations ?? []));
+    }
+    if (filters.metro_stations) {
+      nodes.push(...(tripMap.layers.metroStations ?? []));
     }
     if (filters.bus_terminals) {
       nodes.push(...(tripMap.layers.busTerminals ?? []));
@@ -361,6 +369,14 @@ export default function UnifiedTripRouteMapSection({
 
     return nodes;
   }, [filters, tripMap?.layers]);
+  const airConnections = useMemo(
+    () => (Array.isArray(tripMap?.layers?.flightRoutes) ? tripMap.layers.flightRoutes : []),
+    [tripMap?.layers?.flightRoutes]
+  );
+  const featuredAirConnections = useMemo(
+    () => airConnections.slice(0, 6),
+    [airConnections]
+  );
   const visibleRouteStops = useMemo(
     () => (filters.tourist_spots ? routeStops : []),
     [filters.tourist_spots, routeStops]
@@ -615,9 +631,12 @@ export default function UnifiedTripRouteMapSection({
     <section className="voy-unified-map">
       <div className="voy-unified-map__shell">
         <header className="voy-unified-map__topbar">
-          <div className="voy-unified-map__logo">CITY<span>ROUTE</span></div>
+          <div className="voy-unified-map__logo">AI <span>TRAVEL PLANNER</span></div>
           <div className="voy-unified-map__badge">{tripMap.destination}</div>
           <div className="voy-unified-map__badge">{selectedAlgorithm}</div>
+          <div className="voy-unified-map__badge">
+            {tripMap.stats?.categoryCounts?.flightRoutes ?? 0} air links
+          </div>
           <div className="voy-unified-map__stats">
             <div>
               STOPS <b>{visibleRouteStops.length}</b>
@@ -637,7 +656,7 @@ export default function UnifiedTripRouteMapSection({
         <div className="voy-unified-map__content">
           <aside className="voy-unified-map__sidebar">
             <div className="voy-unified-map__sidebar-header">
-              <h2>Optimized Route</h2>
+              <h2>Localized Mobility Map</h2>
               <p>
                 <em>{visibleRouteStops.length}</em> mapped travel stops
               </p>
@@ -669,7 +688,7 @@ export default function UnifiedTripRouteMapSection({
             </div>
 
             <div className="voy-unified-map__algo-tag">
-              Deterministic route graph · nearest-neighbor seed · 2-opt refinement
+              Dedicated transport dataset · local city overlays · air links kept separate from place pins
             </div>
 
             <div className="voy-unified-map__control-section">
@@ -718,8 +737,39 @@ export default function UnifiedTripRouteMapSection({
               <span>{tripMap.stats?.categoryCounts?.hotels ?? 0} hotels</span>
               <span>{tripMap.stats?.categoryCounts?.restaurants ?? 0} restaurants</span>
               <span>{tripMap.stats?.categoryCounts?.airports ?? 0} airports</span>
-              <span>{tripMap.stats?.categoryCounts?.railMetroStations ?? 0} rail/metro</span>
+              <span>{tripMap.stats?.categoryCounts?.railStations ?? 0} rail stations</span>
+              <span>{tripMap.stats?.categoryCounts?.metroStations ?? 0} metro stations</span>
               <span>{tripMap.stats?.categoryCounts?.busTerminals ?? 0} bus terminals</span>
+              <span>{tripMap.stats?.categoryCounts?.flightRoutes ?? 0} air connections</span>
+            </div>
+
+            <div className="voy-unified-map__air-links">
+              <div className="voy-unified-map__stops-label">Air Connections</div>
+              {featuredAirConnections.length === 0 ? (
+                <div className="voy-unified-map__empty-note">
+                  No airport-to-airport links were available for this destination yet.
+                </div>
+              ) : (
+                <div className="voy-unified-map__air-link-list">
+                  {featuredAirConnections.map((route) => (
+                    <div key={route.id} className="voy-unified-map__air-link-item">
+                      <div className="voy-unified-map__air-link-route">
+                        {route.originLabel} to {route.destinationLabel}
+                      </div>
+                      <div className="voy-unified-map__air-link-meta">
+                        {[
+                          route.airlineName,
+                          route.equipmentCodes?.length
+                            ? route.equipmentCodes.join(" / ")
+                            : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" · ") || "OpenFlights route reference"}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="voy-unified-map__stops-label">Route Stops</div>
@@ -780,11 +830,11 @@ export default function UnifiedTripRouteMapSection({
           <div className="voy-unified-map__map-panel">
             <div className="voy-unified-map__map-header">
               <div>
-                <div className="voy-unified-map__map-eyebrow">Destination viewport</div>
+                <div className="voy-unified-map__map-eyebrow">Localized city transport view</div>
                 <h3>{tripMap.destination}</h3>
                 <p>
-                  The route map is now powered by a reusable Leaflet template, local-first
-                  POI resolution, and server-side route optimization.
+                  Trip stops stay on the map while airports, rail stations, metro stations,
+                  and bus terminals render as separate overlays from the dedicated transport dataset.
                 </p>
               </div>
               <div className="voy-unified-map__map-status">

@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resolveApiRequestFailure } from "../../shared/apiErrors.js";
+import {
+  createApiTimeoutError,
+  resolveApiRequestFailure,
+} from "../../shared/apiErrors.js";
 
 test("resolveApiRequestFailure preserves AbortError for canceled requests", () => {
   const abortError = new Error("The user aborted a request.");
@@ -14,8 +17,7 @@ test("resolveApiRequestFailure preserves AbortError for canceled requests", () =
 });
 
 test("resolveApiRequestFailure keeps timeout messaging for real timeout errors", () => {
-  const timeoutError = new Error("The request timed out.");
-  timeoutError.name = "TimeoutError";
+  const timeoutError = createApiTimeoutError("The request timed out.");
 
   const resolved = resolveApiRequestFailure(timeoutError);
 

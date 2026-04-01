@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resolveTripGenerationFailure } from "../server/routes/trips.js";
+import {
+  resolveDependentServiceFailure,
+  resolveTripGenerationFailure,
+} from "../server/routes/trips.js";
 
 test("resolveTripGenerationFailure maps missing Firestore setup errors", () => {
   const failure = resolveTripGenerationFailure(
@@ -48,4 +51,31 @@ test("resolveTripGenerationFailure keeps generic guidance for unknown errors", (
 
   assert.equal(failure.message, "Unable to generate a trip right now.");
   assert.match(failure.hint, /Check server logs/i);
+});
+
+test("resolveDependentServiceFailure maps timeout-like route failures to HTTP 504", () => {
+  const failure = resolveDependentServiceFailure(
+    new Error("Upstream request timed out while loading route data."),
+    {
+      fallbackMessage: "Unable to load optimized routes right now.",
+      timeoutMessage: "Optimized routes timed out while contacting route providers. Please try again.",
+    }
+  );
+
+  assert.equal(failure.status, 504);
+  assert.match(failure.message, /timed out/i);
+});
+
+test("resolveDependentServiceFailure maps upstream provider outages to HTTP 503", () => {
+  const failure = resolveDependentServiceFailure(
+    new Error("fetch failed while contacting Google Places provider"),
+    {
+      fallbackMessage: "Unable to load the trip map right now.",
+      providerMessage:
+        "The trip map is temporarily unavailable because a routing or place provider could not respond.",
+    }
+  );
+
+  assert.equal(failure.status, 503);
+  assert.match(failure.message, /temporarily unavailable/i);
 });

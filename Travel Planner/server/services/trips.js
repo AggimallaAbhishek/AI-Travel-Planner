@@ -19,6 +19,12 @@ import { enrichTripWithPersistedGeocodes } from "./tripMapEnrichment.js";
 
 const COLLECTION_NAME = "AITrips";
 
+function shouldEnrichTripMapOnCreate() {
+  return String(process.env.ENRICH_TRIP_MAP_ON_CREATE ?? "")
+    .trim()
+    .toLowerCase() === "true";
+}
+
 function getTripsCollection() {
   return getAdminDb().collection(COLLECTION_NAME);
 }
@@ -84,6 +90,7 @@ export function validateTripRequest(body = {}) {
 
 export async function createTripForUser({ user, userSelection }) {
   const tripId = randomUUID();
+  const enrichMapOnCreate = shouldEnrichTripMapOnCreate();
   const buildAndPersistTrip = async (payload) => {
     let trip = buildStoredTrip({
       id: tripId,
@@ -93,21 +100,27 @@ export async function createTripForUser({ user, userSelection }) {
       ...payload,
     });
 
-    try {
-      const enrichmentResult = await enrichTripWithPersistedGeocodes({ trip });
-      trip = enrichmentResult.trip;
-      console.info("[trips] Trip map enrichment completed", {
-        tripId: trip.id,
-        geocodedStopCount: enrichmentResult.stats.geocodedStopCount,
-        unresolvedStopCount: enrichmentResult.stats.unresolvedStopCount,
-        status: enrichmentResult.stats.status,
-        hasPlacesKey: enrichmentResult.stats.hasPlacesKey,
-        hasCityBounds: enrichmentResult.stats.hasCityBounds,
-      });
-    } catch (error) {
-      console.warn("[trips] Trip map enrichment failed, persisting partial trip", {
+    if (enrichMapOnCreate) {
+      try {
+        const enrichmentResult = await enrichTripWithPersistedGeocodes({ trip });
+        trip = enrichmentResult.trip;
+        console.info("[trips] Trip map enrichment completed during create", {
+          tripId: trip.id,
+          geocodedStopCount: enrichmentResult.stats.geocodedStopCount,
+          unresolvedStopCount: enrichmentResult.stats.unresolvedStopCount,
+          status: enrichmentResult.stats.status,
+          hasPlacesKey: enrichmentResult.stats.hasPlacesKey,
+          hasCityBounds: enrichmentResult.stats.hasCityBounds,
+        });
+      } catch (error) {
+        console.warn("[trips] Trip map enrichment failed during create, persisting partial trip", {
+          tripId,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    } else {
+      console.info("[trips] Deferring trip map enrichment until follow-up reads", {
         tripId,
-        message: error instanceof Error ? error.message : String(error),
       });
     }
 

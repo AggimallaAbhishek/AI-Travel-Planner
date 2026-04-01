@@ -14,6 +14,8 @@ import { replanTrip } from "@/lib/tripRoutes";
 import { Button } from "@/components/ui/button";
 import { buildLoginPath } from "@/lib/authRedirect";
 
+const TRIP_DETAIL_REQUEST_TIMEOUT_MS = 25_000;
+
 const INITIAL_RECOMMENDATION_STATE = {
   hotels: [],
   restaurants: [],
@@ -66,6 +68,7 @@ function Viewtrip() {
       try {
         const response = await apiFetch(`/api/trips/${tripId}`, {
           signal: controller.signal,
+          timeoutMs: TRIP_DETAIL_REQUEST_TIMEOUT_MS,
         });
         setTrip(response.trip ?? null);
       } catch (error) {

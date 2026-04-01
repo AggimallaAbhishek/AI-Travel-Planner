@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { toast } from "react-toastify";
 import { buildLoginPath } from "@/lib/authRedirect";
 
+const MY_TRIPS_REQUEST_TIMEOUT_MS = 20_000;
+
 function MyTrips() {
   const { user, loading } = useAuth();
   const [userTrips, setUserTrips] = useState([]);
@@ -28,6 +30,7 @@ function MyTrips() {
       try {
         const response = await apiFetch("/api/my-trips", {
           signal: controller.signal,
+          timeoutMs: MY_TRIPS_REQUEST_TIMEOUT_MS,
         });
         setUserTrips(response.trips ?? []);
       } catch (error) {

@@ -4,6 +4,7 @@ import { normalizeDestinationRecommendations } from "../../shared/recommendation
 const recommendationCache = new Map();
 const FRONTEND_RECOMMENDATION_CACHE_TTL_MS = 5 * 60 * 1000;
 const FRONTEND_MOCK_RECOMMENDATION_CACHE_TTL_MS = 15 * 1000;
+const TRIP_RECOMMENDATION_REQUEST_TIMEOUT_MS = 20_000;
 
 function resolveFrontendRecommendationCacheTtlMs(recommendations = {}) {
   const warningText = String(recommendations.warning ?? "").toLowerCase();
@@ -73,6 +74,7 @@ export async function fetchTripRecommendations(tripId, options = {}) {
 
   const response = await apiFetch(`/api/trips/${normalizedTripId}/recommendations`, {
     signal: options.signal,
+    timeoutMs: options.timeoutMs ?? TRIP_RECOMMENDATION_REQUEST_TIMEOUT_MS,
   });
   const recommendations = normalizeDestinationRecommendations(
     response.recommendations ?? response

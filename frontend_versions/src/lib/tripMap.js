@@ -2,6 +2,7 @@ import { apiFetch } from "./api";
 
 const tripMapCache = new Map();
 const TRIP_MAP_CACHE_TTL_MS = 2 * 60 * 1000;
+const TRIP_MAP_REQUEST_TIMEOUT_MS = 30_000;
 
 function normalizeText(value, fallback = "") {
   if (typeof value !== "string") {
@@ -72,6 +73,7 @@ export async function fetchTripMap(tripId, options = {}) {
     `/api/trips/${normalizedTripId}/map${query ? `?${query}` : ""}`,
     {
       signal: options.signal,
+      timeoutMs: options.timeoutMs ?? TRIP_MAP_REQUEST_TIMEOUT_MS,
     }
   );
   const tripMap = response?.tripMap ?? response;

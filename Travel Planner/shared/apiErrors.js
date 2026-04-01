@@ -11,6 +11,20 @@ export class ApiError extends Error {
   }
 }
 
+export function createApiTimeoutError(
+  message = "Request timed out. Please try again.",
+  { cause } = {}
+) {
+  const error = new Error(message);
+  error.name = "TimeoutError";
+
+  if (cause !== undefined) {
+    error.cause = cause;
+  }
+
+  return error;
+}
+
 export function resolveApiRequestFailure(error) {
   const errorName = error instanceof Error ? error.name : "";
   const cause = error instanceof Error ? error.message : String(error);

@@ -3,6 +3,8 @@ import { apiFetch } from "./api";
 const tripRouteCache = new Map();
 const ROUTE_CACHE_TTL_MS = 5 * 60 * 1000;
 const FAILED_ROUTE_CACHE_TTL_MS = 15 * 1000;
+const TRIP_ROUTE_REQUEST_TIMEOUT_MS = 30_000;
+const TRIP_REPLAN_REQUEST_TIMEOUT_MS = 40_000;
 
 function readCachedRoutes(tripId) {
   return tripRouteCache.get(String(tripId));
@@ -126,6 +128,7 @@ export async function fetchTripRoutes(tripId, options = {}) {
     `/api/trips/${normalizedTripId}/routes${query ? `?${query}` : ""}`,
     {
       signal: options.signal,
+      timeoutMs: options.timeoutMs ?? TRIP_ROUTE_REQUEST_TIMEOUT_MS,
     }
   );
   const routes = response.routes ?? response;
@@ -146,6 +149,7 @@ export async function fetchTripRouteAlternatives(tripId, options = {}) {
     `/api/trips/${normalizedTripId}/alternatives${query ? `?${query}` : ""}`,
     {
       signal: options.signal,
+      timeoutMs: options.timeoutMs ?? TRIP_ROUTE_REQUEST_TIMEOUT_MS,
     }
   );
 
@@ -165,6 +169,7 @@ export async function replanTrip(tripId, disruptions, options = {}) {
       disruptions,
     },
     signal: options.signal,
+    timeoutMs: options.timeoutMs ?? TRIP_REPLAN_REQUEST_TIMEOUT_MS,
   });
 
   clearTripRoutesCache(normalizedTripId);

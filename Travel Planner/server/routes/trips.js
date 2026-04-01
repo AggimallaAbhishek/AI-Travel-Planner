@@ -46,6 +46,70 @@ function includesAny(text, patterns = []) {
   return patterns.some((pattern) => text.includes(pattern));
 }
 
+export function resolveDependentServiceFailure(
+  error,
+  {
+    fallbackMessage = "The request could not be completed right now.",
+    timeoutMessage = "The request timed out while contacting travel data providers. Please try again.",
+    providerMessage = "A required travel data provider is temporarily unavailable. Please try again.",
+  } = {}
+) {
+  const errorText = getErrorText(error).toLowerCase();
+  const errorCode = String(error?.code ?? "").toLowerCase();
+  const status = Number.parseInt(String(error?.status ?? error?.statusCode ?? ""), 10);
+
+  if (
+    status === 408 ||
+    status === 504 ||
+    includesAny(errorText, [
+      "timed out",
+      "timeout",
+      "etimedout",
+      "function invocation timeout",
+      "gateway timeout",
+      "upstream request timeout",
+    ])
+  ) {
+    return {
+      status: 504,
+      message: timeoutMessage,
+    };
+  }
+
+  if (
+    status === 502 ||
+    status === 503 ||
+    status === 429 ||
+    includesAny(errorText, [
+      "fetch failed",
+      "network error",
+      "failed to fetch",
+      "socket hang up",
+      "econnreset",
+      "enotfound",
+      "eai_again",
+      "connection terminated",
+      "service unavailable",
+      "bad gateway",
+      "quota",
+      "api key not valid",
+      "permission denied",
+      "forbidden",
+    ]) ||
+    errorCode.includes("resource-exhausted")
+  ) {
+    return {
+      status: 503,
+      message: providerMessage,
+    };
+  }
+
+  return {
+    status: 500,
+    message: fallbackMessage,
+  };
+}
+
 export function resolveTripGenerationFailure(error) {
   const errorText = getErrorText(error).toLowerCase();
   const errorCode = String(error?.code ?? "");
@@ -316,12 +380,20 @@ router.get("/trips/:tripId/recommendations", requireAuth, async (req, res) => {
 
     res.json({ recommendations });
   } catch (error) {
+    const resolvedFailure = resolveDependentServiceFailure(error, {
+      fallbackMessage: "Unable to load destination recommendations right now.",
+      timeoutMessage:
+        "Destination recommendations timed out while contacting travel data providers. Please try again.",
+      providerMessage:
+        "Destination recommendations are temporarily unavailable because a travel data provider could not respond.",
+    });
     console.error("[trips] Failed to load destination recommendations", {
       tripId: req.params.tripId,
       message: getErrorText(error),
+      resolvedMessage: resolvedFailure.message,
     });
-    res.status(500).json({
-      message: "Unable to load destination recommendations right now.",
+    res.status(resolvedFailure.status).json({
+      message: resolvedFailure.message,
     });
   }
 });
@@ -367,12 +439,20 @@ router.get("/trips/:tripId/map", requireAuth, async (req, res) => {
 
     res.json({ tripMap });
   } catch (error) {
+    const resolvedFailure = resolveDependentServiceFailure(error, {
+      fallbackMessage: "Unable to load the trip map right now.",
+      timeoutMessage:
+        "The trip map timed out while loading route and place data. Please try again.",
+      providerMessage:
+        "The trip map is temporarily unavailable because a routing or place provider could not respond.",
+    });
     console.error("[trips] Failed to load unified trip map", {
       tripId: req.params.tripId,
       message: getErrorText(error),
+      resolvedMessage: resolvedFailure.message,
     });
-    res.status(500).json({
-      message: "Unable to load the trip map right now.",
+    res.status(resolvedFailure.status).json({
+      message: resolvedFailure.message,
     });
   }
 });
@@ -432,12 +512,20 @@ router.get("/trips/:tripId/city-map", requireAuth, async (req, res) => {
 
     res.json({ cityMap });
   } catch (error) {
+    const resolvedFailure = resolveDependentServiceFailure(error, {
+      fallbackMessage: "Unable to load the city map right now.",
+      timeoutMessage:
+        "The destination city map timed out while loading map provider data. Please try again.",
+      providerMessage:
+        "The destination city map is temporarily unavailable because a map provider could not respond.",
+    });
     console.error("[trips] Failed to load trip city map", {
       tripId: req.params.tripId,
       message: getErrorText(error),
+      resolvedMessage: resolvedFailure.message,
     });
-    res.status(500).json({
-      message: "Unable to load the city map right now.",
+    res.status(resolvedFailure.status).json({
+      message: resolvedFailure.message,
     });
   }
 });
@@ -514,12 +602,20 @@ router.get("/trips/:tripId/routes", requireAuth, async (req, res) => {
 
     res.json({ routes });
   } catch (error) {
+    const resolvedFailure = resolveDependentServiceFailure(error, {
+      fallbackMessage: "Unable to load optimized routes right now.",
+      timeoutMessage:
+        "Optimized routes timed out while contacting route providers. Please try again.",
+      providerMessage:
+        "Optimized routes are temporarily unavailable because a routing provider could not respond.",
+    });
     console.error("[trips] Failed to load trip routes", {
       tripId: req.params.tripId,
       message: getErrorText(error),
+      resolvedMessage: resolvedFailure.message,
     });
-    res.status(500).json({
-      message: "Unable to load optimized routes right now.",
+    res.status(resolvedFailure.status).json({
+      message: resolvedFailure.message,
     });
   }
 });
@@ -581,12 +677,20 @@ router.get("/trips/:tripId/alternatives", requireAuth, async (req, res) => {
 
     res.json({ alternatives });
   } catch (error) {
+    const resolvedFailure = resolveDependentServiceFailure(error, {
+      fallbackMessage: "Unable to load route alternatives right now.",
+      timeoutMessage:
+        "Route alternatives timed out while contacting route providers. Please try again.",
+      providerMessage:
+        "Route alternatives are temporarily unavailable because a routing provider could not respond.",
+    });
     console.error("[trips] Failed to load trip route alternatives", {
       tripId: req.params.tripId,
       message: getErrorText(error),
+      resolvedMessage: resolvedFailure.message,
     });
-    res.status(500).json({
-      message: "Unable to load route alternatives right now.",
+    res.status(resolvedFailure.status).json({
+      message: resolvedFailure.message,
     });
   }
 });
@@ -635,12 +739,20 @@ router.post(
 
       res.json(result);
     } catch (error) {
+      const resolvedFailure = resolveDependentServiceFailure(error, {
+        fallbackMessage: "Unable to replan this trip right now.",
+        timeoutMessage:
+          "Trip replanning timed out while contacting travel data providers. Please try again.",
+        providerMessage:
+          "Trip replanning is temporarily unavailable because a provider could not respond.",
+      });
       console.error("[trips] Failed to replan trip", {
         tripId: req.params.tripId,
         message: getErrorText(error),
+        resolvedMessage: resolvedFailure.message,
       });
-      res.status(500).json({
-        message: "Unable to replan this trip right now.",
+      res.status(resolvedFailure.status).json({
+        message: resolvedFailure.message,
       });
     }
   }

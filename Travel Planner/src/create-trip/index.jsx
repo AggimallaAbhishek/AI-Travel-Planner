@@ -48,6 +48,8 @@ const INITIAL_FORM_STATE = {
   },
 };
 
+const TRIP_GENERATION_REQUEST_TIMEOUT_MS = 90_000;
+
 const OBJECTIVE_OPTIONS = [
   {
     value: "fastest",
@@ -247,6 +249,7 @@ function CreateTrip() {
           userSelection: selection,
         },
         token,
+        timeoutMs: TRIP_GENERATION_REQUEST_TIMEOUT_MS,
       });
 
       console.info("[create-trip] Trip created", {
