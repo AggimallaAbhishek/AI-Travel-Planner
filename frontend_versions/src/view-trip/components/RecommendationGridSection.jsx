@@ -36,6 +36,9 @@ function RecommendationGridSection({
   note = "",
   onRetry,
 }) {
+  const hasItems = Array.isArray(items) && items.length > 0;
+  const showError = !isLoading && !hasItems && Boolean(errorMessage);
+
   return (
     <section className="relative mt-10 w-full px-0 py-8 md:px-2" aria-live="polite">
       <div className="relative mx-auto max-w-7xl rounded-2xl border border-[var(--voy-border)] bg-[var(--voy-surface)] p-8 shadow-lg">
@@ -53,9 +56,9 @@ function RecommendationGridSection({
           ) : null}
         </div>
 
-        {isLoading ? <LoadingCards /> : null}
+        {isLoading && !hasItems ? <LoadingCards /> : null}
 
-        {!isLoading && errorMessage ? (
+        {showError ? (
           <div className="rounded-2xl border border-[var(--voy-border)] bg-[var(--voy-surface2)] px-6 py-10 text-center">
             <h3 className="text-2xl font-semibold text-[var(--voy-text)]">
               Unable to load {type === "hotel" ? "hotels" : "restaurants"}
@@ -71,11 +74,11 @@ function RecommendationGridSection({
           </div>
         ) : null}
 
-        {!isLoading && !errorMessage && items.length > 0 ? (
+        {!isLoading && !showError && hasItems ? (
           <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
             {items.map((item, index) => (
               <RecommendationCardItem
-                key={`${type}-${item.name}-${item.location}`}
+                key={`${type}-${item.name ?? "item"}-${item.location ?? index}`}
                 item={item}
                 type={type}
                 index={index}
@@ -84,7 +87,7 @@ function RecommendationGridSection({
           </div>
         ) : null}
 
-        {!isLoading && !errorMessage && items.length === 0 ? (
+        {!isLoading && !showError && !hasItems ? (
           <div className="rounded-2xl border border-[var(--voy-border)] bg-[var(--voy-surface2)] px-6 py-12 text-center shadow-sm">
             <h3 className="text-2xl font-semibold text-[var(--voy-text)]">
               {emptyTitle}

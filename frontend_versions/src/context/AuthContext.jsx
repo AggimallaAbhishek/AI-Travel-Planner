@@ -5,7 +5,7 @@ import {
   signInWithPopup,
   signOut as firebaseSignOut,
 } from "firebase/auth";
-import { auth, isFirebaseConfigured } from "../service/firebaseConfig.js";
+import { auth, isFirebaseConfigured } from "@/service/firebaseConfig";
 
 const AuthContext = createContext(null);
 

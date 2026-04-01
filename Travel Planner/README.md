@@ -66,6 +66,7 @@ Travel Planner is a Vite + React single-page application backed by a small Expre
 - `GET /api/health`
 - `POST /api/trips/generate`
 - `GET /api/trips/:tripId`
+- `GET /api/trips/:tripId/recommendations`
 - `GET /api/my-trips`
 
 ## Project Structure
@@ -137,6 +138,10 @@ VITE_FIREBASE_APP_ID=
 
 GOOGLE_GEMINI_API_KEY=
 GEMINI_MODEL=gemini-2.5-flash
+GOOGLE_PLACES_API_KEY=
+RECOMMENDATIONS_PROVIDER_TIMEOUT_MS=8000
+RECOMMENDATIONS_CACHE_TTL_MS=300000
+RECOMMENDATIONS_MOCK_CACHE_TTL_MS=30000
 
 FIREBASE_PROJECT_ID=
 FIREBASE_CLIENT_EMAIL=

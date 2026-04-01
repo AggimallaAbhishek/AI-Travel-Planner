@@ -4,7 +4,7 @@ export const STATIC_PAGE_CONTENT = {
   home: {
     eyebrow: "Navigator",
     title: "Continue With",
-    highlight: "AI TRAVEL PLANNER",
+    highlight: "Voyagr",
     subtitle:
       "The homepage is the immersive planning surface. This route gives you a fast orientation page with direct links into the live experience.",
     description:
@@ -44,11 +44,11 @@ export const STATIC_PAGE_CONTENT = {
   about: {
     eyebrow: "About",
     title: "Why Travelers Use",
-    highlight: "AI TRAVEL PLANNER",
+    highlight: "Voyagr",
     subtitle:
       "A design-led travel planner that turns destination inspiration into practical itineraries.",
     description:
-      "AI TRAVEL PLANNER brings discovery, itinerary generation, maps, and saved trip management into one polished interface so planning feels cohesive instead of fragmented.",
+      "Voyagr brings discovery, itinerary generation, maps, and saved trip management into one polished interface so planning feels cohesive instead of fragmented.",
     image: STATIC_PAGE_IMAGES.about,
     imageAlt: "Scenic mountain destination",
     actions: [
@@ -84,7 +84,7 @@ export const STATIC_PAGE_CONTENT = {
   contact: {
     eyebrow: "Contact",
     title: "Talk To The",
-    highlight: "AI TRAVEL PLANNER TEAM",
+    highlight: "Voyagr Team",
     subtitle:
       "Reach the project team directly for questions, product feedback, or implementation discussions.",
     description:
@@ -146,7 +146,7 @@ export const STATIC_PAGE_CONTENT = {
     title: "Everything Needed To Plan",
     highlight: "Better Trips",
     subtitle:
-      "AI TRAVEL PLANNER combines destination discovery, AI generation, and saved planning flows into one interface.",
+      "Voyagr combines destination discovery, AI generation, and saved planning flows into one interface.",
     description:
       "Instead of scattering work across search tabs, notes, and maps, the product keeps the highest-value travel planning tasks inside one consistent experience.",
     image: STATIC_PAGE_IMAGES.features,
@@ -190,7 +190,7 @@ export const STATIC_PAGE_CONTENT = {
   ourStory: {
     eyebrow: "Story",
     title: "The Journey Behind",
-    highlight: "AI TRAVEL PLANNER",
+    highlight: "Voyagr",
     subtitle:
       "Built to reduce planning friction and make travel software feel more intentional than a form stack.",
     description:
@@ -217,7 +217,7 @@ export const STATIC_PAGE_CONTENT = {
         eyebrow: "Response",
         title: "One coherent planning surface",
         description:
-          "AI TRAVEL PLANNER narrows that spread by connecting inspiration, selection, generation, and saved access.",
+          "Voyagr narrows that spread by connecting inspiration, selection, generation, and saved access.",
       },
       {
         eyebrow: "Direction",
@@ -230,7 +230,7 @@ export const STATIC_PAGE_CONTENT = {
   team: {
     eyebrow: "Team",
     title: "People Shaping",
-    highlight: "AI TRAVEL PLANNER",
+    highlight: "Voyagr",
     subtitle:
       "A small product and engineering team focused on turning travel planning into a more guided experience.",
     description:
@@ -272,7 +272,7 @@ export const STATIC_PAGE_CONTENT = {
     title: "Help Build Smarter",
     highlight: "Travel Tools",
     subtitle:
-      "AI TRAVEL PLANNER is still evolving, but the direction is clear: design-led travel software with stronger technical foundations.",
+      "Voyagr is still evolving, but the direction is clear: design-led travel software with stronger technical foundations.",
     description:
       "We are interested in collaborators who care about polished interfaces, disciplined implementation, and making complex planning feel simple to the user.",
     image: STATIC_PAGE_IMAGES.careers,
@@ -310,7 +310,7 @@ export const STATIC_PAGE_CONTENT = {
   privacyPolicy: {
     eyebrow: "Privacy",
     title: "How",
-    highlight: "AI TRAVEL PLANNER",
+    highlight: "Voyagr",
     subtitle:
       "The app is designed to keep itinerary data tied to the authenticated user and away from public exposure.",
     description:
@@ -390,7 +390,7 @@ export const STATIC_PAGE_CONTENT = {
   faqs: {
     eyebrow: "FAQ",
     title: "Common Questions About",
-    highlight: "AI TRAVEL PLANNER",
+    highlight: "Voyagr",
     subtitle:
       "The fastest way to answer the recurring product questions travelers ask while planning.",
     description:
@@ -430,7 +430,7 @@ export const STATIC_PAGE_CONTENT = {
   feedback: {
     eyebrow: "Feedback",
     title: "Help Improve",
-    highlight: "AI TRAVEL PLANNER",
+    highlight: "Voyagr",
     subtitle:
       "The product is being hardened in iterative passes, so feedback on friction points is especially useful right now.",
     description:
@@ -474,7 +474,7 @@ export const STATIC_PAGE_CONTENT = {
     subtitle:
       "Use these guide themes to approach destinations with stronger intent before generating a trip.",
     description:
-      "Guides in AI TRAVEL PLANNER are less about long-form editorial content and more about helping travelers choose the right kind of experience: food-first, culture-heavy, scenic, or adventurous.",
+      "Guides in Voyagr are less about long-form editorial content and more about helping travelers choose the right kind of experience: food-first, culture-heavy, scenic, or adventurous.",
     image: STATIC_PAGE_IMAGES.travelGuides,
     imageAlt: "Aerial coastline travel view",
     actions: [
@@ -590,7 +590,7 @@ export const STATIC_PAGE_CONTENT = {
   apiDocs: {
     eyebrow: "API",
     title: "Backend Routes That Power",
-    highlight: "AI TRAVEL PLANNER",
+    highlight: "Voyagr",
     subtitle:
       "The secured backend keeps trust-sensitive work away from the browser and protects trip ownership.",
     description:
@@ -604,6 +604,7 @@ export const STATIC_PAGE_CONTENT = {
     stats: [
       { value: "POST", label: "/api/trips/generate" },
       { value: "GET", label: "/api/trips/:tripId" },
+      { value: "GET", label: "/api/trips/:tripId/recommendations" },
       { value: "GET", label: "/api/my-trips" },
     ],
     cards: [
@@ -620,6 +621,13 @@ export const STATIC_PAGE_CONTENT = {
         description:
           "Returns a single saved trip only when the requesting user owns the trip identifier being requested.",
         meta: "Used by the trip detail view.",
+      },
+      {
+        eyebrow: "GET",
+        title: "/api/trips/:tripId/recommendations",
+        description:
+          "Loads destination-based hotels and restaurants with provider-aware fallback behavior and short-term caching.",
+        meta: "Used by the trip detail recommendations sections.",
       },
       {
         eyebrow: "GET",

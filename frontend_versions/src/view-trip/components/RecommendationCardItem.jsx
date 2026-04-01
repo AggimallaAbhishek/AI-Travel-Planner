@@ -1,43 +1,48 @@
 import React from "react";
 import {
   FaArrowRight,
+  FaHotel,
   FaMapMarkerAlt,
   FaStar,
   FaTag,
   FaUtensils,
 } from "react-icons/fa";
-import { FaHotel } from "react-icons/fa6";
 import AppImage from "@/components/ui/AppImage";
 import { getHotelImage, getRestaurantImage } from "@/lib/destinationImages";
 import { IMAGE_FALLBACKS } from "@/lib/imageManifest";
-import { resolveGoogleMapsUrl } from "@/lib/maps";
+
+function hasCoordinates(coordinates = {}) {
+  const latitude = Number.parseFloat(coordinates?.latitude);
+  const longitude = Number.parseFloat(coordinates?.longitude);
+
+  return Number.isFinite(latitude) && Number.isFinite(longitude);
+}
+
+function resolveMapsUrl(item = {}) {
+  if (typeof item.mapsUrl === "string" && /^https?:\/\//i.test(item.mapsUrl)) {
+    return item.mapsUrl;
+  }
+
+  if (hasCoordinates(item.geoCoordinates)) {
+    const latitude = Number.parseFloat(item.geoCoordinates.latitude);
+    const longitude = Number.parseFloat(item.geoCoordinates.longitude);
+    return `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
+  }
+
+  const query = [item.name, item.location].filter(Boolean).join(", ");
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
 
 function RecommendationCardItem({ item, type = "hotel", index = 0 }) {
   const isHotel = type === "hotel";
   const photoUrl = isHotel ? getHotelImage(item) : getRestaurantImage(item);
   const fallbackSrc = isHotel ? IMAGE_FALLBACKS.hotel : IMAGE_FALLBACKS.restaurant;
-  const isPriorityCard = index < 3;
   const labelIcon = isHotel ? <FaHotel /> : <FaUtensils />;
-  const labelText = item.typeLabel || (isHotel ? "Stay" : "Dining");
-  const mapsUrl = resolveGoogleMapsUrl({
-    mapsUrl: item?.mapsUrl ?? item?.googleMapsUri,
-    name: item?.name,
-    location: item?.location,
-    coordinates: item?.geoCoordinates,
-  });
-  const hasCoordinates =
-    item?.geoCoordinates?.latitude !== null &&
-    item?.geoCoordinates?.longitude !== null;
-
-  const handleMapClick = () => {
-    console.info("[maps] Opening recommendation in Google Maps", {
-      type,
-      name: item?.name ?? "",
-      location: item?.location ?? "",
-      hasCoordinates,
-      mapsUrl,
-    });
-  };
+  const labelText = isHotel ? "Stay" : "Dining";
+  const mapsUrl = resolveMapsUrl(item);
+  const ratingText =
+    typeof item.rating === "number" ? item.rating.toFixed(1) : String(item.rating || "");
+  const shouldEagerLoad = index < 3;
 
   return (
     <article className="group overflow-hidden rounded-2xl border border-[var(--voy-border)] bg-[var(--voy-surface)] shadow-md transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
@@ -45,10 +50,12 @@ function RecommendationCardItem({ item, type = "hotel", index = 0 }) {
         <AppImage
           src={photoUrl}
           fallbackSrc={fallbackSrc}
-          alt={item.name || (isHotel ? "Hotel recommendation" : "Restaurant recommendation")}
+          alt={
+            item.name || (isHotel ? "Hotel recommendation" : "Restaurant recommendation")
+          }
           sizes="(max-width: 560px) 100vw, (max-width: 980px) 50vw, 33vw"
-          loading={isPriorityCard ? "eager" : "lazy"}
-          fetchPriority={isPriorityCard ? "high" : "low"}
+          loading={shouldEagerLoad ? "eager" : "lazy"}
+          fetchPriority={shouldEagerLoad ? "high" : "low"}
           className="h-full w-full"
           imgClassName="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
         />
@@ -59,10 +66,10 @@ function RecommendationCardItem({ item, type = "hotel", index = 0 }) {
           <span>{labelText}</span>
         </div>
 
-        {item.rating ? (
+        {ratingText ? (
           <div className="absolute right-4 top-4 inline-flex items-center gap-1 rounded-full bg-[var(--voy-gold)] px-3 py-1 text-xs font-semibold text-black shadow-md">
             <FaStar />
-            <span>{item.rating.toFixed(1)}</span>
+            <span>{ratingText}</span>
           </div>
         ) : null}
       </div>
@@ -83,26 +90,17 @@ function RecommendationCardItem({ item, type = "hotel", index = 0 }) {
             `A handpicked ${isHotel ? "stay" : "dining"} option for this destination.`}
         </p>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {item.priceLabel ? (
-            <span className="inline-flex items-center gap-2 rounded-full bg-[var(--voy-gold-dim)] px-3 py-1 text-xs font-medium text-[var(--voy-gold)]">
-              <FaTag />
-              <span>{item.priceLabel}</span>
-            </span>
-          ) : null}
-
-          {item.typeLabel ? (
-            <span className="rounded-full border border-[var(--voy-border)] bg-[var(--voy-surface2)] px-3 py-1 text-xs font-medium text-[var(--voy-text-muted)]">
-              {item.typeLabel}
-            </span>
-          ) : null}
-        </div>
+        {item.priceLabel ? (
+          <span className="inline-flex items-center gap-2 rounded-full bg-[var(--voy-gold-dim)] px-3 py-1 text-xs font-medium text-[var(--voy-gold)]">
+            <FaTag />
+            <span>{item.priceLabel}</span>
+          </span>
+        ) : null}
 
         <a
           href={mapsUrl}
           target="_blank"
           rel="noopener noreferrer"
-          onClick={handleMapClick}
           className="inline-flex items-center gap-2 text-sm font-medium text-[var(--voy-text)] transition-colors hover:text-[var(--voy-gold)]"
         >
           <span>Open in Maps</span>

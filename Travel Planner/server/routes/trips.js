@@ -7,6 +7,7 @@ import {
   listTripsForUser,
   validateTripRequest,
 } from "../services/trips.js";
+import { getDestinationRecommendations } from "../services/recommendations.js";
 
 const router = express.Router();
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
@@ -25,6 +26,17 @@ function getErrorText(error) {
 
 function includesAny(text, patterns = []) {
   return patterns.some((pattern) => text.includes(pattern));
+}
+
+function parseBooleanQueryFlag(value) {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  const normalized = String(value ?? "")
+    .trim()
+    .toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "yes";
 }
 
 export function resolveTripGenerationFailure(error) {
@@ -175,6 +187,55 @@ router.post("/trips/generate", requireAuth, tripGenerationRateLimit, async (req,
             debug: getErrorText(error),
             errorCode: String(error?.code ?? ""),
           }),
+    });
+  }
+});
+
+router.get("/trips/:tripId/recommendations", requireAuth, async (req, res) => {
+  try {
+    const trip = await getTripForUser({
+      tripId: req.params.tripId,
+      user: req.user,
+    });
+
+    if (!trip) {
+      res.status(404).json({
+        message: "Trip not found.",
+      });
+      return;
+    }
+
+    if (trip === "forbidden") {
+      res.status(403).json({
+        message: "You do not have access to this trip.",
+      });
+      return;
+    }
+
+    const destination =
+      trip?.userSelection?.location?.label ?? trip?.aiPlan?.destination ?? "";
+    const recommendations = await getDestinationRecommendations({
+      destination,
+      forceRefresh: parseBooleanQueryFlag(req.query.force),
+    });
+
+    res.json({
+      recommendations,
+    });
+  } catch (error) {
+    if (error?.code === "recommendations/invalid-destination") {
+      res.status(400).json({
+        message: error.message,
+      });
+      return;
+    }
+
+    console.error("[trips] Failed to load destination recommendations", {
+      tripId: req.params.tripId,
+      errorMessage: getErrorText(error),
+    });
+    res.status(500).json({
+      message: "Unable to load destination recommendations right now.",
     });
   }
 });

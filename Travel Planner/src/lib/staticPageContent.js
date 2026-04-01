@@ -604,6 +604,7 @@ export const STATIC_PAGE_CONTENT = {
     stats: [
       { value: "POST", label: "/api/trips/generate" },
       { value: "GET", label: "/api/trips/:tripId" },
+      { value: "GET", label: "/api/trips/:tripId/recommendations" },
       { value: "GET", label: "/api/my-trips" },
     ],
     cards: [
@@ -620,6 +621,13 @@ export const STATIC_PAGE_CONTENT = {
         description:
           "Returns a single saved trip only when the requesting user owns the trip identifier being requested.",
         meta: "Used by the trip detail view.",
+      },
+      {
+        eyebrow: "GET",
+        title: "/api/trips/:tripId/recommendations",
+        description:
+          "Loads destination-based hotels and restaurants with provider-aware fallback behavior and short-term caching.",
+        meta: "Used by the trip detail recommendations sections.",
       },
       {
         eyebrow: "GET",

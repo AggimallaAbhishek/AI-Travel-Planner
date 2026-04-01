@@ -1,85 +1,94 @@
 import { apiFetch } from "./api";
 import { normalizeDestinationRecommendations } from "../../shared/recommendations.js";
 
-const recommendationCache = new Map();
-const FRONTEND_RECOMMENDATION_CACHE_TTL_MS = 5 * 60 * 1000;
-const FRONTEND_MOCK_RECOMMENDATION_CACHE_TTL_MS = 15 * 1000;
-const TRIP_RECOMMENDATION_REQUEST_TIMEOUT_MS = 20_000;
+const RECOMMENDATION_CACHE = new Map();
+const LIVE_CACHE_TTL_MS = 5 * 60 * 1_000;
+const MOCK_CACHE_TTL_MS = 30 * 1_000;
 
-function resolveFrontendRecommendationCacheTtlMs(recommendations = {}) {
-  const warningText = String(recommendations.warning ?? "").toLowerCase();
+function resolveCacheTtlMs(recommendations = {}) {
+  return recommendations.provider === "mock" ? MOCK_CACHE_TTL_MS : LIVE_CACHE_TTL_MS;
+}
 
-  if (
-    recommendations.provider === "mock" ||
-    warningText.includes("curated sample")
-  ) {
-    return FRONTEND_MOCK_RECOMMENDATION_CACHE_TTL_MS;
+function buildCacheKey(tripId, destination = "") {
+  const destinationKey = String(destination ?? "").trim().toLowerCase();
+  return `${tripId}::${destinationKey}`;
+}
+
+function readCachedRecommendations(cacheKey) {
+  const cached = RECOMMENDATION_CACHE.get(cacheKey);
+  if (!cached) {
+    return null;
   }
 
-  return FRONTEND_RECOMMENDATION_CACHE_TTL_MS;
+  if (cached.expiresAt <= Date.now()) {
+    RECOMMENDATION_CACHE.delete(cacheKey);
+    return null;
+  }
+
+  return cached.value;
 }
 
-function readCachedRecommendations(tripId) {
-  return recommendationCache.get(String(tripId));
-}
-
-function writeCachedRecommendations(tripId, recommendations) {
-  recommendationCache.set(String(tripId), {
+function writeCachedRecommendations(cacheKey, recommendations) {
+  RECOMMENDATION_CACHE.set(cacheKey, {
     value: recommendations,
-    createdAt: Date.now(),
+    expiresAt: Date.now() + resolveCacheTtlMs(recommendations),
   });
 }
 
 export function clearTripRecommendationsCache(tripId) {
-  recommendationCache.delete(String(tripId));
+  const normalizedTripId = String(tripId ?? "").trim();
+  const prefix = `${normalizedTripId}::`;
+
+  for (const key of RECOMMENDATION_CACHE.keys()) {
+    if (key.startsWith(prefix)) {
+      RECOMMENDATION_CACHE.delete(key);
+    }
+  }
 }
 
 export async function fetchTripRecommendations(tripId, options = {}) {
   const normalizedTripId = String(tripId ?? "").trim();
-
   if (!normalizedTripId) {
-    throw new Error("Trip id is required to load recommendations.");
+    throw new Error("Trip id is required to load destination recommendations.");
   }
+
+  const destinationHint = String(options.destination ?? "").trim();
+  const initialCacheKey = buildCacheKey(normalizedTripId, destinationHint);
 
   if (!options.force) {
-    const cachedEntry = readCachedRecommendations(normalizedTripId);
-    const cacheAgeMs = Date.now() - (cachedEntry?.createdAt ?? 0);
-    const cacheTtlMs = resolveFrontendRecommendationCacheTtlMs(
-      cachedEntry?.value
-    );
-
-    if (cachedEntry && cacheAgeMs < cacheTtlMs) {
+    const cached = readCachedRecommendations(initialCacheKey);
+    if (cached) {
       console.info("[trip-recommendations] Returning cached recommendations", {
         tripId: normalizedTripId,
-        provider: cachedEntry.value?.provider,
-        cacheAgeMs,
-        cacheTtlMs,
+        destination: destinationHint || cached.destination,
+        provider: cached.provider,
       });
-      return cachedEntry.value;
-    }
-
-    if (cachedEntry) {
-      console.info("[trip-recommendations] Cached recommendations expired", {
-        tripId: normalizedTripId,
-        cacheAgeMs,
-        cacheTtlMs,
-      });
-      recommendationCache.delete(normalizedTripId);
+      return cached;
     }
   }
 
-  console.info("[trip-recommendations] Fetching recommendations", {
-    tripId: normalizedTripId,
-  });
+  const query = new URLSearchParams();
+  if (options.force) {
+    query.set("force", "true");
+  }
 
-  const response = await apiFetch(`/api/trips/${normalizedTripId}/recommendations`, {
-    signal: options.signal,
-    timeoutMs: options.timeoutMs ?? TRIP_RECOMMENDATION_REQUEST_TIMEOUT_MS,
-  });
+  const response = await apiFetch(
+    `/api/trips/${normalizedTripId}/recommendations${
+      query.size > 0 ? `?${query.toString()}` : ""
+    }`,
+    {
+      signal: options.signal,
+    }
+  );
   const recommendations = normalizeDestinationRecommendations(
     response.recommendations ?? response
   );
 
-  writeCachedRecommendations(normalizedTripId, recommendations);
+  const resolvedCacheKey = buildCacheKey(
+    normalizedTripId,
+    recommendations.destination || destinationHint
+  );
+  writeCachedRecommendations(resolvedCacheKey, recommendations);
+
   return recommendations;
 }

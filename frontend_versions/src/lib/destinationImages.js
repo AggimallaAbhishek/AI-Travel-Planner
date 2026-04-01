@@ -14,21 +14,14 @@ export function getTripImage(locationLabel) {
 }
 
 export function getHotelImage(hotel) {
-  const remoteImageUrl = hotel?.hotelImageUrl ?? hotel?.imageUrl;
-
-  if (isRemoteImageUrl(remoteImageUrl)) {
-    return remoteImageUrl;
+  if (isRemoteImageUrl(hotel?.hotelImageUrl)) {
+    return hotel.hotelImageUrl;
   }
 
   return (
-    getManifestImageForQuery(
-      `${hotel?.hotelName ?? hotel?.name ?? ""} ${
-        hotel?.hotelAddress ?? hotel?.location ?? ""
-      }`,
-      {
+    getManifestImageForQuery(`${hotel?.hotelName ?? ""} ${hotel?.hotelAddress ?? ""}`, {
       category: "hotel",
-      }
-    ) ?? IMAGE_FALLBACKS.hotel
+    }) ?? IMAGE_FALLBACKS.hotel
   );
 }
 
@@ -56,7 +49,7 @@ export function getRestaurantImage(restaurant) {
 
   return (
     getManifestImageForQuery(
-      `${restaurant?.name ?? ""} ${restaurant?.location ?? ""} ${restaurant?.typeLabel ?? ""}`,
+      `${restaurant?.name ?? ""} ${restaurant?.location ?? ""} restaurant`,
       {
         category: "restaurant",
       }

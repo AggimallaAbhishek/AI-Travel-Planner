@@ -1,7 +1,12 @@
-import Home from "./pages/Home.jsx";
+import "./index.css";
+import VoyagrHome from "./components/voyagr/VoyagrHome";
 
 function App() {
-  return <Home />;
+  return (
+    <div className="min-h-screen w-full">
+      <VoyagrHome />
+    </div>
+  );
 }
 
 export default App;

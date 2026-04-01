@@ -41,3 +41,18 @@ export function getPlaceImage(place) {
     }) ?? getCategoryFallback(firstCategory || "place")
   );
 }
+
+export function getRestaurantImage(restaurant) {
+  if (isRemoteImageUrl(restaurant?.imageUrl)) {
+    return restaurant.imageUrl;
+  }
+
+  return (
+    getManifestImageForQuery(
+      `${restaurant?.name ?? ""} ${restaurant?.location ?? ""} restaurant`,
+      {
+        category: "restaurant",
+      }
+    ) ?? IMAGE_FALLBACKS.restaurant
+  );
+}

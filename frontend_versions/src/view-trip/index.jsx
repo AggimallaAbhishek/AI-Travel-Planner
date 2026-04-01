@@ -1,19 +1,15 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import InfoSection from "./components/InfoSection";
 import Hotels from "./components/Hotels";
 import Restaurants from "./components/Restaurants";
 import PlacesToVisit from "./components/PlacesToVisit";
-import CityItineraryMapSection from "./components/CityItineraryMapSection";
 import { toast } from "react-toastify";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/lib/api";
 import { fetchTripRecommendations } from "@/lib/tripRecommendations";
-import { replanTrip } from "@/lib/tripRoutes";
 import { Button } from "@/components/ui/button";
 import { buildLoginPath } from "@/lib/authRedirect";
-
-const TRIP_DETAIL_REQUEST_TIMEOUT_MS = 25_000;
 
 const INITIAL_RECOMMENDATION_STATE = {
   hotels: [],
@@ -25,6 +21,38 @@ const INITIAL_RECOMMENDATION_STATE = {
   errorMessage: "",
 };
 
+function toTripHotelRecommendationItem(hotel = {}) {
+  const name = hotel.hotelName || "Recommended Hotel";
+  const location = hotel.hotelAddress || "Location details unavailable";
+  const rating = Number.parseFloat(hotel.rating);
+
+  return {
+    name,
+    imageUrl: hotel.hotelImageUrl || "",
+    rating: Number.isFinite(rating) ? rating : null,
+    location,
+    description:
+      hotel.description ||
+      "Hotel recommendation generated from your itinerary preferences.",
+    priceLabel: hotel.price || "",
+    mapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+      `${name}, ${location}`
+    )}`,
+    geoCoordinates: {
+      latitude: hotel?.geoCoordinates?.latitude ?? null,
+      longitude: hotel?.geoCoordinates?.longitude ?? null,
+    },
+  };
+}
+
+function mapTripHotelsToRecommendationItems(hotels = []) {
+  if (!Array.isArray(hotels)) {
+    return [];
+  }
+
+  return hotels.map((hotel) => toTripHotelRecommendationItem(hotel));
+}
+
 function Viewtrip() {
   const { tripId } = useParams();
   const location = useLocation();
@@ -35,19 +63,29 @@ function Viewtrip() {
   const [recommendations, setRecommendations] = useState(
     INITIAL_RECOMMENDATION_STATE
   );
-  const [disruptionDraft, setDisruptionDraft] = useState({
-    type: "traffic_delay",
-    dayNumber: 1,
-    placeName: "",
-  });
-  const [replanLoading, setReplanLoading] = useState(false);
   const [recommendationReloadToken, setRecommendationReloadToken] = useState(0);
-  const [tripReloadToken, setTripReloadToken] = useState(0);
   const loginPath = buildLoginPath(`${location.pathname}${location.search}${location.hash}`);
-  const firstItineraryDayNumber =
-    Array.isArray(trip?.itinerary?.days) && trip.itinerary.days.length > 0
-      ? trip.itinerary.days[0].dayNumber
-      : 1;
+
+  const fallbackHotelRecommendations = useMemo(
+    () => mapTripHotelsToRecommendationItems(trip?.hotels),
+    [trip?.hotels]
+  );
+  const hasLiveHotels = recommendations.hotels.length > 0;
+  const hotelsToDisplay = hasLiveHotels
+    ? recommendations.hotels
+    : fallbackHotelRecommendations;
+  const hotelSectionError =
+    hotelsToDisplay.length === 0 ? recommendations.errorMessage : "";
+  const restaurantSectionError =
+    recommendations.restaurants.length === 0 ? recommendations.errorMessage : "";
+  const fallbackHotelNote =
+    fallbackHotelRecommendations.length > 0 && !hasLiveHotels
+      ? "Showing hotel suggestions from your generated itinerary while live hotel recommendations are unavailable."
+      : "";
+  const hotelNote = [recommendations.warning, fallbackHotelNote]
+    .filter(Boolean)
+    .join(" ");
+  const restaurantNote = recommendations.warning;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -56,7 +94,6 @@ function Viewtrip() {
       setLoading(false);
       setTrip(null);
       setRecommendations(INITIAL_RECOMMENDATION_STATE);
-      console.info("[view-trip] Skipping trip detail load without trip id or authenticated user");
       return () => controller.abort();
     }
 
@@ -67,7 +104,6 @@ function Viewtrip() {
       try {
         const response = await apiFetch(`/api/trips/${tripId}`, {
           signal: controller.signal,
-          timeoutMs: TRIP_DETAIL_REQUEST_TIMEOUT_MS,
         });
         setTrip(response.trip ?? null);
       } catch (error) {
@@ -76,8 +112,9 @@ function Viewtrip() {
         }
 
         console.error("[view-trip] Failed to load trip", error);
-        setRecommendations(INITIAL_RECOMMENDATION_STATE);
+        setTrip(null);
         setErrorMessage(error.message ?? "Unable to load this trip.");
+        toast.error(error.message ?? "Unable to load this trip.");
       } finally {
         setLoading(false);
       }
@@ -86,18 +123,7 @@ function Viewtrip() {
     loadTrip();
 
     return () => controller.abort();
-  }, [tripId, user, tripReloadToken]);
-
-  useEffect(() => {
-    if (!trip?.userSelection) {
-      return;
-    }
-
-    setDisruptionDraft((previous) => ({
-      ...previous,
-      dayNumber: firstItineraryDayNumber,
-    }));
-  }, [firstItineraryDayNumber, trip?.id, trip?.userSelection]);
+  }, [tripId, user]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -111,7 +137,8 @@ function Viewtrip() {
     if (!destination) {
       setRecommendations({
         ...INITIAL_RECOMMENDATION_STATE,
-        errorMessage: "A destination is required before hotels and restaurants can be loaded.",
+        errorMessage:
+          "A destination is required before hotels and restaurants can be loaded.",
       });
       return () => controller.abort();
     }
@@ -119,8 +146,7 @@ function Viewtrip() {
     async function loadRecommendations() {
       setRecommendations((previous) => ({
         ...previous,
-        hotels: recommendationReloadToken > 0 ? [] : previous.hotels,
-        restaurants: recommendationReloadToken > 0 ? [] : previous.restaurants,
+        ...(recommendationReloadToken > 0 ? { hotels: [], restaurants: [] } : {}),
         destination,
         loading: true,
         errorMessage: "",
@@ -130,24 +156,32 @@ function Viewtrip() {
         const response = await fetchTripRecommendations(trip.id, {
           signal: controller.signal,
           force: recommendationReloadToken > 0,
+          destination,
         });
 
+        console.info("[view-trip] Destination recommendations loaded", {
+          tripId: trip.id,
+          destination: response.destination || destination,
+          provider: response.provider,
+          hotels: response.hotels.length,
+          restaurants: response.restaurants.length,
+        });
         setRecommendations({
           ...response,
           loading: false,
           errorMessage: "",
         });
       } catch (error) {
-        if (error.name === "AbortError") {
+        if (controller.signal.aborted) {
           return;
         }
 
-        console.error("[view-trip] Failed to load recommendations", {
+        console.error("[view-trip] Failed to load destination recommendations", {
           tripId: trip.id,
           destination,
           message: error?.message,
+          status: error?.status ?? null,
         });
-
         setRecommendations((previous) => ({
           ...previous,
           destination,
@@ -166,47 +200,6 @@ function Viewtrip() {
 
   const handleRetryRecommendations = () => {
     setRecommendationReloadToken((previous) => previous + 1);
-  };
-
-  const handleReplan = async () => {
-    if (!trip?.id) {
-      return;
-    }
-
-    const trimmedPlace = disruptionDraft.placeName.trim();
-    if (
-      disruptionDraft.type !== "weather_change" &&
-      disruptionDraft.type !== "traffic_delay" &&
-      !trimmedPlace
-    ) {
-      toast.error("Select a place name for this disruption type.");
-      return;
-    }
-
-    setReplanLoading(true);
-
-    try {
-      const payload = [
-        {
-          type: disruptionDraft.type,
-          dayNumber: Number.parseInt(disruptionDraft.dayNumber, 10) || 1,
-          placeName: trimmedPlace,
-        },
-      ];
-      const response = await replanTrip(trip.id, payload);
-      setTrip(response.trip ?? trip);
-      setTripReloadToken((previous) => previous + 1);
-      setRecommendationReloadToken((previous) => previous + 1);
-      toast.success("Trip replanned with the selected disruption.");
-    } catch (error) {
-      console.error("[view-trip] Failed to replan trip", {
-        tripId: trip?.id,
-        message: error?.message,
-      });
-      toast.error(error?.message ?? "Unable to replan this trip right now.");
-    } finally {
-      setReplanLoading(false);
-    }
   };
 
   if (authLoading) {
@@ -272,104 +265,22 @@ function Viewtrip() {
     <section className="voy-view-shell">
       <div className="voy-view-content">
         <InfoSection trip={trip} />
-        <section className="mt-10 rounded-2xl border border-[var(--voy-border)] bg-[var(--voy-surface)] p-6 shadow-md">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <h3 className="text-xl font-semibold text-[var(--voy-text)]">
-                Dynamic Replanning Simulator
-              </h3>
-              <p className="mt-1 text-sm text-[var(--voy-text-muted)]">
-                Simulate a disruption and instantly regenerate a minimally changed itinerary.
-              </p>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <div>
-                <label className="text-xs uppercase tracking-[0.14em] text-[var(--voy-text-faint)]">
-                  Disruption Type
-                </label>
-                <select
-                  className="voy-create-field mt-1 w-full"
-                  value={disruptionDraft.type}
-                  onChange={(event) =>
-                    setDisruptionDraft((previous) => ({
-                      ...previous,
-                      type: event.target.value,
-                    }))
-                  }
-                >
-                  <option value="traffic_delay">Traffic delay</option>
-                  <option value="poi_closed">POI closed</option>
-                  <option value="weather_change">Weather change</option>
-                  <option value="user_skip">User skip</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs uppercase tracking-[0.14em] text-[var(--voy-text-faint)]">
-                  Day Number
-                </label>
-                <input
-                  className="voy-create-field mt-1 w-full"
-                  type="number"
-                  min={1}
-                  max={trip?.userSelection?.days ?? 30}
-                  value={disruptionDraft.dayNumber}
-                  onChange={(event) =>
-                    setDisruptionDraft((previous) => ({
-                      ...previous,
-                      dayNumber: event.target.value,
-                    }))
-                  }
-                />
-              </div>
-
-              <div className="sm:col-span-2">
-                <label className="text-xs uppercase tracking-[0.14em] text-[var(--voy-text-faint)]">
-                  Place Name (optional for weather)
-                </label>
-                <input
-                  className="voy-create-field mt-1 w-full"
-                  placeholder="Ex. Louvre Museum"
-                  value={disruptionDraft.placeName}
-                  onChange={(event) =>
-                    setDisruptionDraft((previous) => ({
-                      ...previous,
-                      placeName: event.target.value,
-                    }))
-                  }
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-4 flex justify-end">
-            <Button
-              className="voy-create-primary"
-              onClick={handleReplan}
-              disabled={replanLoading}
-            >
-              {replanLoading ? "Replanning..." : "Apply Disruption & Replan"}
-            </Button>
-          </div>
-        </section>
-        <CityItineraryMapSection
-          trip={trip}
-          reloadToken={tripReloadToken}
-        />
         <Hotels
           trip={trip}
-          hotels={recommendations.hotels}
-          isLoading={recommendations.loading}
-          errorMessage={recommendations.errorMessage}
-          note={recommendations.warning}
+          hotels={hotelsToDisplay}
+          isLoading={recommendations.loading && hotelsToDisplay.length === 0}
+          errorMessage={hotelSectionError}
+          note={hotelNote}
           onRetry={handleRetryRecommendations}
         />
         <Restaurants
           trip={trip}
           restaurants={recommendations.restaurants}
-          isLoading={recommendations.loading}
-          errorMessage={recommendations.errorMessage}
-          note={recommendations.warning}
+          isLoading={
+            recommendations.loading && recommendations.restaurants.length === 0
+          }
+          errorMessage={restaurantSectionError}
+          note={restaurantNote}
           onRetry={handleRetryRecommendations}
         />
         <PlacesToVisit trip={trip} />
