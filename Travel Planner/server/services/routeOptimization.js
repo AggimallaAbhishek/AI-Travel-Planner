@@ -395,14 +395,14 @@ function buildRouteCacheKey({
   return JSON.stringify({
     version: ROUTE_CACHE_SCHEMA_VERSION,
     tripId: normalizeText(trip?.id),
-      destination: normalizeText(trip?.userSelection?.location?.label),
-      optimizeFor,
-      objective,
-      constraints: normalizeTripConstraints(constraints),
-      alternativesCount: normalizeAlternativesCount(alternativesCount),
-      dayNumber,
-      daySnapshot,
-    });
+    destination: normalizeText(trip?.userSelection?.location?.label),
+    optimizeFor,
+    objective,
+    constraints: normalizeTripConstraints(constraints),
+    alternativesCount: normalizeAlternativesCount(alternativesCount),
+    dayNumber,
+    daySnapshot,
+  });
 }
 
 function createWeightMatrix(routeMatrix = [], weightKey = "durationSeconds") {
@@ -1637,9 +1637,18 @@ export function createTripRouteService({
     });
 
     for (const day of scopedDays) {
-      let dayStops = createRawDayStops(day, destination, maxStopsPerDay);
-      let truncatedStops =
-        Array.isArray(day?.places) && day.places.length > dayStops.length;
+      const aiPlanDay = findAiPlanDayByNumber(trip, day.dayNumber);
+      let dayStops = createRawDayStops({
+        day,
+        aiPlanDay,
+        destination,
+        maxStopsPerDay,
+      });
+      const itineraryStopCount = Array.isArray(day?.places) ? day.places.length : 0;
+      const aiActivityCount = Array.isArray(aiPlanDay?.activities)
+        ? aiPlanDay.activities.filter((activity) => normalizeText(activity)).length
+        : 0;
+      let truncatedStops = Math.max(itineraryStopCount, aiActivityCount) > dayStops.length;
 
       if (dayStops.length < 2) {
         const fallbackStops = await fetchFallbackStopsForDay({
@@ -1674,6 +1683,7 @@ export function createTripRouteService({
           inputStopCount: dayStops.length,
           resolvedStopCount: dayStops.length,
           orderedStops: dayStops,
+          markers: buildMarkersFromOrderedStops(dayStops),
           segments: [],
           alternatives: [],
           totalDistanceMeters: 0,
@@ -1761,6 +1771,7 @@ export function createTripRouteService({
           inputStopCount: dayStops.length,
           resolvedStopCount: resolvedStops.length,
           orderedStops: resolvedStops,
+          markers: buildMarkersFromOrderedStops(resolvedStops),
           segments: [],
           alternatives: [],
           totalDistanceMeters: 0,
@@ -1813,7 +1824,10 @@ export function createTripRouteService({
           };
 
           try {
-            optimizerResult = await pythonRouteOptimizer(optimizerInput);
+            optimizerResult =
+              typeof pythonRouteOptimizer === "function"
+                ? await pythonRouteOptimizer(optimizerInput)
+                : null;
           } catch (error) {
             console.warn("[routes] Python route optimizer failed, using JS fallback", {
               message: error instanceof Error ? error.message : String(error),
@@ -1984,6 +1998,7 @@ export function createTripRouteService({
         inputStopCount: dayStops.length,
         resolvedStopCount: resolvedStops.length,
         orderedStops: selectedAlternative.orderedStops,
+        markers: buildMarkersFromOrderedStops(selectedAlternative.orderedStops),
         segments: selectedAlternative.segments,
         alternatives: scoredAlternatives
           .slice(0, normalizedAlternativesCount)
@@ -2042,6 +2057,9 @@ export function createTripRouteService({
       });
     }
 
+    const selectedDay =
+      routeDays.find((dayRoute) => dayRoute.status === "ready") ?? routeDays[0] ?? null;
+
     const result = {
       tripId: normalizeText(trip?.id),
       destination,
@@ -2071,10 +2089,10 @@ export function createTripRouteService({
       },
       dayCount: routeDays.length,
       days: routeDays,
+      selectedDayDefault: selectedDay?.dayNumber ?? null,
       generatedAt: new Date().toISOString(),
       cityBounds,
-      mapPolyline:
-        routeDays.find((dayRoute) => dayRoute.polyline)?.polyline ?? "",
+      mapPolyline: normalizeText(selectedDay?.polyline),
     };
 
     await localCacheStore.set(cacheKey, result, {

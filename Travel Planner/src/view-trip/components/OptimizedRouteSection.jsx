@@ -1,5 +1,12 @@
 import React from "react";
-import { FaClock, FaMapMarkedAlt, FaRoute, FaRoad } from "react-icons/fa";
+import {
+  FaClock,
+  FaCoins,
+  FaMapMarkedAlt,
+  FaRoute,
+  FaRoad,
+  FaStar,
+} from "react-icons/fa";
 import { Button } from "@/components/ui/button";
 import { decodeGooglePolyline, normalizeGeoCoordinates } from "@/lib/maps";
 
@@ -34,6 +41,20 @@ function formatDistance(distanceMeters) {
 
   return `${(distanceMeters / 1000).toFixed(1)} km`;
 }
+
+function formatCost(value) {
+  if (!Number.isFinite(value) || value <= 0) {
+    return "Cost unavailable";
+  }
+
+  return `~₹${Math.round(value).toLocaleString()}`;
+}
+
+const OBJECTIVE_OPTIONS = [
+  { value: "fastest", label: "Fastest" },
+  { value: "cheapest", label: "Cheapest" },
+  { value: "best_experience", label: "Best Experience" },
+];
 
 function getPreviewCoordinates(dayRoute) {
   const decodedPolyline = decodeGooglePolyline(dayRoute?.polyline);
