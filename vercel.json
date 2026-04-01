@@ -2,8 +2,9 @@
   "installCommand": "npm install --prefix \"Travel Planner\"",
   "buildCommand": "npm run build --prefix \"Travel Planner\"",
   "outputDirectory": "Travel Planner/dist",
-  "routes": [
-    { "handle": "filesystem" },
-    { "src": "/(.*)", "dest": "/index.html" }
+  "rewrites": [
+    { "source": "/api", "destination": "/api/[...all]" },
+    { "source": "/api/:path*", "destination": "/api/[...all]" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

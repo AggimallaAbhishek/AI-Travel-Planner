@@ -29,11 +29,12 @@ test("deployment config keeps a single root Vercel configuration", () => {
     'npm run build --prefix "Travel Planner"'
   );
   assert.equal(rootVercelConfig.outputDirectory, "Travel Planner/dist");
-  assert.deepEqual(rootVercelConfig.routes, [
-    { handle: "filesystem" },
-    { src: "/(.*)", dest: "/index.html" },
+  assert.deepEqual(rootVercelConfig.rewrites, [
+    { source: "/api", destination: "/api/[...all]" },
+    { source: "/api/:path*", destination: "/api/[...all]" },
+    { source: "/(.*)", destination: "/index.html" },
   ]);
-  assert.equal("rewrites" in rootVercelConfig, false);
+  assert.equal("routes" in rootVercelConfig, false);
 });
 
 test(".env.example keeps production API base URL blank for same-origin deploys", () => {
