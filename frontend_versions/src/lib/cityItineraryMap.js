@@ -1,9 +1,9 @@
 import { normalizeGeoCoordinates } from "./maps.js";
 
 export const CITY_ITINERARY_MAP_CANVAS = {
-  width: 1120,
-  height: 720,
-  inset: 56,
+  width: 1440,
+  height: 640,
+  inset: 64,
 };
 
 function toFiniteNumber(value, fallback = null) {
@@ -140,6 +140,46 @@ function getPointDistance(firstPoint, secondPoint) {
   return Math.hypot(firstPoint.x - secondPoint.x, firstPoint.y - secondPoint.y);
 }
 
+export function calculateGreatCircleDistanceMeters(firstCoordinates = {}, secondCoordinates = {}) {
+  const firstPoint = normalizeGeoCoordinates(firstCoordinates);
+  const secondPoint = normalizeGeoCoordinates(secondCoordinates);
+
+  if (
+    firstPoint.latitude === null ||
+    firstPoint.longitude === null ||
+    secondPoint.latitude === null ||
+    secondPoint.longitude === null
+  ) {
+    return null;
+  }
+
+  const toRadians = (value) => (value * Math.PI) / 180;
+  const earthRadiusMeters = 6_371_000;
+  const latitudeDelta = toRadians(secondPoint.latitude - firstPoint.latitude);
+  const longitudeDelta = toRadians(secondPoint.longitude - firstPoint.longitude);
+  const startLatitude = toRadians(firstPoint.latitude);
+  const endLatitude = toRadians(secondPoint.latitude);
+  const haversine =
+    Math.sin(latitudeDelta / 2) ** 2 +
+    Math.cos(startLatitude) *
+      Math.cos(endLatitude) *
+      Math.sin(longitudeDelta / 2) ** 2;
+
+  return 2 * earthRadiusMeters * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+}
+
+export function formatCityMapDistance(distanceMeters) {
+  if (!Number.isFinite(distanceMeters) || distanceMeters <= 0) {
+    return "—";
+  }
+
+  if (distanceMeters < 950) {
+    return `${Math.max(50, Math.round(distanceMeters / 50) * 50)} m`;
+  }
+
+  return `${(distanceMeters / 1000).toFixed(distanceMeters < 10_000 ? 1 : 0)} km`;
+}
+
 const LAYOUT_DIRECTIONS = [
   { x: 0, y: 0 },
   { x: 1, y: 0 },
@@ -224,4 +264,27 @@ export function createCityMapMarkerLayout(
     placedMarkers.push(laidOutMarker);
     return laidOutMarker;
   });
+}
+
+export function buildCityMapDistanceMatrix(places = []) {
+  return places.map((originPlace) =>
+    places.map((destinationPlace) => {
+      if (originPlace.id === destinationPlace.id) {
+        return {
+          meters: null,
+          label: "—",
+        };
+      }
+
+      const meters = calculateGreatCircleDistanceMeters(
+        originPlace.coordinates ?? originPlace.geoCoordinates,
+        destinationPlace.coordinates ?? destinationPlace.geoCoordinates
+      );
+
+      return {
+        meters,
+        label: formatCityMapDistance(meters),
+      };
+    })
+  );
 }

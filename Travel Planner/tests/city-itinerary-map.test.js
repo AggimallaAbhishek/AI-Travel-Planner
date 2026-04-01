@@ -1,12 +1,20 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  buildCityMapDistanceMatrix,
+  calculateGreatCircleDistanceMeters,
   CITY_ITINERARY_MAP_CANVAS,
   createCityMapMarkerLayout,
   deriveCityMapBoundsFromPlaces,
+  formatCityMapDistance,
   projectCityMapPoint,
   resolveCityMapBounds,
 } from "../src/lib/cityItineraryMap.js";
+
+test("city itinerary map canvas uses a landscape aspect ratio", () => {
+  assert.ok(CITY_ITINERARY_MAP_CANVAS.width > CITY_ITINERARY_MAP_CANVAS.height);
+  assert.ok(CITY_ITINERARY_MAP_CANVAS.inset > 0);
+});
 
 test("resolveCityMapBounds prefers persisted city bounds when available", () => {
   const bounds = resolveCityMapBounds({
@@ -109,4 +117,43 @@ test("createCityMapMarkerLayout deterministically spreads overlapping itinerary 
       assert.ok(distance >= 19.5);
     }
   }
+});
+
+test("calculateGreatCircleDistanceMeters returns approximate geographic distance", () => {
+  const distanceMeters = calculateGreatCircleDistanceMeters(
+    { latitude: 35.6895, longitude: 139.6917 },
+    { latitude: 35.6762, longitude: 139.6503 }
+  );
+
+  assert.ok(distanceMeters > 3_000);
+  assert.ok(distanceMeters < 5_500);
+});
+
+test("formatCityMapDistance formats meters and kilometers safely", () => {
+  assert.equal(formatCityMapDistance(null), "—");
+  assert.equal(formatCityMapDistance(320), "300 m");
+  assert.equal(formatCityMapDistance(3_450), "3.5 km");
+});
+
+test("buildCityMapDistanceMatrix returns diagonal blanks and pairwise labels", () => {
+  const places = [
+    {
+      id: "a",
+      coordinates: { latitude: 35.6895, longitude: 139.6917 },
+    },
+    {
+      id: "b",
+      coordinates: { latitude: 35.6762, longitude: 139.6503 },
+    },
+  ];
+
+  const matrix = buildCityMapDistanceMatrix(places);
+
+  assert.equal(matrix.length, 2);
+  assert.equal(matrix[0].length, 2);
+  assert.equal(matrix[0][0].label, "—");
+  assert.equal(matrix[1][1].label, "—");
+  assert.ok(Number.isFinite(matrix[0][1].meters));
+  assert.equal(matrix[0][1].label.endsWith("km"), true);
+  assert.equal(matrix[0][1].label, matrix[1][0].label);
 });
