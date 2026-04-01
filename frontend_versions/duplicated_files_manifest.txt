@@ -91,6 +91,7 @@ frontend_versions/src/lib/api.js
 frontend_versions/src/lib/authRedirect.js
 frontend_versions/src/lib/destinationAutocomplete.js
 frontend_versions/src/lib/destinationImages.js
+frontend_versions/src/lib/googleMaps.js
 frontend_versions/src/lib/imageManifest.js
 frontend_versions/src/lib/maps.js
 frontend_versions/src/lib/staticPageContent.js
@@ -134,6 +135,7 @@ frontend_versions/src/view-trip/components/PlacesToVisit.jsx
 frontend_versions/src/view-trip/components/RecommendationCardItem.jsx
 frontend_versions/src/view-trip/components/RecommendationGridSection.jsx
 frontend_versions/src/view-trip/components/Restaurants.jsx
+frontend_versions/src/view-trip/components/TripDayMap.jsx
 frontend_versions/src/view-trip/index.jsx
 frontend_versions/tailwind.config.js
 frontend_versions/vite.config.js
