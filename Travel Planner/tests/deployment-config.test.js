@@ -13,12 +13,17 @@ test("deployment config keeps a single root Vercel configuration", () => {
   const rootVercelConfigPath = path.join(repoRoot, "vercel.json");
   const legacyNestedVercelConfigPath = path.join(appRoot, "vercel.json");
   const rootApiHandlerPath = path.join(repoRoot, "api", "[...all].js");
+  const rootPackageJsonPath = path.join(repoRoot, "package.json");
   const rootVercelConfig = JSON.parse(
     fs.readFileSync(rootVercelConfigPath, "utf8")
+  );
+  const rootPackageJson = JSON.parse(
+    fs.readFileSync(rootPackageJsonPath, "utf8")
   );
 
   assert.equal(fs.existsSync(rootVercelConfigPath), true);
   assert.equal(fs.existsSync(rootApiHandlerPath), true);
+  assert.equal(fs.existsSync(rootPackageJsonPath), true);
   assert.equal(fs.existsSync(legacyNestedVercelConfigPath), false);
   assert.equal(
     rootVercelConfig.installCommand,
@@ -35,6 +40,8 @@ test("deployment config keeps a single root Vercel configuration", () => {
     { source: "/(.*)", destination: "/index.html" },
   ]);
   assert.equal("routes" in rootVercelConfig, false);
+  assert.equal(rootPackageJson.type, "module");
+  assert.equal(rootPackageJson.engines?.node, "22.x");
 });
 
 test(".env.example keeps production API base URL blank for same-origin deploys", () => {
