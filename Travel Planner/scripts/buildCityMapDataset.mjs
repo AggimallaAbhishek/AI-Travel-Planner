@@ -15,12 +15,13 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const DEFAULT_CITY_MAP_OUT_DIR = path.resolve(__dirname, "../data/city-maps");
 export const CITY_MAP_DATASET_VERSION = `${WORLD_POI_DATASET_VERSION}-city-maps-v1`;
 const DEFAULT_SIZE_BUDGET_BYTES = 4_500_000;
-const DEFAULT_TIMEOUT_MS = 35_000;
+const DEFAULT_TIMEOUT_MS = 8_000;
+const DEFAULT_NOMINATIM_TIMEOUT_MS = 20_000;
 const DEFAULT_ENDPOINTS = [
   "https://overpass-api.de/api/interpreter",
   "https://overpass.private.coffee/api/interpreter",
-  "https://overpass.kumi.systems/api/interpreter",
 ];
+const NOMINATIM_ENDPOINT = "https://nominatim.openstreetmap.org/search";
 
 function normalizeText(value, fallback = "") {
   if (typeof value !== "string") {
@@ -61,6 +62,11 @@ function buildDestinationLabel(record = {}) {
     [record.locality, record.countryName].filter(Boolean).join(", "),
     record.destination ?? record.locality
   );
+}
+
+function parseCoordinate(value) {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function normalizeDestinationRecords(items = WORLD_POI_SEED_DATA) {
@@ -106,8 +112,6 @@ async function fetchBestRemoteBasemap({
   timeoutMs = DEFAULT_TIMEOUT_MS,
 } = {}) {
   let lastBasemap = null;
-  let bestBasemap = null;
-  let bestScore = -1;
 
   for (const endpoint of endpoints) {
     const basemap = await fetchRemoteCityBasemap({
@@ -124,20 +128,146 @@ async function fetchBestRemoteBasemap({
         (basemap.water?.length ?? 0) +
         (basemap.parks?.length ?? 0) >
       0;
-    const hasBoundary = basemap.outline?.source === "administrative_boundary";
-    const score = (hasBoundary ? 2 : 0) + (hasFeatures ? 1 : 0);
 
-    if (score > bestScore) {
-      bestBasemap = basemap;
-      bestScore = score;
-    }
-
-    if (hasBoundary && hasFeatures) {
+    if (hasFeatures) {
       return basemap;
     }
   }
 
-  return bestBasemap ?? lastBasemap;
+  return lastBasemap;
+}
+
+function buildTimedFetchOptions(options = {}, timeoutMs = DEFAULT_NOMINATIM_TIMEOUT_MS) {
+  return {
+    ...options,
+    ...(typeof AbortSignal !== "undefined" &&
+    typeof AbortSignal.timeout === "function"
+      ? { signal: AbortSignal.timeout(timeoutMs) }
+      : {}),
+  };
+}
+
+function normalizeOutlinePolygon(points = []) {
+  const normalizedPoints = (Array.isArray(points) ? points : [])
+    .map((point) => ({
+      latitude: parseCoordinate(point?.[1]),
+      longitude: parseCoordinate(point?.[0]),
+    }))
+    .filter(
+      (point) => point.latitude !== null && point.longitude !== null
+    );
+
+  if (normalizedPoints.length < 3) {
+    return [];
+  }
+
+  const firstPoint = normalizedPoints[0];
+  const lastPoint = normalizedPoints.at(-1);
+  if (
+    firstPoint.latitude !== lastPoint.latitude ||
+    firstPoint.longitude !== lastPoint.longitude
+  ) {
+    normalizedPoints.push(firstPoint);
+  }
+
+  return normalizedPoints;
+}
+
+function normalizeNominatimOutline(geojson = null) {
+  if (!geojson || typeof geojson !== "object") {
+    return [];
+  }
+
+  if (geojson.type === "Polygon") {
+    return geojson.coordinates
+      .map((ring) => normalizeOutlinePolygon(ring))
+      .filter((polygon) => polygon.length >= 4);
+  }
+
+  if (geojson.type === "MultiPolygon") {
+    return geojson.coordinates
+      .flatMap((polygon) =>
+        polygon
+          .map((ring) => normalizeOutlinePolygon(ring))
+          .filter((ring) => ring.length >= 4)
+      )
+      .filter((polygon) => polygon.length >= 4);
+  }
+
+  return [];
+}
+
+async function fetchNominatimOutline({
+  destinationLabel,
+  fetchImpl = fetch,
+  timeoutMs = DEFAULT_NOMINATIM_TIMEOUT_MS,
+} = {}) {
+  const url = new URL(NOMINATIM_ENDPOINT);
+  url.searchParams.set("q", destinationLabel);
+  url.searchParams.set("format", "jsonv2");
+  url.searchParams.set("limit", "5");
+  url.searchParams.set("polygon_geojson", "1");
+
+  const response = await fetchImpl(
+    url,
+    buildTimedFetchOptions(
+      {
+        headers: {
+          Accept: "application/json",
+          "User-Agent":
+            process.env.OSM_USER_AGENT ??
+            "AI-Travel-Planner/1.0 (city map dataset build)",
+        },
+      },
+      timeoutMs
+    )
+  );
+
+  if (!response.ok) {
+    throw new Error(`Nominatim HTTP ${response.status}`);
+  }
+
+  const payload = await response.json();
+  const results = Array.isArray(payload) ? payload : [];
+  const match = results
+    .map((result) => {
+      const polygons = normalizeNominatimOutline(result?.geojson);
+      if (polygons.length === 0) {
+        return null;
+      }
+
+      const boundingBox = Array.isArray(result?.boundingbox)
+        ? {
+            south: parseCoordinate(result.boundingbox[0]),
+            north: parseCoordinate(result.boundingbox[1]),
+            west: parseCoordinate(result.boundingbox[2]),
+            east: parseCoordinate(result.boundingbox[3]),
+          }
+        : null;
+
+      return {
+        name: normalizeText(result?.display_name, destinationLabel),
+        polygons,
+        cityBounds:
+          boundingBox &&
+          boundingBox.north !== null &&
+          boundingBox.south !== null &&
+          boundingBox.east !== null &&
+          boundingBox.west !== null
+            ? boundingBox
+            : null,
+      };
+    })
+    .filter(Boolean)[0];
+
+  return match
+    ? {
+        source: "administrative_boundary",
+        name: match.name,
+        polygons: match.polygons,
+        cityBounds: match.cityBounds,
+      }
+    : null;
 }
 
 export function buildCityMapArtifactPayload(artifacts = []) {
@@ -222,6 +352,7 @@ export async function buildCityMapArtifacts({
   fetchImpl = fetch,
   endpoints = DEFAULT_ENDPOINTS,
   timeoutMs = DEFAULT_TIMEOUT_MS,
+  includeBasemapFeatures = process.env.CITY_MAP_FETCH_FEATURES === "1",
 } = {}) {
   const groupedDestinations = groupDestinationRecords(normalizeDestinationRecords(items));
   const artifactsDir = path.join(outDir, "artifacts");
@@ -239,12 +370,35 @@ export async function buildCityMapArtifacts({
       artifactFile,
     });
 
-    const basemap = await fetchBestRemoteBasemap({
+    const basemap = includeBasemapFeatures
+      ? await fetchBestRemoteBasemap({
+          destinationLabel: destinationGroup.destinationLabel,
+          cityBounds,
+          endpoints,
+          fetchImpl,
+          timeoutMs,
+        })
+      : {
+          source: "prebuilt_city_map",
+          mapSource: "prebuilt_city_map",
+          destination: destinationGroup.destinationLabel,
+          cityBounds,
+          generatedAt: new Date().toISOString(),
+          outline: null,
+          roads: [],
+          water: [],
+          parks: [],
+          reason: "outline_only_prebuild",
+        };
+    const nominatimOutline = await fetchNominatimOutline({
       destinationLabel: destinationGroup.destinationLabel,
-      cityBounds,
-      endpoints,
       fetchImpl,
-      timeoutMs,
+    }).catch((error) => {
+      console.warn("[city-map-data] Nominatim outline lookup failed", {
+        destination: destinationGroup.destinationLabel,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return null;
     });
 
     const artifact = {
@@ -257,6 +411,14 @@ export async function buildCityMapArtifacts({
         ...basemap,
         source: "prebuilt_city_map",
         mapSource: "prebuilt_city_map",
+        cityBounds: nominatimOutline?.cityBounds ?? basemap.cityBounds,
+        outline: nominatimOutline
+          ? {
+              source: nominatimOutline.source,
+              name: nominatimOutline.name,
+              polygons: nominatimOutline.polygons,
+            }
+          : basemap.outline,
       },
     };
 

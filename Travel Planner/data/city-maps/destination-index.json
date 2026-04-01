@@ -1,0 +1,619 @@
+{
+  "bali__indonesia": [
+    {
+      "destinationKey": "bali__id",
+      "artifactFile": "artifacts/001-bali-id.json.gz",
+      "locality": "Bali",
+      "countryCode": "ID",
+      "countryName": "Indonesia"
+    }
+  ],
+  "bali": [
+    {
+      "destinationKey": "bali__id",
+      "artifactFile": "artifacts/001-bali-id.json.gz",
+      "locality": "Bali",
+      "countryCode": "ID",
+      "countryName": "Indonesia"
+    }
+  ],
+  "indonesia": [
+    {
+      "destinationKey": "bali__id",
+      "artifactFile": "artifacts/001-bali-id.json.gz",
+      "locality": "Bali",
+      "countryCode": "ID",
+      "countryName": "Indonesia"
+    }
+  ],
+  "bali__id": [
+    {
+      "destinationKey": "bali__id",
+      "artifactFile": "artifacts/001-bali-id.json.gz",
+      "locality": "Bali",
+      "countryCode": "ID",
+      "countryName": "Indonesia"
+    }
+  ],
+  "id": [
+    {
+      "destinationKey": "bali__id",
+      "artifactFile": "artifacts/001-bali-id.json.gz",
+      "locality": "Bali",
+      "countryCode": "ID",
+      "countryName": "Indonesia"
+    }
+  ],
+  "cairo__egypt": [
+    {
+      "destinationKey": "cairo__eg",
+      "artifactFile": "artifacts/002-cairo-eg.json.gz",
+      "locality": "Cairo",
+      "countryCode": "EG",
+      "countryName": "Egypt"
+    }
+  ],
+  "cairo": [
+    {
+      "destinationKey": "cairo__eg",
+      "artifactFile": "artifacts/002-cairo-eg.json.gz",
+      "locality": "Cairo",
+      "countryCode": "EG",
+      "countryName": "Egypt"
+    }
+  ],
+  "egypt": [
+    {
+      "destinationKey": "cairo__eg",
+      "artifactFile": "artifacts/002-cairo-eg.json.gz",
+      "locality": "Cairo",
+      "countryCode": "EG",
+      "countryName": "Egypt"
+    }
+  ],
+  "cairo__eg": [
+    {
+      "destinationKey": "cairo__eg",
+      "artifactFile": "artifacts/002-cairo-eg.json.gz",
+      "locality": "Cairo",
+      "countryCode": "EG",
+      "countryName": "Egypt"
+    }
+  ],
+  "eg": [
+    {
+      "destinationKey": "cairo__eg",
+      "artifactFile": "artifacts/002-cairo-eg.json.gz",
+      "locality": "Cairo",
+      "countryCode": "EG",
+      "countryName": "Egypt"
+    }
+  ],
+  "dubai__united arab emirates": [
+    {
+      "destinationKey": "dubai__ae",
+      "artifactFile": "artifacts/003-dubai-ae.json.gz",
+      "locality": "Dubai",
+      "countryCode": "AE",
+      "countryName": "United Arab Emirates"
+    }
+  ],
+  "dubai": [
+    {
+      "destinationKey": "dubai__ae",
+      "artifactFile": "artifacts/003-dubai-ae.json.gz",
+      "locality": "Dubai",
+      "countryCode": "AE",
+      "countryName": "United Arab Emirates"
+    }
+  ],
+  "united arab emirates": [
+    {
+      "destinationKey": "dubai__ae",
+      "artifactFile": "artifacts/003-dubai-ae.json.gz",
+      "locality": "Dubai",
+      "countryCode": "AE",
+      "countryName": "United Arab Emirates"
+    }
+  ],
+  "dubai__ae": [
+    {
+      "destinationKey": "dubai__ae",
+      "artifactFile": "artifacts/003-dubai-ae.json.gz",
+      "locality": "Dubai",
+      "countryCode": "AE",
+      "countryName": "United Arab Emirates"
+    }
+  ],
+  "ae": [
+    {
+      "destinationKey": "dubai__ae",
+      "artifactFile": "artifacts/003-dubai-ae.json.gz",
+      "locality": "Dubai",
+      "countryCode": "AE",
+      "countryName": "United Arab Emirates"
+    }
+  ],
+  "jaipur__india": [
+    {
+      "destinationKey": "jaipur__in",
+      "artifactFile": "artifacts/004-jaipur-in.json.gz",
+      "locality": "Jaipur",
+      "countryCode": "IN",
+      "countryName": "India"
+    }
+  ],
+  "jaipur": [
+    {
+      "destinationKey": "jaipur__in",
+      "artifactFile": "artifacts/004-jaipur-in.json.gz",
+      "locality": "Jaipur",
+      "countryCode": "IN",
+      "countryName": "India"
+    }
+  ],
+  "india": [
+    {
+      "destinationKey": "jaipur__in",
+      "artifactFile": "artifacts/004-jaipur-in.json.gz",
+      "locality": "Jaipur",
+      "countryCode": "IN",
+      "countryName": "India"
+    }
+  ],
+  "jaipur__in": [
+    {
+      "destinationKey": "jaipur__in",
+      "artifactFile": "artifacts/004-jaipur-in.json.gz",
+      "locality": "Jaipur",
+      "countryCode": "IN",
+      "countryName": "India"
+    }
+  ],
+  "in": [
+    {
+      "destinationKey": "jaipur__in",
+      "artifactFile": "artifacts/004-jaipur-in.json.gz",
+      "locality": "Jaipur",
+      "countryCode": "IN",
+      "countryName": "India"
+    }
+  ],
+  "kyoto__japan": [
+    {
+      "destinationKey": "kyoto__jp",
+      "artifactFile": "artifacts/005-kyoto-jp.json.gz",
+      "locality": "Kyoto",
+      "countryCode": "JP",
+      "countryName": "Japan"
+    }
+  ],
+  "kyoto": [
+    {
+      "destinationKey": "kyoto__jp",
+      "artifactFile": "artifacts/005-kyoto-jp.json.gz",
+      "locality": "Kyoto",
+      "countryCode": "JP",
+      "countryName": "Japan"
+    }
+  ],
+  "japan": [
+    {
+      "destinationKey": "kyoto__jp",
+      "artifactFile": "artifacts/005-kyoto-jp.json.gz",
+      "locality": "Kyoto",
+      "countryCode": "JP",
+      "countryName": "Japan"
+    },
+    {
+      "destinationKey": "tokyo__jp",
+      "artifactFile": "artifacts/014-tokyo-jp.json.gz",
+      "locality": "Tokyo",
+      "countryCode": "JP",
+      "countryName": "Japan"
+    }
+  ],
+  "kyoto__jp": [
+    {
+      "destinationKey": "kyoto__jp",
+      "artifactFile": "artifacts/005-kyoto-jp.json.gz",
+      "locality": "Kyoto",
+      "countryCode": "JP",
+      "countryName": "Japan"
+    }
+  ],
+  "jp": [
+    {
+      "destinationKey": "kyoto__jp",
+      "artifactFile": "artifacts/005-kyoto-jp.json.gz",
+      "locality": "Kyoto",
+      "countryCode": "JP",
+      "countryName": "Japan"
+    },
+    {
+      "destinationKey": "tokyo__jp",
+      "artifactFile": "artifacts/014-tokyo-jp.json.gz",
+      "locality": "Tokyo",
+      "countryCode": "JP",
+      "countryName": "Japan"
+    }
+  ],
+  "london__united kingdom": [
+    {
+      "destinationKey": "london__gb",
+      "artifactFile": "artifacts/006-london-gb.json.gz",
+      "locality": "London",
+      "countryCode": "GB",
+      "countryName": "United Kingdom"
+    }
+  ],
+  "london": [
+    {
+      "destinationKey": "london__gb",
+      "artifactFile": "artifacts/006-london-gb.json.gz",
+      "locality": "London",
+      "countryCode": "GB",
+      "countryName": "United Kingdom"
+    }
+  ],
+  "united kingdom": [
+    {
+      "destinationKey": "london__gb",
+      "artifactFile": "artifacts/006-london-gb.json.gz",
+      "locality": "London",
+      "countryCode": "GB",
+      "countryName": "United Kingdom"
+    }
+  ],
+  "london__gb": [
+    {
+      "destinationKey": "london__gb",
+      "artifactFile": "artifacts/006-london-gb.json.gz",
+      "locality": "London",
+      "countryCode": "GB",
+      "countryName": "United Kingdom"
+    }
+  ],
+  "gb": [
+    {
+      "destinationKey": "london__gb",
+      "artifactFile": "artifacts/006-london-gb.json.gz",
+      "locality": "London",
+      "countryCode": "GB",
+      "countryName": "United Kingdom"
+    }
+  ],
+  "new york city__united states": [
+    {
+      "destinationKey": "new york city__us",
+      "artifactFile": "artifacts/007-new-york-city-us.json.gz",
+      "locality": "New York City",
+      "countryCode": "US",
+      "countryName": "United States"
+    }
+  ],
+  "new york city": [
+    {
+      "destinationKey": "new york city__us",
+      "artifactFile": "artifacts/007-new-york-city-us.json.gz",
+      "locality": "New York City",
+      "countryCode": "US",
+      "countryName": "United States"
+    }
+  ],
+  "united states": [
+    {
+      "destinationKey": "new york city__us",
+      "artifactFile": "artifacts/007-new-york-city-us.json.gz",
+      "locality": "New York City",
+      "countryCode": "US",
+      "countryName": "United States"
+    }
+  ],
+  "new york city__us": [
+    {
+      "destinationKey": "new york city__us",
+      "artifactFile": "artifacts/007-new-york-city-us.json.gz",
+      "locality": "New York City",
+      "countryCode": "US",
+      "countryName": "United States"
+    }
+  ],
+  "us": [
+    {
+      "destinationKey": "new york city__us",
+      "artifactFile": "artifacts/007-new-york-city-us.json.gz",
+      "locality": "New York City",
+      "countryCode": "US",
+      "countryName": "United States"
+    }
+  ],
+  "paris__france": [
+    {
+      "destinationKey": "paris__fr",
+      "artifactFile": "artifacts/008-paris-fr.json.gz",
+      "locality": "Paris",
+      "countryCode": "FR",
+      "countryName": "France"
+    }
+  ],
+  "paris": [
+    {
+      "destinationKey": "paris__fr",
+      "artifactFile": "artifacts/008-paris-fr.json.gz",
+      "locality": "Paris",
+      "countryCode": "FR",
+      "countryName": "France"
+    }
+  ],
+  "france": [
+    {
+      "destinationKey": "paris__fr",
+      "artifactFile": "artifacts/008-paris-fr.json.gz",
+      "locality": "Paris",
+      "countryCode": "FR",
+      "countryName": "France"
+    }
+  ],
+  "paris__fr": [
+    {
+      "destinationKey": "paris__fr",
+      "artifactFile": "artifacts/008-paris-fr.json.gz",
+      "locality": "Paris",
+      "countryCode": "FR",
+      "countryName": "France"
+    }
+  ],
+  "fr": [
+    {
+      "destinationKey": "paris__fr",
+      "artifactFile": "artifacts/008-paris-fr.json.gz",
+      "locality": "Paris",
+      "countryCode": "FR",
+      "countryName": "France"
+    }
+  ],
+  "petra__jordan": [
+    {
+      "destinationKey": "petra__jo",
+      "artifactFile": "artifacts/009-petra-jo.json.gz",
+      "locality": "Petra",
+      "countryCode": "JO",
+      "countryName": "Jordan"
+    }
+  ],
+  "petra": [
+    {
+      "destinationKey": "petra__jo",
+      "artifactFile": "artifacts/009-petra-jo.json.gz",
+      "locality": "Petra",
+      "countryCode": "JO",
+      "countryName": "Jordan"
+    }
+  ],
+  "jordan": [
+    {
+      "destinationKey": "petra__jo",
+      "artifactFile": "artifacts/009-petra-jo.json.gz",
+      "locality": "Petra",
+      "countryCode": "JO",
+      "countryName": "Jordan"
+    }
+  ],
+  "petra__jo": [
+    {
+      "destinationKey": "petra__jo",
+      "artifactFile": "artifacts/009-petra-jo.json.gz",
+      "locality": "Petra",
+      "countryCode": "JO",
+      "countryName": "Jordan"
+    }
+  ],
+  "jo": [
+    {
+      "destinationKey": "petra__jo",
+      "artifactFile": "artifacts/009-petra-jo.json.gz",
+      "locality": "Petra",
+      "countryCode": "JO",
+      "countryName": "Jordan"
+    }
+  ],
+  "rio de janeiro__brazil": [
+    {
+      "destinationKey": "rio de janeiro__br",
+      "artifactFile": "artifacts/010-rio-de-janeiro-br.json.gz",
+      "locality": "Rio de Janeiro",
+      "countryCode": "BR",
+      "countryName": "Brazil"
+    }
+  ],
+  "rio de janeiro": [
+    {
+      "destinationKey": "rio de janeiro__br",
+      "artifactFile": "artifacts/010-rio-de-janeiro-br.json.gz",
+      "locality": "Rio de Janeiro",
+      "countryCode": "BR",
+      "countryName": "Brazil"
+    }
+  ],
+  "brazil": [
+    {
+      "destinationKey": "rio de janeiro__br",
+      "artifactFile": "artifacts/010-rio-de-janeiro-br.json.gz",
+      "locality": "Rio de Janeiro",
+      "countryCode": "BR",
+      "countryName": "Brazil"
+    }
+  ],
+  "rio de janeiro__br": [
+    {
+      "destinationKey": "rio de janeiro__br",
+      "artifactFile": "artifacts/010-rio-de-janeiro-br.json.gz",
+      "locality": "Rio de Janeiro",
+      "countryCode": "BR",
+      "countryName": "Brazil"
+    }
+  ],
+  "br": [
+    {
+      "destinationKey": "rio de janeiro__br",
+      "artifactFile": "artifacts/010-rio-de-janeiro-br.json.gz",
+      "locality": "Rio de Janeiro",
+      "countryCode": "BR",
+      "countryName": "Brazil"
+    }
+  ],
+  "rome__italy": [
+    {
+      "destinationKey": "rome__it",
+      "artifactFile": "artifacts/011-rome-it.json.gz",
+      "locality": "Rome",
+      "countryCode": "IT",
+      "countryName": "Italy"
+    }
+  ],
+  "rome": [
+    {
+      "destinationKey": "rome__it",
+      "artifactFile": "artifacts/011-rome-it.json.gz",
+      "locality": "Rome",
+      "countryCode": "IT",
+      "countryName": "Italy"
+    }
+  ],
+  "italy": [
+    {
+      "destinationKey": "rome__it",
+      "artifactFile": "artifacts/011-rome-it.json.gz",
+      "locality": "Rome",
+      "countryCode": "IT",
+      "countryName": "Italy"
+    }
+  ],
+  "rome__it": [
+    {
+      "destinationKey": "rome__it",
+      "artifactFile": "artifacts/011-rome-it.json.gz",
+      "locality": "Rome",
+      "countryCode": "IT",
+      "countryName": "Italy"
+    }
+  ],
+  "it": [
+    {
+      "destinationKey": "rome__it",
+      "artifactFile": "artifacts/011-rome-it.json.gz",
+      "locality": "Rome",
+      "countryCode": "IT",
+      "countryName": "Italy"
+    }
+  ],
+  "singapore__singapore": [
+    {
+      "destinationKey": "singapore__sg",
+      "artifactFile": "artifacts/012-singapore-sg.json.gz",
+      "locality": "Singapore",
+      "countryCode": "SG",
+      "countryName": "Singapore"
+    }
+  ],
+  "singapore": [
+    {
+      "destinationKey": "singapore__sg",
+      "artifactFile": "artifacts/012-singapore-sg.json.gz",
+      "locality": "Singapore",
+      "countryCode": "SG",
+      "countryName": "Singapore"
+    }
+  ],
+  "singapore__sg": [
+    {
+      "destinationKey": "singapore__sg",
+      "artifactFile": "artifacts/012-singapore-sg.json.gz",
+      "locality": "Singapore",
+      "countryCode": "SG",
+      "countryName": "Singapore"
+    }
+  ],
+  "sg": [
+    {
+      "destinationKey": "singapore__sg",
+      "artifactFile": "artifacts/012-singapore-sg.json.gz",
+      "locality": "Singapore",
+      "countryCode": "SG",
+      "countryName": "Singapore"
+    }
+  ],
+  "sydney__australia": [
+    {
+      "destinationKey": "sydney__au",
+      "artifactFile": "artifacts/013-sydney-au.json.gz",
+      "locality": "Sydney",
+      "countryCode": "AU",
+      "countryName": "Australia"
+    }
+  ],
+  "sydney": [
+    {
+      "destinationKey": "sydney__au",
+      "artifactFile": "artifacts/013-sydney-au.json.gz",
+      "locality": "Sydney",
+      "countryCode": "AU",
+      "countryName": "Australia"
+    }
+  ],
+  "australia": [
+    {
+      "destinationKey": "sydney__au",
+      "artifactFile": "artifacts/013-sydney-au.json.gz",
+      "locality": "Sydney",
+      "countryCode": "AU",
+      "countryName": "Australia"
+    }
+  ],
+  "sydney__au": [
+    {
+      "destinationKey": "sydney__au",
+      "artifactFile": "artifacts/013-sydney-au.json.gz",
+      "locality": "Sydney",
+      "countryCode": "AU",
+      "countryName": "Australia"
+    }
+  ],
+  "au": [
+    {
+      "destinationKey": "sydney__au",
+      "artifactFile": "artifacts/013-sydney-au.json.gz",
+      "locality": "Sydney",
+      "countryCode": "AU",
+      "countryName": "Australia"
+    }
+  ],
+  "tokyo__japan": [
+    {
+      "destinationKey": "tokyo__jp",
+      "artifactFile": "artifacts/014-tokyo-jp.json.gz",
+      "locality": "Tokyo",
+      "countryCode": "JP",
+      "countryName": "Japan"
+    }
+  ],
+  "tokyo": [
+    {
+      "destinationKey": "tokyo__jp",
+      "artifactFile": "artifacts/014-tokyo-jp.json.gz",
+      "locality": "Tokyo",
+      "countryCode": "JP",
+      "countryName": "Japan"
+    }
+  ],
+  "tokyo__jp": [
+    {
+      "destinationKey": "tokyo__jp",
+      "artifactFile": "artifacts/014-tokyo-jp.json.gz",
+      "locality": "Tokyo",
+      "countryCode": "JP",
+      "countryName": "Japan"
+    }
+  ]
+}
