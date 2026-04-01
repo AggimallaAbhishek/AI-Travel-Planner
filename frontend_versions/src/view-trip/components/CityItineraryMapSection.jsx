@@ -37,6 +37,16 @@ function getDayAccent(dayNumber = 1) {
   return DAY_ACCENTS[index % DAY_ACCENTS.length];
 }
 
+function clampLabelX(value, labelWidth) {
+  const min = CITY_ITINERARY_MAP_CANVAS.inset;
+  const max =
+    CITY_ITINERARY_MAP_CANVAS.width -
+    CITY_ITINERARY_MAP_CANVAS.inset -
+    labelWidth;
+
+  return Math.min(Math.max(value, min), Math.max(min, max));
+}
+
 function flattenTripPlaces(trip = {}) {
   const destination = getDestinationLabel(trip);
   const days = Array.isArray(trip?.itinerary?.days) ? trip.itinerary.days : [];
@@ -188,7 +198,7 @@ export default function CityItineraryMapSection({ trip }) {
               </div>
             </div>
 
-            <div className="relative overflow-hidden rounded-[1.5rem] border border-[rgba(24,39,75,0.08)] bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.96),rgba(239,244,250,0.9)_58%,rgba(226,234,245,0.95)_100%)]">
+            <div className="relative min-h-[420px] overflow-hidden rounded-[1.5rem] border border-[rgba(24,39,75,0.08)] bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.96),rgba(239,244,250,0.9)_58%,rgba(226,234,245,0.95)_100%)]">
               {hasMapFrame ? (
                 <svg
                   viewBox={`0 0 ${CITY_ITINERARY_MAP_CANVAS.width} ${CITY_ITINERARY_MAP_CANVAS.height}`}
@@ -247,9 +257,10 @@ export default function CityItineraryMapSection({ trip }) {
 
                   {markers.map((marker) => {
                     const isActive = activePlaceId === marker.id;
-                    const labelWidth = Math.max(
-                      112,
-                      Math.min(200, marker.placeName.length * 7.2 + 24)
+                    const labelWidth = Math.max(132, Math.min(220, marker.placeName.length * 7.2 + 24));
+                    const labelX = clampLabelX(
+                      marker.markerPoint.x - labelWidth / 2,
+                      labelWidth
                     );
 
                     return (
@@ -269,7 +280,7 @@ export default function CityItineraryMapSection({ trip }) {
                           }
                         }}
                         className="cursor-pointer outline-none"
-                      >
+                        >
                         <title>{`${marker.placeName} • Day ${marker.dayNumber}`}</title>
 
                         {marker.isShifted ? (
@@ -285,33 +296,39 @@ export default function CityItineraryMapSection({ trip }) {
                           />
                         ) : null}
 
-                        <rect
-                          x={Math.min(
-                            CITY_ITINERARY_MAP_CANVAS.width - CITY_ITINERARY_MAP_CANVAS.inset - labelWidth,
-                            marker.markerPoint.x + 14
-                          )}
-                          y={Math.max(CITY_ITINERARY_MAP_CANVAS.inset, marker.markerPoint.y - 19)}
-                          width={labelWidth}
-                          height="38"
-                          rx="19"
-                          fill={isActive ? "rgba(17,24,39,0.92)" : "rgba(255,255,255,0.9)"}
-                          stroke={isActive ? marker.accent.fill : "rgba(24,39,75,0.09)"}
-                          strokeWidth="1.5"
+                        {isActive ? (
+                          <>
+                            <rect
+                              x={labelX}
+                              y={Math.max(CITY_ITINERARY_MAP_CANVAS.inset, marker.markerPoint.y - 58)}
+                              width={labelWidth}
+                              height="38"
+                              rx="19"
+                              fill="rgba(17,24,39,0.92)"
+                              stroke={marker.accent.fill}
+                              strokeWidth="1.5"
+                            />
+                            <text
+                              x={labelX + 18}
+                              y={marker.markerPoint.y - 34}
+                              fontSize="14"
+                              fontWeight="600"
+                              fill="#F8FAFC"
+                            >
+                              {marker.placeName.length > 28
+                                ? `${marker.placeName.slice(0, 27)}…`
+                                : marker.placeName}
+                            </text>
+                          </>
+                        ) : null}
+
+                        <circle
+                          cx={marker.markerPoint.x}
+                          cy={marker.markerPoint.y}
+                          r={isActive ? 28 : 22}
+                          fill={marker.accent.soft}
+                          opacity={isActive ? 0.9 : 0.55}
                         />
-                        <text
-                          x={Math.min(
-                            CITY_ITINERARY_MAP_CANVAS.width - CITY_ITINERARY_MAP_CANVAS.inset - labelWidth + 18,
-                            marker.markerPoint.x + 32
-                          )}
-                          y={marker.markerPoint.y + 5}
-                          fontSize="14"
-                          fontWeight="600"
-                          fill={isActive ? "#F8FAFC" : "#18274B"}
-                        >
-                          {marker.placeName.length > 26
-                            ? `${marker.placeName.slice(0, 25)}…`
-                            : marker.placeName}
-                        </text>
 
                         <circle
                           cx={marker.markerPoint.x}
@@ -395,84 +412,91 @@ export default function CityItineraryMapSection({ trip }) {
           </div>
 
           <div className="mt-5 space-y-4">
-            {groupedPlaces.map((group) => (
-              <div
-                key={group.dayNumber}
-                className="rounded-[1.3rem] border border-[var(--voy-border)] bg-white/80 p-4"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--voy-text-faint)]">
-                      Day {group.dayNumber}
-                    </p>
-                    <h4 className="mt-1 text-base font-semibold text-[var(--voy-text)]">
-                      {group.dayTitle}
-                    </h4>
+            {groupedPlaces.length > 0 ? (
+              groupedPlaces.map((group) => (
+                <div
+                  key={group.dayNumber}
+                  className="rounded-[1.3rem] border border-[var(--voy-border)] bg-white/80 p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.22em] text-[var(--voy-text-faint)]">
+                        Day {group.dayNumber}
+                      </p>
+                      <h4 className="mt-1 text-base font-semibold text-[var(--voy-text)]">
+                        {group.dayTitle}
+                      </h4>
+                    </div>
+                    <span
+                      className="rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]"
+                      style={{
+                        color: group.accent.stroke,
+                        backgroundColor: group.accent.soft,
+                      }}
+                    >
+                      {group.places.filter((place) => place.isResolved).length} mapped
+                    </span>
                   </div>
-                  <span
-                    className="rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]"
-                    style={{
-                      color: group.accent.stroke,
-                      backgroundColor: group.accent.soft,
-                    }}
-                  >
-                    {group.places.filter((place) => place.isResolved).length} mapped
-                  </span>
-                </div>
 
-                <div className="mt-4 space-y-2.5">
-                  {group.places.map((place) => {
-                    const isActive = activePlaceId === place.id;
+                  <div className="mt-4 space-y-2.5">
+                    {group.places.map((place) => {
+                      const isActive = activePlaceId === place.id;
 
-                    return (
-                      <button
-                        key={place.id}
-                        type="button"
-                        className="flex w-full items-start gap-3 rounded-[1rem] border px-3.5 py-3 text-left transition hover:-translate-y-0.5 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--voy-accent)]"
-                        style={{
-                          borderColor: isActive ? place.accent.stroke : "rgba(24,39,75,0.08)",
-                          backgroundColor: isActive ? place.accent.soft : "rgba(255,255,255,0.78)",
-                        }}
-                        onMouseEnter={() => setActivePlaceId(place.id)}
-                        onMouseLeave={() => setActivePlaceId("")}
-                        onFocus={() => setActivePlaceId(place.id)}
-                        onBlur={() => setActivePlaceId("")}
-                        onClick={() => openGoogleMaps(place.mapsUrl)}
-                      >
-                        <span
-                          className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold"
+                      return (
+                        <button
+                          key={place.id}
+                          type="button"
+                          className="flex w-full items-start gap-3 rounded-[1rem] border px-3.5 py-3 text-left transition hover:-translate-y-0.5 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--voy-accent)]"
                           style={{
-                            backgroundColor: place.accent.fill,
-                            color: "#0F172A",
+                            borderColor: isActive ? place.accent.stroke : "rgba(24,39,75,0.08)",
+                            backgroundColor: isActive ? place.accent.soft : "rgba(255,255,255,0.78)",
                           }}
+                          onMouseEnter={() => setActivePlaceId(place.id)}
+                          onMouseLeave={() => setActivePlaceId("")}
+                          onFocus={() => setActivePlaceId(place.id)}
+                          onBlur={() => setActivePlaceId("")}
+                          onClick={() => openGoogleMaps(place.mapsUrl)}
                         >
-                          {place.dayNumber}
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="flex items-start justify-between gap-3">
-                            <span className="font-semibold text-[var(--voy-text)]">
-                              {place.placeName}
-                            </span>
-                            <span className="text-xs font-medium text-[var(--voy-text-muted)]">
-                              {place.isResolved ? "Mapped" : "Pending"}
-                            </span>
+                          <span
+                            className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold"
+                            style={{
+                              backgroundColor: place.accent.fill,
+                              color: "#0F172A",
+                            }}
+                          >
+                            {place.dayNumber}
                           </span>
-                          <span className="mt-1 flex items-center gap-2 text-sm text-[var(--voy-text-muted)]">
-                            <MapPin className="h-4 w-4" />
-                            {place.location || destination}
-                          </span>
-                          {place.placeDetails ? (
-                            <span className="mt-2 block text-sm leading-6 text-[var(--voy-text-muted)]">
-                              {place.placeDetails}
+                          <span className="min-w-0 flex-1">
+                            <span className="flex items-start justify-between gap-3">
+                              <span className="font-semibold text-[var(--voy-text)]">
+                                {place.placeName}
+                              </span>
+                              <span className="text-xs font-medium text-[var(--voy-text-muted)]">
+                                {place.isResolved ? "Mapped" : "Pending"}
+                              </span>
                             </span>
-                          ) : null}
-                        </span>
-                      </button>
-                    );
-                  })}
+                            <span className="mt-1 flex items-center gap-2 text-sm text-[var(--voy-text-muted)]">
+                              <MapPin className="h-4 w-4" />
+                              {place.location || destination}
+                            </span>
+                            {place.placeDetails ? (
+                              <span className="mt-2 block text-sm leading-6 text-[var(--voy-text-muted)]">
+                                {place.placeDetails}
+                              </span>
+                            ) : null}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
+              ))
+            ) : (
+              <div className="rounded-[1.3rem] border border-[var(--voy-border)] bg-white/75 px-4 py-6 text-sm leading-7 text-[var(--voy-text-muted)]">
+                This itinerary does not have recognizable places yet. The city map shell is
+                ready and will populate as soon as stops are saved with usable location data.
               </div>
-            ))}
+            )}
           </div>
         </div>
       </div>
