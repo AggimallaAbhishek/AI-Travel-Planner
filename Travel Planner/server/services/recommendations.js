@@ -1,6 +1,7 @@
 import { buildGoogleMapsSearchUrl } from "../../shared/maps.js";
 import { normalizeDestinationRecommendations } from "../../shared/recommendations.js";
 import { enrichDestinationRecommendationImages } from "./recommendationImages.js";
+import { createMemoryCacheStore } from "./cacheStore.js";
 
 const GOOGLE_PLACES_TEXT_SEARCH_URL =
   "https://places.googleapis.com/v1/places:searchText";
@@ -9,6 +10,7 @@ const NOMINATIM_SEARCH_URL =
   "https://nominatim.openstreetmap.org/search";
 const OVERPASS_API_URL = "https://overpass-api.de/api/interpreter";
 const DEFAULT_CACHE_TTL_MS = 15 * 60 * 1000;
+const DEFAULT_STALE_CACHE_TTL_MS = 5 * 60 * 1000;
 const DEFAULT_RESULT_LIMIT = 6;
 const DEFAULT_REQUEST_TIMEOUT_MS = 12_000;
 const DEFAULT_RECOMMENDATION_RADIUS_METERS = 3_000;
@@ -345,6 +347,19 @@ function resolveRecommendationCacheTtlMs() {
   return DEFAULT_CACHE_TTL_MS;
 }
 
+function resolveRecommendationStaleCacheTtlMs(cacheTtlMs) {
+  const parsed = Number.parseInt(
+    process.env.DESTINATION_RECOMMENDATION_STALE_TTL_MS ?? "",
+    10
+  );
+
+  if (Number.isInteger(parsed) && parsed >= 5_000 && parsed <= 86_400_000) {
+    return parsed;
+  }
+
+  return Math.min(cacheTtlMs, DEFAULT_STALE_CACHE_TTL_MS);
+}
+
 function resolveMockRecommendationCacheTtlMs(cacheTtlMs) {
   const parsed = Number.parseInt(
     process.env.DESTINATION_RECOMMENDATION_MOCK_CACHE_TTL_MS ?? "",
@@ -382,6 +397,28 @@ function resolveRecommendationRadiusMeters() {
   }
 
   return DEFAULT_RECOMMENDATION_RADIUS_METERS;
+}
+
+function buildSourceProvenance({
+  destination,
+  provider,
+  fetchedAt,
+  cacheStatus,
+}) {
+  return {
+    primaryProvider: provider,
+    sources: [
+      {
+        provider,
+        destination,
+        fetchedAt,
+        sourceType: provider === "mock" ? "generated" : "api",
+      },
+    ],
+    cache: {
+      status: cacheStatus,
+    },
+  };
 }
 
 export function resolveGooglePlacesApiKey() {
@@ -1122,11 +1159,73 @@ export function buildMockDestinationRecommendations({
   });
 }
 
+function createMapBackedCacheStore({
+  cache = new Map(),
+  now = () => Date.now(),
+}) {
+  return {
+    mode: "map",
+    async get(key, options = {}) {
+      const entry = cache.get(String(key));
+      if (!entry) {
+        return null;
+      }
+
+      const current = now();
+      if (current <= entry.freshUntil) {
+        return {
+          value: entry.value,
+          isStale: false,
+          createdAt: entry.createdAt,
+          freshUntil: entry.freshUntil,
+          staleUntil: entry.staleUntil,
+        };
+      }
+
+      if (options.allowStale && current <= entry.staleUntil) {
+        return {
+          value: entry.value,
+          isStale: true,
+          createdAt: entry.createdAt,
+          freshUntil: entry.freshUntil,
+          staleUntil: entry.staleUntil,
+        };
+      }
+
+      cache.delete(String(key));
+      return null;
+    },
+    async set(key, value, options = {}) {
+      const ttlMs = Number.isInteger(options.ttlMs) ? options.ttlMs : DEFAULT_CACHE_TTL_MS;
+      const staleTtlMs = Number.isInteger(options.staleTtlMs)
+        ? options.staleTtlMs
+        : DEFAULT_STALE_CACHE_TTL_MS;
+      const createdAt = now();
+      cache.set(String(key), {
+        value,
+        createdAt,
+        freshUntil: createdAt + ttlMs,
+        staleUntil: createdAt + ttlMs + staleTtlMs,
+      });
+    },
+    async del(key) {
+      cache.delete(String(key));
+    },
+    stats() {
+      return {
+        size: cache.size,
+      };
+    },
+  };
+}
+
 export function createDestinationRecommendationService({
   now = () => Date.now(),
   cache = new Map(),
+  cacheStore = null,
   fetchImpl = fetch,
   cacheTtlMs = resolveRecommendationCacheTtlMs(),
+  staleCacheTtlMs = resolveRecommendationStaleCacheTtlMs(cacheTtlMs),
   limit = resolveRecommendationLimit(),
   timeoutMs = resolveRequestTimeoutMs(),
   resolveApiKey = resolveGooglePlacesApiKey,
@@ -1138,41 +1237,26 @@ export function createDestinationRecommendationService({
   enrichRecommendationImages = enrichDestinationRecommendationImages,
 } = {}) {
   const mockCacheTtlMs = resolveMockRecommendationCacheTtlMs(cacheTtlMs);
+  const localCacheStore =
+    cacheStore ??
+    (cache instanceof Map
+      ? createMapBackedCacheStore({
+          cache,
+          now,
+        })
+      : createMemoryCacheStore({
+          now,
+          defaultTtlMs: cacheTtlMs,
+          defaultStaleTtlMs: staleCacheTtlMs,
+        }));
+  const refreshByCacheKey = new Map();
 
-  async function getRecommendationsForDestination({
-    destination,
-    userSelection = {},
+  async function loadRecommendations({
+    normalizedDestination,
+    userSelection,
   }) {
-    const normalizedDestination = normalizeText(destination);
-
-    if (!normalizedDestination) {
-      throw new Error("Destination is required to load recommendations.");
-    }
-
-    const cacheKey = [
-      RECOMMENDATION_CACHE_SCHEMA_VERSION,
-      normalizedDestination.toLowerCase(),
-      normalizeText(userSelection.budget).toLowerCase(),
-      normalizeText(userSelection.travelers).toLowerCase(),
-    ].join("::");
-    const cached = cache.get(cacheKey);
-    const cachedTtlMs = cached?.ttlMs ?? cacheTtlMs;
-
-    if (cached && now() - cached.createdAt < cachedTtlMs) {
-      console.info("[recommendations] Cache hit", {
-        destination: normalizedDestination,
-        provider: cached.value.provider,
-        ttlMs: cachedTtlMs,
-      });
-      return cached.value;
-    }
-
-    console.info("[recommendations] Cache miss", {
-      destination: normalizedDestination,
-    });
-
     const apiKey = normalizeText(resolveApiKey());
-    let recommendations;
+    let recommendations = null;
 
     async function loadOpenStreetMapRecommendations() {
       return fetchOpenStreetMapRecommendations({
@@ -1231,7 +1315,9 @@ export function createDestinationRecommendationService({
           });
         }
       }
-    } else {
+    }
+
+    if (!apiKey) {
       console.info("[recommendations] Google Places not configured, trying OpenStreetMap", {
         destination: normalizedDestination,
       });
@@ -1260,21 +1346,138 @@ export function createDestinationRecommendationService({
       }
     }
 
-    const ttlMs =
-      recommendations.provider === "mock" ? mockCacheTtlMs : cacheTtlMs;
+    return recommendations;
+  }
 
-    cache.set(cacheKey, {
-      createdAt: now(),
-      ttlMs,
-      value: recommendations,
+  async function refreshCacheForDestination({
+    cacheKey,
+    normalizedDestination,
+    userSelection,
+    cacheStatus = "miss",
+  }) {
+    const inflight = refreshByCacheKey.get(cacheKey);
+    if (inflight) {
+      return inflight;
+    }
+
+    const refreshPromise = (async () => {
+      const recommendations = await loadRecommendations({
+        normalizedDestination,
+        userSelection,
+      });
+      const ttlMs =
+        recommendations.provider === "mock" ? mockCacheTtlMs : cacheTtlMs;
+      const withProvenance = normalizeDestinationRecommendations({
+        ...recommendations,
+        sourceProvenance: buildSourceProvenance({
+          destination: normalizedDestination,
+          provider: recommendations.provider,
+          fetchedAt: recommendations.fetchedAt,
+          cacheStatus,
+        }),
+      });
+
+      await localCacheStore.set(cacheKey, withProvenance, {
+        ttlMs,
+        staleTtlMs: staleCacheTtlMs,
+      });
+      return withProvenance;
+    })();
+
+    refreshByCacheKey.set(cacheKey, refreshPromise);
+    try {
+      return await refreshPromise;
+    } finally {
+      refreshByCacheKey.delete(cacheKey);
+    }
+  }
+
+  async function getRecommendationsForDestination({
+    destination,
+    userSelection = {},
+    force = false,
+  }) {
+    const normalizedDestination = normalizeText(destination);
+
+    if (!normalizedDestination) {
+      throw new Error("Destination is required to load recommendations.");
+    }
+
+    const cacheKey = [
+      RECOMMENDATION_CACHE_SCHEMA_VERSION,
+      normalizedDestination.toLowerCase(),
+      normalizeText(userSelection.budget).toLowerCase(),
+      normalizeText(userSelection.travelers).toLowerCase(),
+    ].join("::");
+
+    if (!force) {
+      const cached = await localCacheStore.get(cacheKey, {
+        allowStale: true,
+      });
+
+      if (cached && !cached.isStale) {
+        console.info("[recommendations] Cache hit", {
+          destination: normalizedDestination,
+          provider: cached.value?.provider,
+        });
+        return normalizeDestinationRecommendations({
+          ...cached.value,
+          sourceProvenance: buildSourceProvenance({
+            destination: normalizedDestination,
+            provider: cached.value?.provider ?? "unknown",
+            fetchedAt: cached.value?.fetchedAt ?? new Date().toISOString(),
+            cacheStatus: "fresh",
+          }),
+        });
+      }
+
+      if (cached && cached.isStale) {
+        console.info("[recommendations] Serving stale cache and refreshing in background", {
+          destination: normalizedDestination,
+          provider: cached.value?.provider,
+        });
+        refreshCacheForDestination({
+          cacheKey,
+          normalizedDestination,
+          userSelection,
+          cacheStatus: "refreshing",
+        }).catch((error) => {
+          console.warn("[recommendations] Background refresh failed", {
+            destination: normalizedDestination,
+            message: error instanceof Error ? error.message : String(error),
+          });
+        });
+
+        return normalizeDestinationRecommendations({
+          ...cached.value,
+          warning: normalizeText(
+            `${cached.value?.warning ? `${cached.value.warning} ` : ""}Showing recently cached results while fresh data is loading.`
+          ),
+          sourceProvenance: buildSourceProvenance({
+            destination: normalizedDestination,
+            provider: cached.value?.provider ?? "unknown",
+            fetchedAt: cached.value?.fetchedAt ?? new Date().toISOString(),
+            cacheStatus: "stale",
+          }),
+        });
+      }
+    }
+
+    console.info("[recommendations] Cache miss", {
+      destination: normalizedDestination,
     });
 
-    return recommendations;
+    return refreshCacheForDestination({
+      cacheKey,
+      normalizedDestination,
+      userSelection,
+      cacheStatus: force ? "forced-refresh" : "miss",
+    });
   }
 
   return {
     getRecommendationsForDestination,
-    cache,
+    cache: localCacheStore,
   };
 }
 

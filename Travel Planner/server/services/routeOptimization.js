@@ -6,6 +6,11 @@ import {
   buildGoogleMapsSearchUrl,
   normalizeGeoCoordinates,
 } from "../../shared/maps.js";
+import {
+  normalizeAlternativesCount,
+  normalizeTripConstraints,
+  normalizeTripObjective,
+} from "../../shared/trips.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -40,6 +45,11 @@ const DEFAULT_ROUTE_REQUEST_TIMEOUT_MS = 12_000;
 const DEFAULT_MAX_ROUTE_STOPS_PER_DAY = 8;
 const DEFAULT_FALLBACK_DRIVE_SPEED_METERS_PER_SECOND = 10;
 const ROUTE_CACHE_SCHEMA_VERSION = "v1-day-routes";
+const OBJECTIVE_PROFILES = [
+  "fastest",
+  "cheapest",
+  "best_experience",
+];
 
 function normalizeText(value, fallback = "") {
   if (typeof value !== "string") {

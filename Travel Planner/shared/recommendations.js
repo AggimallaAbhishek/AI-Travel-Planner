@@ -49,6 +49,32 @@ function normalizeCategory(value, fallback = "place") {
   return category || fallback;
 }
 
+function normalizeSourceProvenance(value = {}) {
+  const source = value && typeof value === "object" ? value : {};
+
+  return {
+    primaryProvider: normalizeText(source.primaryProvider),
+    sources: Array.isArray(source.sources)
+      ? source.sources
+          .map((item) => ({
+            provider: normalizeText(item?.provider),
+            sourceType: normalizeText(item?.sourceType),
+            destination: normalizeText(item?.destination),
+            fetchedAt: normalizeText(item?.fetchedAt),
+          }))
+          .filter((item) => item.provider)
+      : [],
+    cache:
+      source.cache && typeof source.cache === "object"
+        ? {
+            status: normalizeText(source.cache.status),
+          }
+        : {
+            status: "",
+          },
+  };
+}
+
 function normalizeCollection(items = [], category) {
   if (!Array.isArray(items)) {
     return [];
@@ -125,5 +151,6 @@ export function normalizeDestinationRecommendations(input = {}) {
     provider: normalizeText(input.provider, "mock"),
     warning: normalizeText(input.warning),
     fetchedAt: normalizeText(input.fetchedAt, new Date().toISOString()),
+    sourceProvenance: normalizeSourceProvenance(input.sourceProvenance),
   };
 }
