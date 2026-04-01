@@ -925,12 +925,23 @@ function normalizeMapEnrichment(value = {}, fallbackTrip = {}) {
         : "complete"
       : "missing";
 
+  const markerDays = Array.isArray(source.markerDays)
+    ? source.markerDays.map((day, index) => ({
+        dayNumber: normalizeDayNumber(day?.dayNumber ?? day?.day, index),
+        title: normalizeText(day?.title ?? day?.theme, `Day ${index + 1}`),
+        places: Array.isArray(day?.places)
+          ? day.places.map(normalizePlace).filter((place) => place.placeName)
+          : [],
+      }))
+    : [];
+
   return {
     status,
     lastAttemptedAt: normalizeText(source.lastAttemptedAt),
     geocodedStopCount,
     unresolvedStopCount,
     cityBounds: normalizeMapBounds(source.cityBounds),
+    markerDays,
   };
 }
 

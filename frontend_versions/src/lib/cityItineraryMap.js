@@ -136,6 +136,44 @@ export function projectCityMapPoint(
   };
 }
 
+export function projectCityMapCoordinates(
+  coordinates = [],
+  bounds,
+  canvas = CITY_ITINERARY_MAP_CANVAS
+) {
+  if (!Array.isArray(coordinates)) {
+    return [];
+  }
+
+  return coordinates
+    .map((point) => projectCityMapPoint(point, bounds, canvas))
+    .filter(
+      (point) => Number.isFinite(point.x) && Number.isFinite(point.y)
+    );
+}
+
+export function buildCityMapFeaturePath(
+  feature = {},
+  bounds,
+  canvas = CITY_ITINERARY_MAP_CANVAS
+) {
+  const points = projectCityMapCoordinates(feature?.coordinates, bounds, canvas);
+  if (points.length < 2) {
+    return "";
+  }
+
+  const commands = points.map((point, index) => {
+    const prefix = index === 0 ? "M" : "L";
+    return `${prefix}${point.x.toFixed(2)} ${point.y.toFixed(2)}`;
+  });
+
+  if (feature?.closed && points.length >= 3) {
+    commands.push("Z");
+  }
+
+  return commands.join(" ");
+}
+
 function getPointDistance(firstPoint, secondPoint) {
   return Math.hypot(firstPoint.x - secondPoint.x, firstPoint.y - secondPoint.y);
 }

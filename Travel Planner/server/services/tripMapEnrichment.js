@@ -12,6 +12,7 @@ const GOOGLE_PLACES_ROUTE_FIELD_MASK = [
 ].join(",");
 const DEFAULT_TRIP_GEOCODE_TIMEOUT_MS = 12_000;
 const DEFAULT_GEOCODE_CONCURRENCY = 4;
+const DEFAULT_MARKER_LIMIT_PER_DAY = 12;
 const PLACE_QUERY_LEADING_PATTERNS = Object.freeze([
   /^explore\s+/i,
   /^visit\s+/i,
@@ -88,6 +89,22 @@ function normalizeLowerText(value, fallback = "") {
 function resolveDestination(trip = {}) {
   return normalizeText(
     trip?.userSelection?.location?.label ?? trip?.aiPlan?.destination
+  );
+}
+
+function findAiPlanDayByNumber(trip = {}, dayNumber) {
+  const aiPlanDays = Array.isArray(trip?.aiPlan?.days) ? trip.aiPlan.days : [];
+  const normalizedDayNumber = Number.parseInt(dayNumber, 10);
+
+  if (!Number.isInteger(normalizedDayNumber) || normalizedDayNumber <= 0) {
+    return null;
+  }
+
+  return (
+    aiPlanDays.find(
+      (day) =>
+        Number.parseInt(day?.day ?? day?.dayNumber, 10) === normalizedDayNumber
+    ) ?? null
   );
 }
 
@@ -566,12 +583,110 @@ function buildPlaceMapsUrl(place = {}, destination = "", coordinates = null) {
   );
 }
 
-function createMapEnrichment(itinerary = {}, attemptedAt = "", cityBounds = null) {
-  const places = Array.isArray(itinerary?.days)
-    ? itinerary.days.flatMap((day) =>
+function createActivityDerivedPlacesForDay({
+  day = {},
+  aiPlanDay = null,
+  destination = "",
+  existingPlaces = [],
+  limit = DEFAULT_MARKER_LIMIT_PER_DAY,
+} = {}) {
+  const activities = Array.isArray(aiPlanDay?.activities) ? aiPlanDay.activities : [];
+  const dayNumber = Number.parseInt(day?.dayNumber ?? aiPlanDay?.day ?? aiPlanDay?.dayNumber, 10) || 1;
+  const dayTitle = normalizeText(day?.title ?? aiPlanDay?.title, `Day ${dayNumber}`);
+  const seen = new Set(
+    existingPlaces
+      .map((place) => normalizeText(place?.placeName ?? place?.name).toLowerCase())
+      .filter(Boolean)
+  );
+  const inferredPlaces = [];
+
+  function pushPlace(name = "", description = "") {
+    const normalizedName = cleanPlaceCandidate(name);
+    const key = normalizedName.toLowerCase();
+
+    if (
+      !isLikelyPlaceCandidate(normalizedName) ||
+      seen.has(key) ||
+      inferredPlaces.length >= limit
+    ) {
+      return;
+    }
+
+    seen.add(key);
+    inferredPlaces.push({
+      placeName: normalizedName,
+      placeDetails: normalizeText(description, normalizeText(aiPlanDay?.tips)),
+      location: destination,
+      mapsUrl: buildGoogleMapsSearchUrl({
+        name: normalizedName,
+        destination,
+      }),
+      geoCoordinates: normalizeGeoCoordinates(null),
+      geocodeStatus: "inferred",
+      geocodeSource: "fallback_inferred",
+      geocodedAt: "",
+      category: "Activity",
+      dayNumber,
+      dayTitle,
+    });
+  }
+
+  for (const activity of activities) {
+    const activityText = normalizeText(activity);
+    const extractedPlaces = extractPlaceCandidatesFromText(activityText);
+
+    for (const candidate of extractedPlaces) {
+      pushPlace(candidate, activityText);
+    }
+
+    if (
+      extractedPlaces.length === 0 &&
+      isLikelyPlaceCandidate(activityText) &&
+      activityText.split(/\s+/).filter(Boolean).length <= 6 &&
+      activityText.length <= 72
+    ) {
+      pushPlace(activityText, normalizeText(aiPlanDay?.tips, dayTitle));
+    }
+
+    if (inferredPlaces.length >= limit) {
+      break;
+    }
+  }
+
+  if (inferredPlaces.length < 2) {
+    for (const candidate of extractPlaceCandidatesFromText(aiPlanDay?.title)) {
+      pushPlace(candidate, normalizeText(aiPlanDay?.title, normalizeText(aiPlanDay?.tips)));
+
+      if (inferredPlaces.length >= limit) {
+        break;
+      }
+    }
+  }
+
+  console.info("[trip-map-enrichment] Derived activity-based map places", {
+    dayNumber,
+    dayTitle,
+    inferredCount: inferredPlaces.length,
+  });
+
+  return inferredPlaces;
+}
+
+function createMapEnrichment(
+  itinerary = {},
+  attemptedAt = "",
+  cityBounds = null,
+  markerDays = []
+) {
+  const places = Array.isArray(markerDays) && markerDays.length > 0
+    ? markerDays.flatMap((day) =>
         Array.isArray(day?.places) ? day.places : []
       )
-    : [];
+    : Array.isArray(itinerary?.days)
+      ? itinerary.days.flatMap((day) =>
+          Array.isArray(day?.places) ? day.places : []
+        )
+      : [];
   const geocodedStopCount = places.filter((place) =>
     hasCoordinates(place?.geoCoordinates)
   ).length;
@@ -588,6 +703,25 @@ function createMapEnrichment(itinerary = {}, attemptedAt = "", cityBounds = null
     geocodedStopCount,
     unresolvedStopCount,
     cityBounds,
+    markerDays: Array.isArray(markerDays)
+      ? markerDays.map((day) => ({
+          dayNumber: Number.parseInt(day?.dayNumber, 10) || 0,
+          title: normalizeText(day?.title, `Day ${day?.dayNumber ?? 0}`),
+          places: Array.isArray(day?.places)
+            ? day.places.map((place) => ({
+                placeName: normalizeText(place?.placeName ?? place?.name),
+                placeDetails: normalizeText(place?.placeDetails ?? place?.description),
+                location: normalizeText(place?.location),
+                mapsUrl: normalizeText(place?.mapsUrl),
+                geoCoordinates: normalizeGeoCoordinates(place?.geoCoordinates),
+                geocodeStatus: normalizeLowerText(place?.geocodeStatus, hasCoordinates(place?.geoCoordinates) ? "resolved" : "unresolved"),
+                geocodeSource: normalizeLowerText(place?.geocodeSource),
+                geocodedAt: normalizeText(place?.geocodedAt),
+                category: normalizeText(place?.category),
+              }))
+            : [],
+        }))
+      : [],
   };
 }
 
@@ -615,6 +749,7 @@ export async function enrichTripWithPersistedGeocodes({
   const telemetry = {
     worldPoiIndexHits: 0,
     liveLookupCount: 0,
+    inferredPlaceCount: 0,
   };
   let cityBounds =
     trip?.mapEnrichment?.cityBounds && typeof trip.mapEnrichment.cityBounds === "object"
@@ -641,6 +776,8 @@ export async function enrichTripWithPersistedGeocodes({
     Array.isArray(trip?.itinerary?.days) ? trip.itinerary.days : [],
     concurrency,
     async (day) => {
+      const dayNumber = Number.parseInt(day?.dayNumber, 10) || 1;
+      const aiPlanDay = findAiPlanDayByNumber(trip, dayNumber);
       const places = Array.isArray(day?.places) ? day.places : [];
 
       const nextPlaces = await mapConcurrently(
@@ -725,6 +862,113 @@ export async function enrichTripWithPersistedGeocodes({
     }
   );
 
+  const nextMarkerDays = await mapConcurrently(
+    nextDays,
+    concurrency,
+    async (day) => {
+      const dayNumber = Number.parseInt(day?.dayNumber, 10) || 1;
+      const aiPlanDay = findAiPlanDayByNumber(trip, dayNumber);
+      const itineraryPlaces = Array.isArray(day?.places) ? day.places : [];
+      const inferredPlaces = createActivityDerivedPlacesForDay({
+        day,
+        aiPlanDay,
+        destination,
+        existingPlaces: itineraryPlaces,
+      });
+      telemetry.inferredPlaceCount += inferredPlaces.length;
+
+      const mergedPlaces = [...itineraryPlaces, ...inferredPlaces];
+      const nextPlaces = await mapConcurrently(
+        mergedPlaces,
+        concurrency,
+        async (place) => {
+          const basePlace = {
+            ...place,
+            location: normalizeText(place?.location, destination),
+          };
+          const existingCoordinates = normalizeGeoCoordinates(basePlace.geoCoordinates);
+          const existingHasCoordinates = hasCoordinates(existingCoordinates);
+
+          if (existingHasCoordinates) {
+            return {
+              ...basePlace,
+              geoCoordinates: existingCoordinates,
+              mapsUrl: buildPlaceMapsUrl(basePlace, destination, existingCoordinates),
+              geocodeStatus: normalizeLowerText(
+                basePlace.geocodeStatus,
+                "resolved"
+              ),
+              geocodeSource: normalizeLowerText(
+                basePlace.geocodeSource,
+                "stored"
+              ),
+              geocodedAt: normalizeText(basePlace.geocodedAt, attemptedAt),
+            };
+          }
+
+          const geocodedPlace = await geocodePlaceWithPlaces({
+            place: basePlace,
+            destination,
+            apiKey,
+            fetchImpl,
+            timeoutMs,
+            geocodeCache,
+            cityBounds,
+            telemetry,
+          });
+          const resolvedCoordinates = normalizeGeoCoordinates(
+            geocodedPlace?.geoCoordinates
+          );
+
+          if (
+            !hasCoordinates(resolvedCoordinates) ||
+            !isWithinBounds(resolvedCoordinates, cityBounds)
+          ) {
+            return {
+              ...basePlace,
+              geoCoordinates: existingCoordinates,
+              mapsUrl: buildPlaceMapsUrl(basePlace, destination, existingCoordinates),
+              geocodeStatus: normalizeLowerText(
+                basePlace.geocodeStatus,
+                basePlace.geocodeSource === "fallback_inferred"
+                  ? "inferred"
+                  : "unresolved"
+              ),
+              geocodeSource: normalizeLowerText(basePlace.geocodeSource),
+              geocodedAt: normalizeText(basePlace.geocodedAt),
+            };
+          }
+
+          return {
+            ...basePlace,
+            placeName: normalizeText(
+              geocodedPlace?.resolvedName,
+              basePlace.placeName
+            ),
+            geoCoordinates: resolvedCoordinates,
+            location: normalizeText(geocodedPlace?.location, basePlace.location),
+            mapsUrl: normalizeText(
+              geocodedPlace?.mapsUrl,
+              buildPlaceMapsUrl(basePlace, destination, resolvedCoordinates)
+            ),
+            geocodeStatus: "resolved",
+            geocodeSource:
+              normalizeLowerText(geocodedPlace?.provider) === "world_poi_index"
+                ? "world_poi_index"
+                : "google_places",
+            geocodedAt: attemptedAt,
+          };
+        }
+      );
+
+      return {
+        dayNumber,
+        title: normalizeText(day?.title ?? aiPlanDay?.title, `Day ${dayNumber}`),
+        places: nextPlaces,
+      };
+    }
+  );
+
   const nextTrip = {
     ...trip,
     itinerary: {
@@ -732,7 +976,12 @@ export async function enrichTripWithPersistedGeocodes({
       days: nextDays,
     },
   };
-  const mapEnrichment = createMapEnrichment(nextTrip.itinerary, attemptedAt, cityBounds);
+  const mapEnrichment = createMapEnrichment(
+    nextTrip.itinerary,
+    attemptedAt,
+    cityBounds,
+    nextMarkerDays
+  );
   nextTrip.mapEnrichment = mapEnrichment;
 
   const changed =
@@ -750,6 +999,7 @@ export async function enrichTripWithPersistedGeocodes({
       hasCityBounds: Boolean(cityBounds),
       worldPoiIndexHits: telemetry.worldPoiIndexHits,
       liveLookupCount: telemetry.liveLookupCount,
+      inferredPlaceCount: telemetry.inferredPlaceCount,
     },
   };
 }

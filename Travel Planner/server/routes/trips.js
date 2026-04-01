@@ -18,6 +18,8 @@ import {
   getRecommendationsForDestination,
 } from "../services/recommendations.js";
 import { getRoutesForTrip } from "../services/routeOptimization.js";
+import { getStaticCityBasemap } from "../services/cityStaticMap.js";
+import { buildTripCityMapPayload } from "../services/tripCityMap.js";
 import {
   normalizeAlternativesCount,
   normalizeTripConstraints,
@@ -319,6 +321,70 @@ router.get("/trips/:tripId/recommendations", requireAuth, async (req, res) => {
     });
     res.status(500).json({
       message: "Unable to load destination recommendations right now.",
+    });
+  }
+});
+
+router.get("/trips/:tripId/city-map", requireAuth, async (req, res) => {
+  try {
+    let trip = await getTripForUser({
+      tripId: req.params.tripId,
+      user: req.user,
+    });
+
+    if (!trip) {
+      res.status(404).json({
+        message: "Trip not found.",
+      });
+      return;
+    }
+
+    if (trip === "forbidden") {
+      res.status(403).json({
+        message: "You do not have access to this trip.",
+      });
+      return;
+    }
+
+    try {
+      const enrichmentResult = await backfillTripMapEnrichment({
+        trip,
+        logContext: "city map",
+      });
+      trip = enrichmentResult.trip;
+    } catch (error) {
+      console.warn("[trips] Trip city map enrichment backfill failed", {
+        tripId: trip.id,
+        message: getErrorText(error),
+      });
+    }
+
+    const basemap = await getStaticCityBasemap({
+      destination:
+        trip.userSelection?.location?.label ?? trip.aiPlan?.destination ?? "",
+      cityBounds: trip?.mapEnrichment?.cityBounds,
+    });
+    const cityMap = buildTripCityMapPayload({
+      trip,
+      basemap,
+    });
+
+    console.info("[trips] Trip city map loaded", {
+      tripId: trip.id,
+      destination: cityMap.destination,
+      mappedPlaceCount: cityMap.mappedPlaceCount,
+      unresolvedPlaceCount: cityMap.unresolvedPlaceCount,
+      roadFeatures: cityMap.basemap?.roads?.length ?? 0,
+    });
+
+    res.json({ cityMap });
+  } catch (error) {
+    console.error("[trips] Failed to load trip city map", {
+      tripId: req.params.tripId,
+      message: getErrorText(error),
+    });
+    res.status(500).json({
+      message: "Unable to load the city map right now.",
     });
   }
 });

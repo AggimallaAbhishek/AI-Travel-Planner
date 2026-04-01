@@ -67,6 +67,7 @@ frontend_versions/src/lib/imageManifest.js
 frontend_versions/src/lib/maps.js
 frontend_versions/src/lib/staticPageContent.js
 frontend_versions/src/lib/theme.js
+frontend_versions/src/lib/tripCityMap.js
 frontend_versions/src/lib/tripPdf.js
 frontend_versions/src/lib/tripPrefill.js
 frontend_versions/src/lib/tripRecommendations.js
@@ -97,7 +98,6 @@ frontend_versions/src/pages/TravelGuides.jsx
 frontend_versions/src/service/firebaseConfig.js
 frontend_versions/src/styles/voyagr-login.css
 frontend_versions/src/styles/voyagr.css
-frontend_versions/src/view-trip/components/CityItineraryMapSection.jsx
 frontend_versions/src/view-trip/components/HotelCardItem.jsx
 frontend_versions/src/view-trip/components/Hotels.jsx
 frontend_versions/src/view-trip/components/InfoSection.jsx
