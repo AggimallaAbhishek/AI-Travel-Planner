@@ -207,7 +207,7 @@ function useProjectedBasemapFeatures(basemap, bounds) {
   }, [basemap, bounds]);
 }
 
-export default function CityItineraryMapSection({ trip }) {
+export default function CityItineraryMapSection({ trip, reloadToken = 0 }) {
   const [activePlaceId, setActivePlaceId] = useState("");
   const [zoomLevel, setZoomLevel] = useState(1);
   const [cityMapState, setCityMapState] = useState(INITIAL_CITY_MAP_STATE);
@@ -260,7 +260,7 @@ export default function CityItineraryMapSection({ trip }) {
     loadCityMap();
 
     return () => controller.abort();
-  }, [trip?.id]);
+  }, [reloadToken, trip?.id]);
 
   useEffect(() => {
     setActivePlaceId("");

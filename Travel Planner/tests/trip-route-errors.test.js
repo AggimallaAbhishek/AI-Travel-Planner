@@ -127,6 +127,28 @@ test("resolveTripGenerationFailure maps oversized Firestore document failures", 
   assert.match(failure.hint, /trims persisted trip artifacts/i);
 });
 
+test("resolveTripGenerationFailure maps postgres connection failures when database url is configured", () => {
+  const originalDatabaseUrl = process.env.DATABASE_URL;
+  process.env.DATABASE_URL = "postgres://user:pass@localhost:5432/travel_planner";
+
+  try {
+    const failure = resolveTripGenerationFailure({
+      code: "database/connection-failed",
+      message: "PostgreSQL connection failed.",
+    });
+
+    assert.equal(failure.status, 500);
+    assert.match(failure.message, /could not be saved to PostgreSQL/i);
+    assert.match(failure.hint, /DATABASE_URL/i);
+  } finally {
+    if (originalDatabaseUrl === undefined) {
+      delete process.env.DATABASE_URL;
+    } else {
+      process.env.DATABASE_URL = originalDatabaseUrl;
+    }
+  }
+});
+
 test("resolveTripGenerationFailure keeps generic guidance for unknown errors", () => {
   const failure = resolveTripGenerationFailure(new Error("Unknown failure"));
 

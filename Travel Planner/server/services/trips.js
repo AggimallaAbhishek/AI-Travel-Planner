@@ -16,7 +16,6 @@ import {
   evaluateTripConstraints,
 } from "./constraints.js";
 import { enrichTripWithPersistedGeocodes } from "./tripMapEnrichment.js";
-
 const COLLECTION_NAME = "AITrips";
 const DEFAULT_FIRESTORE_TRIP_SOFT_LIMIT_BYTES = 850_000;
 const DEFAULT_PERSISTED_TEXT_PREVIEW_CHARS = 12_000;

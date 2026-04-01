@@ -115,6 +115,34 @@ export function resolveTripGenerationFailure(error) {
   const errorCode = String(error?.code ?? "");
   const normalizedErrorCode = errorCode.toLowerCase();
   const errorStage = String(error?.stage ?? "").toLowerCase();
+  const isPostgresConfigured = Boolean(String(process.env.DATABASE_URL ?? "").trim());
+
+  if (
+    normalizedErrorCode.includes("database/not-configured") ||
+    normalizedErrorCode.includes("database/invalid-table-name") ||
+    errorText.includes("database_url is not configured")
+  ) {
+    return {
+      status: 500,
+      message:
+        "Trip generation completed, but PostgreSQL persistence is not configured.",
+      hint:
+        "Set DATABASE_URL for the backend, keep TRIPS_TABLE_NAME alphanumeric/underscore only, or switch TRIP_PERSISTENCE_BACKEND back to firestore.",
+    };
+  }
+
+  if (
+    normalizedErrorCode.includes("database/connection-failed") ||
+    errorText.includes("postgresql connection failed")
+  ) {
+    return {
+      status: 500,
+      message:
+        "Trip generation completed, but the trip could not be saved to PostgreSQL.",
+      hint:
+        "Verify DATABASE_URL, RDS connectivity, database credentials, SSL mode, and security-group access.",
+    };
+  }
 
   if (
     includesAny(errorText, [
@@ -268,9 +296,13 @@ export function resolveTripGenerationFailure(error) {
     return {
       status: 500,
       message:
-        "Trip generation completed, but saving the trip failed. Verify Firestore setup and Firebase Admin credentials.",
+        isPostgresConfigured
+          ? "Trip generation completed, but saving the trip failed. Verify PostgreSQL connectivity and persistence configuration."
+          : "Trip generation completed, but saving the trip failed. Verify Firestore setup and Firebase Admin credentials.",
       hint:
-        "Check FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY, and ensure Firestore exists in Native mode for that project.",
+        isPostgresConfigured
+          ? "Check DATABASE_URL, ensure the RDS database is reachable from the backend, and verify the trips table can be created."
+          : "Check FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY, and ensure Firestore exists in Native mode for that project.",
     };
   }
 
