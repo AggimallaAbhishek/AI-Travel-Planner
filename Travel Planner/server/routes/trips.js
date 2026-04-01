@@ -377,6 +377,128 @@ router.get("/trips/:tripId/routes", requireAuth, async (req, res) => {
   }
 });
 
+router.get("/trips/:tripId/alternatives", requireAuth, async (req, res) => {
+  try {
+    const trip = await getTripForUser({
+      tripId: req.params.tripId,
+      user: req.user,
+    });
+
+    if (!trip) {
+      res.status(404).json({
+        message: "Trip not found.",
+      });
+      return;
+    }
+
+    if (trip === "forbidden") {
+      res.status(403).json({
+        message: "You do not have access to this trip.",
+      });
+      return;
+    }
+
+    const objective = normalizeTripObjective(
+      typeof req.query.objective === "string"
+        ? req.query.objective
+        : trip.userSelection?.objective
+    );
+    const alternativesCount = normalizeAlternativesCount(
+      req.query.alternatives_count ??
+        req.query.alternativesCount ??
+        trip.userSelection?.alternativesCount
+    );
+    const constraints = parseConstraintsFromQuery(req.query);
+    const routes = await getRoutesForTrip({
+      trip,
+      objective,
+      alternativesCount,
+      constraints,
+      dayNumber: req.query.day,
+    });
+
+    const alternatives = {
+      tripId: trip.id,
+      destination: routes.destination,
+      objective: routes.objective,
+      alternativesCount: routes.alternativesCount,
+      generatedAt: routes.generatedAt,
+      days: (Array.isArray(routes.days) ? routes.days : []).map((day) => ({
+        dayNumber: day.dayNumber,
+        title: day.title,
+        status: day.status,
+        alternatives: Array.isArray(day.alternatives) ? day.alternatives : [],
+        explanation: day.explanation ?? null,
+      })),
+    };
+
+    res.json({ alternatives });
+  } catch (error) {
+    console.error("[trips] Failed to load trip route alternatives", {
+      tripId: req.params.tripId,
+      message: getErrorText(error),
+    });
+    res.status(500).json({
+      message: "Unable to load route alternatives right now.",
+    });
+  }
+});
+
+router.post(
+  "/trips/:tripId/replan",
+  requireAuth,
+  replanRateLimit,
+  async (req, res) => {
+    const { disruptions, errors } = validateReplanRequest(req.body);
+
+    if (errors.length > 0) {
+      res.status(400).json({
+        message: "Replan request is invalid.",
+        errors,
+      });
+      return;
+    }
+
+    try {
+      const result = await replanTripForUser({
+        tripId: req.params.tripId,
+        user: req.user,
+        disruptions,
+      });
+
+      if (!result) {
+        res.status(404).json({
+          message: "Trip not found.",
+        });
+        return;
+      }
+
+      if (result === "forbidden") {
+        res.status(403).json({
+          message: "You do not have access to this trip.",
+        });
+        return;
+      }
+
+      console.info("[trips] Trip replanned", {
+        tripId: result.trip.id,
+        disruptionCount: disruptions.length,
+        changed: result.replanSummary.changed,
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error("[trips] Failed to replan trip", {
+        tripId: req.params.tripId,
+        message: getErrorText(error),
+      });
+      res.status(500).json({
+        message: "Unable to replan this trip right now.",
+      });
+    }
+  }
+);
+
 router.get("/my-trips", requireAuth, async (req, res) => {
   try {
     const trips = await listTripsForUser(req.user);

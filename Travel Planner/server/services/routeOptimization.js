@@ -298,6 +298,69 @@ async function fetchFallbackStopsForDay({
     .slice(0, maxStops);
 }
 
+function findAiPlanDayByNumber(trip = {}, dayNumber) {
+  const aiPlanDays = Array.isArray(trip?.aiPlan?.days) ? trip.aiPlan.days : [];
+  return (
+    aiPlanDays.find(
+      (day) => normalizeInteger(day?.day ?? day?.dayNumber, null) === dayNumber
+    ) ?? null
+  );
+}
+
+function mergeStopsWithPreference(primaryStops = [], secondaryStops = [], maxStops = 8) {
+  const mergedStops = [];
+  const seen = new Set();
+
+  for (const stop of [...primaryStops, ...secondaryStops]) {
+    const name = normalizeText(stop?.name);
+    const key = name.toLowerCase();
+
+    if (!name || seen.has(key)) {
+      continue;
+    }
+
+    mergedStops.push(stop);
+    seen.add(key);
+
+    if (mergedStops.length >= maxStops) {
+      break;
+    }
+  }
+
+  return mergedStops;
+}
+
+function createAiPlanDayStops(aiPlanDay = {}, destination = "", maxStopsPerDay = 8) {
+  const activities = Array.isArray(aiPlanDay?.activities) ? aiPlanDay.activities : [];
+  const details = normalizeText(aiPlanDay?.tips, "Planned activity from the itinerary.");
+  const dayNumber = normalizeInteger(aiPlanDay?.day ?? aiPlanDay?.dayNumber, 0);
+
+  return activities
+    .map((activity, index) => {
+      const name = normalizeText(activity);
+      if (!name) {
+        return null;
+      }
+
+      return {
+        id: `${dayNumber}-activity-${index}`,
+        dayNumber,
+        stopIndex: index,
+        name,
+        location: destination,
+        description: details,
+        category: "activity",
+        geoCoordinates: normalizeGeoCoordinates(null),
+        mapsUrl: buildGoogleMapsSearchUrl({
+          name,
+          destination,
+        }),
+      };
+    })
+    .filter(Boolean)
+    .slice(0, maxStopsPerDay);
+}
+
 function buildRouteCacheKey({
   trip,
   optimizeFor,
@@ -314,6 +377,13 @@ function buildRouteCacheKey({
     .map((day) => ({
       dayNumber: day.dayNumber,
       title: normalizeText(day.title),
+      activities: Array.isArray(
+        findAiPlanDayByNumber(trip, day.dayNumber)?.activities
+      )
+        ? findAiPlanDayByNumber(trip, day.dayNumber).activities.map((activity) =>
+            normalizeText(activity)
+          )
+        : [],
       places: Array.isArray(day.places)
         ? day.places.map((place) => ({
             name: normalizeText(place.placeName),
@@ -1180,7 +1250,12 @@ async function fetchGoogleRoutePreview({
   };
 }
 
-function createRawDayStops(day = {}, destination = "", maxStopsPerDay) {
+function createRawDayStops({
+  day = {},
+  aiPlanDay = null,
+  destination = "",
+  maxStopsPerDay,
+}) {
   const dayPlaces = Array.isArray(day.places) ? day.places : [];
   const uniqueStops = [];
   const seen = new Set();
@@ -1218,7 +1293,31 @@ function createRawDayStops(day = {}, destination = "", maxStopsPerDay) {
     }
   }
 
-  return uniqueStops;
+  return mergeStopsWithPreference(
+    createAiPlanDayStops(aiPlanDay, destination, maxStopsPerDay),
+    uniqueStops,
+    maxStopsPerDay
+  );
+}
+
+function buildMarkersFromOrderedStops(orderedStops = []) {
+  return orderedStops
+    .map((stop, index) => {
+      const coordinates = normalizeGeoCoordinates(stop?.geoCoordinates);
+      if (coordinates.latitude === null || coordinates.longitude === null) {
+        return null;
+      }
+
+      return {
+        id: stop.id ?? `${index + 1}-${stop.name ?? "stop"}`,
+        name: normalizeText(stop.name, `Stop ${index + 1}`),
+        latitude: coordinates.latitude,
+        longitude: coordinates.longitude,
+        visitOrder: index + 1,
+        mapsUrl: normalizeText(stop.mapsUrl),
+      };
+    })
+    .filter(Boolean);
 }
 
 function formatRouteWarning({

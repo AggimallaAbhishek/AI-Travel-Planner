@@ -7,8 +7,12 @@ import {
   CalendarRange,
   Compass,
   MapPinned,
+  Route,
   ShieldCheck,
+  SlidersHorizontal,
   Sparkles,
+  Timer,
+  UtensilsCrossed,
   Users2,
   WalletCards,
 } from "lucide-react";
@@ -34,7 +38,36 @@ const INITIAL_FORM_STATE = {
   days: "",
   budget: "",
   travelers: "",
+  objective: "best_experience",
+  alternativesCount: 3,
+  constraints: {
+    dailyTimeLimitHours: 10,
+    budgetCap: "",
+    mobilityPref: "balanced",
+    mealPrefs: "",
+  },
 };
+
+const OBJECTIVE_OPTIONS = [
+  {
+    value: "fastest",
+    label: "Fastest",
+    description: "Minimize travel time between stops.",
+    icon: <Timer size={14} />,
+  },
+  {
+    value: "cheapest",
+    label: "Cheapest",
+    description: "Reduce transport and movement costs.",
+    icon: <WalletCards size={14} />,
+  },
+  {
+    value: "best_experience",
+    label: "Best Experience",
+    description: "Balance quality, pace, and route efficiency.",
+    icon: <Sparkles size={14} />,
+  },
+];
 
 function mapErrorsToFields(errors) {
   const next = {};
@@ -48,6 +81,18 @@ function mapErrorsToFields(errors) {
       next.budget = error;
     } else if (error.includes("Traveler")) {
       next.travelers = error;
+    } else if (error.includes("Objective")) {
+      next.objective = error;
+    } else if (error.includes("Daily time")) {
+      next.dailyTimeLimitHours = error;
+    } else if (error.includes("Budget cap")) {
+      next.budgetCap = error;
+    } else if (error.includes("Mobility")) {
+      next.mobilityPref = error;
+    } else if (error.includes("Meal")) {
+      next.mealPrefs = error;
+    } else if (error.includes("Alternatives")) {
+      next.alternativesCount = error;
     }
   }
 
@@ -98,6 +143,20 @@ function CreateTrip() {
     setFormData((previousData) => ({
       ...previousData,
       [name]: value,
+    }));
+    setFieldErrors((previousErrors) => ({
+      ...previousErrors,
+      [name]: "",
+    }));
+  };
+
+  const handleConstraintChange = (name, value) => {
+    setFormData((previousData) => ({
+      ...previousData,
+      constraints: {
+        ...(previousData.constraints ?? {}),
+        [name]: value,
+      },
     }));
     setFieldErrors((previousErrors) => ({
       ...previousErrors,
