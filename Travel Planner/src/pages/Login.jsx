@@ -16,7 +16,7 @@ const TAB_COPY = {
     hint: "No password typing needed. Use your Google account for secure access.",
   },
   register: {
-    title: "Create Your AI TRAVEL PLANNER Account",
+    title: "Create Your Voyager Account",
     subtitle:
       "Set up your traveler profile and keep every destination, budget plan, and itinerary in one place.",
     cta: "Create Account With Google",
@@ -127,9 +127,9 @@ export default function Login() {
 
           <div className="voy-login-brand">
             <Link to="/" className="voy-login-logo">
-              AI TRAVEL PLANNER
+              Voy<span>agr</span>
             </Link>
-            <p>AI travel planner for AI-first travelers.</p>
+            <p>Journey design studio for AI-first travelers.</p>
           </div>
 
           <div className="voy-login-quote-wrap">

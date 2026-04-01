@@ -1,30 +1,12 @@
 import express from "express";
 import { requireAuth } from "../middleware/auth.js";
+import { tripGenerationRateLimit } from "../middleware/rateLimit.js";
 import {
-  replanRateLimit,
-  tripGenerationRateLimit,
-} from "../middleware/rateLimit.js";
-import {
-  backfillTripMapEnrichment,
   createTripForUser,
   getTripForUser,
   listTripsForUser,
-  replanTripForUser,
-  validateReplanRequest,
   validateTripRequest,
 } from "../services/trips.js";
-import {
-  buildMockDestinationRecommendations,
-  getRecommendationsForDestination,
-} from "../services/recommendations.js";
-import { getRoutesForTrip } from "../services/routeOptimization.js";
-import { getStaticCityBasemap } from "../services/cityStaticMap.js";
-import { buildTripCityMapPayload } from "../services/tripCityMap.js";
-import {
-  normalizeAlternativesCount,
-  normalizeTripConstraints,
-  normalizeTripObjective,
-} from "../../shared/trips.js";
 
 const router = express.Router();
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
@@ -45,75 +27,9 @@ function includesAny(text, patterns = []) {
   return patterns.some((pattern) => text.includes(pattern));
 }
 
-export function resolveDependentServiceFailure(
-  error,
-  {
-    fallbackMessage = "The request could not be completed right now.",
-    timeoutMessage = "The request timed out while contacting travel data providers. Please try again.",
-    providerMessage = "A required travel data provider is temporarily unavailable. Please try again.",
-  } = {}
-) {
-  const errorText = getErrorText(error).toLowerCase();
-  const errorCode = String(error?.code ?? "").toLowerCase();
-  const status = Number.parseInt(String(error?.status ?? error?.statusCode ?? ""), 10);
-
-  if (
-    status === 408 ||
-    status === 504 ||
-    includesAny(errorText, [
-      "timed out",
-      "timeout",
-      "etimedout",
-      "function invocation timeout",
-      "gateway timeout",
-      "upstream request timeout",
-    ])
-  ) {
-    return {
-      status: 504,
-      message: timeoutMessage,
-    };
-  }
-
-  if (
-    status === 502 ||
-    status === 503 ||
-    status === 429 ||
-    includesAny(errorText, [
-      "fetch failed",
-      "network error",
-      "failed to fetch",
-      "socket hang up",
-      "econnreset",
-      "enotfound",
-      "eai_again",
-      "connection terminated",
-      "service unavailable",
-      "bad gateway",
-      "quota",
-      "api key not valid",
-      "permission denied",
-      "forbidden",
-    ]) ||
-    errorCode.includes("resource-exhausted")
-  ) {
-    return {
-      status: 503,
-      message: providerMessage,
-    };
-  }
-
-  return {
-    status: 500,
-    message: fallbackMessage,
-  };
-}
-
 export function resolveTripGenerationFailure(error) {
   const errorText = getErrorText(error).toLowerCase();
   const errorCode = String(error?.code ?? "");
-  const normalizedErrorCode = errorCode.toLowerCase();
-  const errorStage = String(error?.stage ?? "").toLowerCase();
 
   if (
     includesAny(errorText, [
@@ -123,35 +39,13 @@ export function resolveTripGenerationFailure(error) {
       "firestore api has not been used",
       "create/enable firestore",
     ]) ||
-    normalizedErrorCode.includes("firestore/database-not-found")
+    errorCode.toLowerCase().includes("firestore/database-not-found")
   ) {
     return {
-      status: 500,
       message:
         "Trip generation succeeded but saving failed. Create/enable Firestore for your Firebase project and try again.",
       hint:
         "Firebase Console -> Build -> Firestore Database -> Create database (Native mode), then retry. If Firestore already exists, verify FIREBASE_PROJECT_ID matches that project.",
-    };
-  }
-
-  if (
-    includesAny(errorText, [
-      "request payload size exceeds",
-      "document exceeds the maximum allowed size",
-      "maximum allowed size",
-      "transaction too large",
-      "request entity too large",
-      "resource exhausted",
-    ]) ||
-    normalizedErrorCode.includes("firestore/document-too-large") ||
-    normalizedErrorCode.includes("resource-exhausted")
-  ) {
-    return {
-      status: 500,
-      message:
-        "Trip generation completed, but the generated trip was too large to save in Firestore.",
-      hint:
-        "Redeploy the latest server build that trims persisted trip artifacts, then retry. If it still fails, inspect the saved payload size in server logs.",
     };
   }
 
@@ -164,7 +58,6 @@ export function resolveTripGenerationFailure(error) {
     !includesAny(errorText, ["generativelanguage", "gemini"])
   ) {
     return {
-      status: 500,
       message:
         "Trip save failed due to Firestore permissions. Grant Firestore access to your Firebase service account and retry.",
       hint:
@@ -183,7 +76,6 @@ export function resolveTripGenerationFailure(error) {
     ])
   ) {
     return {
-      status: 503,
       message:
         "Gemini request failed. Verify GOOGLE_GEMINI_API_KEY, model access, and billing/quota in Google AI Studio.",
       hint:
@@ -196,29 +88,15 @@ export function resolveTripGenerationFailure(error) {
       "error fetching from https://generativelanguage.googleapis.com",
       "fetch failed",
       "timed out",
-      "timeout",
-      "deadline exceeded",
       "socket hang up",
       "econnreset",
       "enotfound",
       "eai_again",
       "etimedout",
       "network error",
-      "gateway timeout",
-      "function invocation timeout",
     ])
   ) {
     return {
-      status: includesAny(errorText, [
-        "timed out",
-        "timeout",
-        "deadline exceeded",
-        "etimedout",
-        "gateway timeout",
-        "function invocation timeout",
-      ])
-        ? 504
-        : 503,
       message:
         "Trip generation service is currently unreachable. Check your internet connection and Gemini API availability, then retry.",
       hint:
@@ -227,35 +105,27 @@ export function resolveTripGenerationFailure(error) {
   }
 
   if (
-    normalizedErrorCode.includes("app/invalid-credential") ||
+    errorCode.includes("app/invalid-credential") ||
     errorText.includes("could not load the default credentials") ||
-    errorText.includes("unable to detect a project id in the current environment") ||
-    errorText.includes("service account object must contain") ||
-    errorText.includes("failed to determine service account") ||
-    errorText.includes("decoder routines::unsupported") ||
-    errorText.includes("getting metadata from plugin failed") ||
     errorText.includes("private key") ||
     errorText.includes("invalid_grant")
   ) {
     return {
-      status: 500,
       message:
         "Server Firebase Admin credentials are invalid. Check FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY.",
       hint:
-        "Use a fresh service account key JSON. On Vercel, prefer FIREBASE_SERVICE_ACCOUNT_JSON or keep newline escapes in FIREBASE_PRIVATE_KEY without extra formatting.",
+        "Use a fresh service account key JSON and keep newline escapes in FIREBASE_PRIVATE_KEY.",
     };
   }
 
   if (
     includesAny(errorText, [
       "cannot use undefined as a firestore value",
-      'cannot use "undefined" as a firestore value',
       "invalid firestore document",
       "value for argument \"data\" is not a valid firestore document",
     ])
   ) {
     return {
-      status: 500,
       message:
         "Trip generation completed, but the generated payload could not be saved safely.",
       hint:
@@ -263,44 +133,11 @@ export function resolveTripGenerationFailure(error) {
     };
   }
 
-  if (errorCode === "trip/persistence-failed" || errorStage === "persistence") {
-    return {
-      status: 500,
-      message:
-        "Trip generation completed, but saving the trip failed. Verify Firestore setup and Firebase Admin credentials.",
-      hint:
-        "Check FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY, and ensure Firestore exists in Native mode for that project.",
-    };
-  }
-
-  if (errorCode === "trip/generation-failed" || errorStage === "generation") {
-    return {
-      status: 503,
-      message:
-        "Trip generation failed while contacting the itinerary provider. Verify Gemini API access and retry.",
-      hint:
-        "Check GOOGLE_GEMINI_API_KEY, GEMINI_MODEL access, billing/quota, and outbound server connectivity.",
-    };
-  }
-
   return {
-    status: 500,
     message: "Unable to generate a trip right now.",
     hint:
       "Check server logs for [trips] Failed to generate trip, then verify Firestore setup, Firebase Admin credentials, and Gemini API connectivity.",
   };
-}
-
-function parseConstraintsFromQuery(query = {}) {
-  return normalizeTripConstraints({
-    dailyTimeLimitHours:
-      query.daily_time_limit ??
-      query.dailyTimeLimitHours ??
-      query.dailyTimeLimit,
-    budgetCap: query.budget_cap ?? query.budgetCap,
-    mobilityPref: query.mobility_pref ?? query.mobilityPref,
-    mealPrefs: query.meal_prefs ?? query.mealPrefs,
-  });
 }
 
 router.post("/trips/generate", requireAuth, tripGenerationRateLimit, async (req, res) => {
@@ -329,16 +166,12 @@ router.post("/trips/generate", requireAuth, tripGenerationRateLimit, async (req,
       resolvedMessage: resolvedFailure.message,
     });
 
-    res.status(resolvedFailure.status ?? 500).json({
+    res.status(500).json({
       message: resolvedFailure.message,
-      ...(resolvedFailure.hint
-        ? {
-            hint: resolvedFailure.hint,
-          }
-        : {}),
-      ...(IS_PRODUCTION
+      ...(IS_PRODUCTION || !resolvedFailure.hint
         ? {}
         : {
+            hint: resolvedFailure.hint,
             debug: getErrorText(error),
             errorCode: String(error?.code ?? ""),
           }),
@@ -348,7 +181,7 @@ router.post("/trips/generate", requireAuth, tripGenerationRateLimit, async (req,
 
 router.get("/trips/:tripId", requireAuth, async (req, res) => {
   try {
-    let trip = await getTripForUser({
+    const trip = await getTripForUser({
       tripId: req.params.tripId,
       user: req.user,
     });
@@ -365,19 +198,6 @@ router.get("/trips/:tripId", requireAuth, async (req, res) => {
         message: "You do not have access to this trip.",
       });
       return;
-    }
-
-    try {
-      const enrichmentResult = await backfillTripMapEnrichment({
-        trip,
-        logContext: "trip detail",
-      });
-      trip = enrichmentResult.trip;
-    } catch (error) {
-      console.warn("[trips] Trip detail map enrichment backfill failed", {
-        tripId: trip.id,
-        message: getErrorText(error),
-      });
     }
 
     res.json({ trip });
@@ -388,386 +208,6 @@ router.get("/trips/:tripId", requireAuth, async (req, res) => {
     });
   }
 });
-
-router.get("/trips/:tripId/recommendations", requireAuth, async (req, res) => {
-  try {
-    const trip = await getTripForUser({
-      tripId: req.params.tripId,
-      user: req.user,
-    });
-
-    if (!trip) {
-      res.status(404).json({
-        message: "Trip not found.",
-      });
-      return;
-    }
-
-    if (trip === "forbidden") {
-      res.status(403).json({
-        message: "You do not have access to this trip.",
-      });
-      return;
-    }
-
-    const destination =
-      trip.userSelection?.location?.label ?? trip.aiPlan?.destination ?? "";
-
-    if (!destination) {
-      res.status(400).json({
-        message: "This trip does not have a destination to search.",
-      });
-      return;
-    }
-
-    let recommendations;
-
-    try {
-      recommendations = await getRecommendationsForDestination({
-        destination,
-        userSelection: trip.userSelection,
-      });
-    } catch (error) {
-      console.error("[trips] Recommendation providers failed, using mock data", {
-        tripId: trip.id,
-        destination,
-        message: getErrorText(error),
-      });
-
-      recommendations = buildMockDestinationRecommendations({
-        destination,
-        userSelection: trip.userSelection,
-        warning:
-          "Live destination data could not be loaded, so curated sample recommendations are being shown instead.",
-      });
-    }
-
-    console.info("[trips] Destination recommendations loaded", {
-      tripId: trip.id,
-      destination,
-      provider: recommendations.provider,
-      hotels: recommendations.hotels.length,
-      restaurants: recommendations.restaurants.length,
-    });
-
-    res.json({ recommendations });
-  } catch (error) {
-    const resolvedFailure = resolveDependentServiceFailure(error, {
-      fallbackMessage: "Unable to load destination recommendations right now.",
-      timeoutMessage:
-        "Destination recommendations timed out while contacting travel data providers. Please try again.",
-      providerMessage:
-        "Destination recommendations are temporarily unavailable because a travel data provider could not respond.",
-    });
-    console.error("[trips] Failed to load destination recommendations", {
-      tripId: req.params.tripId,
-      message: getErrorText(error),
-      resolvedMessage: resolvedFailure.message,
-    });
-    res.status(resolvedFailure.status).json({
-      message: resolvedFailure.message,
-    });
-  }
-});
-
-router.get("/trips/:tripId/city-map", requireAuth, async (req, res) => {
-  try {
-    let trip = await getTripForUser({
-      tripId: req.params.tripId,
-      user: req.user,
-    });
-
-    if (!trip) {
-      res.status(404).json({
-        message: "Trip not found.",
-      });
-      return;
-    }
-
-    if (trip === "forbidden") {
-      res.status(403).json({
-        message: "You do not have access to this trip.",
-      });
-      return;
-    }
-
-    try {
-      const enrichmentResult = await backfillTripMapEnrichment({
-        trip,
-        logContext: "city map",
-      });
-      trip = enrichmentResult.trip;
-    } catch (error) {
-      console.warn("[trips] Trip city map enrichment backfill failed", {
-        tripId: trip.id,
-        message: getErrorText(error),
-      });
-    }
-
-    const basemap = await getStaticCityBasemap({
-      destination:
-        trip.userSelection?.location?.label ?? trip.aiPlan?.destination ?? "",
-      cityBounds: trip?.mapEnrichment?.cityBounds,
-    });
-    const cityMap = buildTripCityMapPayload({
-      trip,
-      basemap,
-    });
-
-    console.info("[trips] Trip city map loaded", {
-      tripId: trip.id,
-      destination: cityMap.destination,
-      mappedPlaceCount: cityMap.mappedPlaceCount,
-      unresolvedPlaceCount: cityMap.unresolvedPlaceCount,
-      roadFeatures: cityMap.basemap?.roads?.length ?? 0,
-    });
-
-    res.json({ cityMap });
-  } catch (error) {
-    const resolvedFailure = resolveDependentServiceFailure(error, {
-      fallbackMessage: "Unable to load the city map right now.",
-      timeoutMessage:
-        "The destination city map timed out while loading map provider data. Please try again.",
-      providerMessage:
-        "The destination city map is temporarily unavailable because a map provider could not respond.",
-    });
-    console.error("[trips] Failed to load trip city map", {
-      tripId: req.params.tripId,
-      message: getErrorText(error),
-      resolvedMessage: resolvedFailure.message,
-    });
-    res.status(resolvedFailure.status).json({
-      message: resolvedFailure.message,
-    });
-  }
-});
-
-router.get("/trips/:tripId/routes", requireAuth, async (req, res) => {
-  try {
-    let trip = await getTripForUser({
-      tripId: req.params.tripId,
-      user: req.user,
-    });
-
-    if (!trip) {
-      res.status(404).json({
-        message: "Trip not found.",
-      });
-      return;
-    }
-
-    if (trip === "forbidden") {
-      res.status(403).json({
-        message: "You do not have access to this trip.",
-      });
-      return;
-    }
-
-    try {
-      const enrichmentResult = await backfillTripMapEnrichment({
-        trip,
-        logContext: "routes",
-      });
-      trip = enrichmentResult.trip;
-    } catch (error) {
-      console.warn("[trips] Trip map enrichment backfill failed", {
-        tripId: trip.id,
-        message: getErrorText(error),
-      });
-    }
-
-    const objective = normalizeTripObjective(
-      typeof req.query.objective === "string"
-        ? req.query.objective
-        : typeof req.query.optimizeFor === "string"
-          ? req.query.optimizeFor
-          : trip.userSelection?.objective
-    );
-    const alternativesCount = normalizeAlternativesCount(
-      req.query.alternatives_count ??
-        req.query.alternativesCount ??
-        trip.userSelection?.alternativesCount
-    );
-    const constraints = parseConstraintsFromQuery(req.query);
-    const routes = await getRoutesForTrip({
-      trip,
-      optimizeFor:
-        typeof req.query.optimizeFor === "string"
-          ? req.query.optimizeFor
-          : objective === "cheapest"
-            ? "distance"
-            : "duration",
-      objective,
-      alternativesCount,
-      constraints,
-      dayNumber: req.query.day,
-    });
-
-    console.info("[trips] Trip routes loaded", {
-      tripId: trip.id,
-      destination: routes.destination,
-      dayCount: routes.dayCount,
-      optimizeFor: routes.optimizeFor,
-      objective: routes.objective,
-    });
-
-    res.json({ routes });
-  } catch (error) {
-    const resolvedFailure = resolveDependentServiceFailure(error, {
-      fallbackMessage: "Unable to load optimized routes right now.",
-      timeoutMessage:
-        "Optimized routes timed out while contacting route providers. Please try again.",
-      providerMessage:
-        "Optimized routes are temporarily unavailable because a routing provider could not respond.",
-    });
-    console.error("[trips] Failed to load trip routes", {
-      tripId: req.params.tripId,
-      message: getErrorText(error),
-      resolvedMessage: resolvedFailure.message,
-    });
-    res.status(resolvedFailure.status).json({
-      message: resolvedFailure.message,
-    });
-  }
-});
-
-router.get("/trips/:tripId/alternatives", requireAuth, async (req, res) => {
-  try {
-    const trip = await getTripForUser({
-      tripId: req.params.tripId,
-      user: req.user,
-    });
-
-    if (!trip) {
-      res.status(404).json({
-        message: "Trip not found.",
-      });
-      return;
-    }
-
-    if (trip === "forbidden") {
-      res.status(403).json({
-        message: "You do not have access to this trip.",
-      });
-      return;
-    }
-
-    const objective = normalizeTripObjective(
-      typeof req.query.objective === "string"
-        ? req.query.objective
-        : trip.userSelection?.objective
-    );
-    const alternativesCount = normalizeAlternativesCount(
-      req.query.alternatives_count ??
-        req.query.alternativesCount ??
-        trip.userSelection?.alternativesCount
-    );
-    const constraints = parseConstraintsFromQuery(req.query);
-    const routes = await getRoutesForTrip({
-      trip,
-      objective,
-      alternativesCount,
-      constraints,
-      dayNumber: req.query.day,
-    });
-
-    const alternatives = {
-      tripId: trip.id,
-      destination: routes.destination,
-      objective: routes.objective,
-      alternativesCount: routes.alternativesCount,
-      generatedAt: routes.generatedAt,
-      days: (Array.isArray(routes.days) ? routes.days : []).map((day) => ({
-        dayNumber: day.dayNumber,
-        title: day.title,
-        status: day.status,
-        alternatives: Array.isArray(day.alternatives) ? day.alternatives : [],
-        explanation: day.explanation ?? null,
-      })),
-    };
-
-    res.json({ alternatives });
-  } catch (error) {
-    const resolvedFailure = resolveDependentServiceFailure(error, {
-      fallbackMessage: "Unable to load route alternatives right now.",
-      timeoutMessage:
-        "Route alternatives timed out while contacting route providers. Please try again.",
-      providerMessage:
-        "Route alternatives are temporarily unavailable because a routing provider could not respond.",
-    });
-    console.error("[trips] Failed to load trip route alternatives", {
-      tripId: req.params.tripId,
-      message: getErrorText(error),
-      resolvedMessage: resolvedFailure.message,
-    });
-    res.status(resolvedFailure.status).json({
-      message: resolvedFailure.message,
-    });
-  }
-});
-
-router.post(
-  "/trips/:tripId/replan",
-  requireAuth,
-  replanRateLimit,
-  async (req, res) => {
-    const { disruptions, errors } = validateReplanRequest(req.body);
-
-    if (errors.length > 0) {
-      res.status(400).json({
-        message: "Replan request is invalid.",
-        errors,
-      });
-      return;
-    }
-
-    try {
-      const result = await replanTripForUser({
-        tripId: req.params.tripId,
-        user: req.user,
-        disruptions,
-      });
-
-      if (!result) {
-        res.status(404).json({
-          message: "Trip not found.",
-        });
-        return;
-      }
-
-      if (result === "forbidden") {
-        res.status(403).json({
-          message: "You do not have access to this trip.",
-        });
-        return;
-      }
-
-      console.info("[trips] Trip replanned", {
-        tripId: result.trip.id,
-        disruptionCount: disruptions.length,
-        changed: result.replanSummary.changed,
-      });
-
-      res.json(result);
-    } catch (error) {
-      const resolvedFailure = resolveDependentServiceFailure(error, {
-        fallbackMessage: "Unable to replan this trip right now.",
-        timeoutMessage:
-          "Trip replanning timed out while contacting travel data providers. Please try again.",
-        providerMessage:
-          "Trip replanning is temporarily unavailable because a provider could not respond.",
-      });
-      console.error("[trips] Failed to replan trip", {
-        tripId: req.params.tripId,
-        message: getErrorText(error),
-        resolvedMessage: resolvedFailure.message,
-      });
-      res.status(resolvedFailure.status).json({
-        message: resolvedFailure.message,
-      });
-    }
-  }
-);
 
 router.get("/my-trips", requireAuth, async (req, res) => {
   try {

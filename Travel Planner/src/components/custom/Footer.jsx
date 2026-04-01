@@ -16,7 +16,7 @@ function Footer() {
     <footer className="voy-footer">
       <div className="voy-footer-grid">
         <div className="voy-footer-brand">
-          <h3>AI TRAVEL PLANNER</h3>
+          <h3>Voyagr</h3>
           <p>
             AI-powered travel companion for planning, generating, and managing
             itinerary-driven trips.
@@ -95,7 +95,7 @@ function Footer() {
 
       <div className="voy-footer-bottom">
         <span className="voy-footer-copy">
-          © {new Date().getFullYear()} AI TRAVEL PLANNER. All rights reserved.
+          © {new Date().getFullYear()} Voyagr. All rights reserved.
         </span>
         <div className="voy-socials" aria-label="Social links">
           <button type="button" onClick={handleSocialPlaceholder} aria-label="Twitter (coming soon)">

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { SelectBudgetOptions, SelectTravelsList } from "../constants/options";
 import { toast } from "react-toastify";
@@ -7,12 +7,8 @@ import {
   CalendarRange,
   Compass,
   MapPinned,
-  Route,
   ShieldCheck,
-  SlidersHorizontal,
   Sparkles,
-  Timer,
-  UtensilsCrossed,
   Users2,
   WalletCards,
 } from "lucide-react";
@@ -20,14 +16,12 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogHeader,
-  DialogTitle,
+  DialogHeader
 } from "@/components/ui/dialog";
 import { FcGoogle } from "react-icons/fc";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/lib/api";
-import { readCreateTripPrefill } from "@/lib/tripPrefill";
 import {
   getUserSelectionErrors,
   normalizeUserSelection,
@@ -39,38 +33,7 @@ const INITIAL_FORM_STATE = {
   days: "",
   budget: "",
   travelers: "",
-  objective: "best_experience",
-  alternativesCount: 3,
-  constraints: {
-    dailyTimeLimitHours: 10,
-    budgetCap: "",
-    mobilityPref: "balanced",
-    mealPrefs: "",
-  },
 };
-
-const TRIP_GENERATION_REQUEST_TIMEOUT_MS = 90_000;
-
-const OBJECTIVE_OPTIONS = [
-  {
-    value: "fastest",
-    label: "Fastest",
-    description: "Minimize travel time between stops.",
-    icon: <Timer size={14} />,
-  },
-  {
-    value: "cheapest",
-    label: "Cheapest",
-    description: "Reduce transport and movement costs.",
-    icon: <WalletCards size={14} />,
-  },
-  {
-    value: "best_experience",
-    label: "Best Experience",
-    description: "Balance quality, pace, and route efficiency.",
-    icon: <Sparkles size={14} />,
-  },
-];
 
 function mapErrorsToFields(errors) {
   const next = {};
@@ -84,18 +47,6 @@ function mapErrorsToFields(errors) {
       next.budget = error;
     } else if (error.includes("Traveler")) {
       next.travelers = error;
-    } else if (error.includes("Objective")) {
-      next.objective = error;
-    } else if (error.includes("Daily time")) {
-      next.dailyTimeLimitHours = error;
-    } else if (error.includes("Budget cap")) {
-      next.budgetCap = error;
-    } else if (error.includes("Mobility")) {
-      next.mobilityPref = error;
-    } else if (error.includes("Meal")) {
-      next.mealPrefs = error;
-    } else if (error.includes("Alternatives")) {
-      next.alternativesCount = error;
     }
   }
 
@@ -110,7 +61,6 @@ function CreateTrip() {
   const [showDestinationSuggestions, setShowDestinationSuggestions] = useState(false);
   const [activeDestinationSuggestionIndex, setActiveDestinationSuggestionIndex] =
     useState(-1);
-  const location = useLocation();
   const navigate = useNavigate();
   const { user, signInWithGoogle } = useAuth();
   const destinationInputValue = formData.location?.label ?? "";
@@ -120,46 +70,10 @@ function CreateTrip() {
   );
   const destinationListId = "voy-create-destination-listbox";
 
-  useEffect(() => {
-    const prefill = readCreateTripPrefill(new URLSearchParams(location.search));
-    if (!prefill) {
-      return;
-    }
-
-    setFormData((previousData) => ({
-      ...previousData,
-      ...(prefill.location ? { location: prefill.location } : {}),
-      ...(prefill.days ? { days: prefill.days } : {}),
-      ...(prefill.budget ? { budget: prefill.budget } : {}),
-      ...(prefill.travelers ? { travelers: prefill.travelers } : {}),
-    }));
-    setFieldErrors({});
-    console.info("[create-trip] Applied query prefill", {
-      destination: prefill.location?.label ?? "",
-      days: prefill.days ?? null,
-      budget: prefill.budget ?? "",
-      travelers: prefill.travelers ?? "",
-    });
-  }, [location.search]);
-
   const handleInputChange = (name, value) => {
     setFormData((previousData) => ({
       ...previousData,
       [name]: value,
-    }));
-    setFieldErrors((previousErrors) => ({
-      ...previousErrors,
-      [name]: "",
-    }));
-  };
-
-  const handleConstraintChange = (name, value) => {
-    setFormData((previousData) => ({
-      ...previousData,
-      constraints: {
-        ...(previousData.constraints ?? {}),
-        [name]: value,
-      },
     }));
     setFieldErrors((previousErrors) => ({
       ...previousErrors,
@@ -250,7 +164,6 @@ function CreateTrip() {
           userSelection: selection,
         },
         token,
-        timeoutMs: TRIP_GENERATION_REQUEST_TIMEOUT_MS,
       });
 
       console.info("[create-trip] Trip created", {
@@ -539,170 +452,6 @@ function CreateTrip() {
               ) : null}
             </div>
 
-            <div className="voy-create-section">
-              <div className="voy-create-section-head">
-                <div className="voy-create-section-icon">
-                  <Route size={18} />
-                </div>
-                <div>
-                  <h3>Optimization Objective</h3>
-                  <p>Choose how the itinerary should prioritize routing tradeoffs.</p>
-                </div>
-              </div>
-              <div className="voy-create-choice-grid">
-                {OBJECTIVE_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    className={`voy-create-choice ${
-                      formData?.objective === option.value ? "active" : ""
-                    }`}
-                    onClick={() => handleInputChange("objective", option.value)}
-                    aria-pressed={formData?.objective === option.value}
-                  >
-                    <span className="voy-create-choice-icon" aria-hidden="true">
-                      {option.icon}
-                    </span>
-                    <div className="voy-create-choice-copy">
-                      <b>{option.label}</b>
-                      <small>{option.description}</small>
-                    </div>
-                    <span className="voy-create-choice-accent" aria-hidden="true" />
-                  </button>
-                ))}
-              </div>
-              {fieldErrors.objective ? (
-                <p className="voy-inline-error">{fieldErrors.objective}</p>
-              ) : null}
-            </div>
-
-            <div className="voy-create-section">
-              <div className="voy-create-section-head">
-                <div className="voy-create-section-icon">
-                  <SlidersHorizontal size={18} />
-                </div>
-                <div>
-                  <h3>Constraint Controls</h3>
-                  <p>Set hard limits for daily time, budget cap, and mobility preferences.</p>
-                </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <label htmlFor="voy-create-daily-limit" className="block text-sm text-[var(--voy-text-muted)]">
-                    Daily time limit (hours)
-                  </label>
-                  <div className="voy-create-field-shell mt-2">
-                    <Timer size={16} className="voy-create-field-icon" />
-                    <input
-                      id="voy-create-daily-limit"
-                      type="number"
-                      min={4}
-                      max={16}
-                      className="voy-create-field"
-                      value={formData?.constraints?.dailyTimeLimitHours ?? 10}
-                      onChange={(event) =>
-                        handleConstraintChange("dailyTimeLimitHours", event.target.value)
-                      }
-                    />
-                  </div>
-                  {fieldErrors.dailyTimeLimitHours ? (
-                    <p className="voy-inline-error">{fieldErrors.dailyTimeLimitHours}</p>
-                  ) : null}
-                </div>
-
-                <div>
-                  <label htmlFor="voy-create-budget-cap" className="block text-sm text-[var(--voy-text-muted)]">
-                    Budget cap (optional)
-                  </label>
-                  <div className="voy-create-field-shell mt-2">
-                    <WalletCards size={16} className="voy-create-field-icon" />
-                    <input
-                      id="voy-create-budget-cap"
-                      type="number"
-                      min={50}
-                      step={10}
-                      className="voy-create-field"
-                      placeholder="Ex. 1800"
-                      value={formData?.constraints?.budgetCap ?? ""}
-                      onChange={(event) =>
-                        handleConstraintChange("budgetCap", event.target.value)
-                      }
-                    />
-                  </div>
-                  {fieldErrors.budgetCap ? (
-                    <p className="voy-inline-error">{fieldErrors.budgetCap}</p>
-                  ) : null}
-                </div>
-
-                <div>
-                  <label htmlFor="voy-create-mobility-pref" className="block text-sm text-[var(--voy-text-muted)]">
-                    Mobility preference
-                  </label>
-                  <select
-                    id="voy-create-mobility-pref"
-                    className="voy-create-field mt-2 w-full"
-                    value={formData?.constraints?.mobilityPref ?? "balanced"}
-                    onChange={(event) =>
-                      handleConstraintChange("mobilityPref", event.target.value)
-                    }
-                  >
-                    <option value="balanced">Balanced</option>
-                    <option value="walk-heavy">Walk-heavy</option>
-                    <option value="minimal-walking">Minimal walking</option>
-                    <option value="transit-first">Transit-first</option>
-                  </select>
-                  {fieldErrors.mobilityPref ? (
-                    <p className="voy-inline-error">{fieldErrors.mobilityPref}</p>
-                  ) : null}
-                </div>
-
-                <div>
-                  <label htmlFor="voy-create-alternative-count" className="block text-sm text-[var(--voy-text-muted)]">
-                    Route alternatives (1-5)
-                  </label>
-                  <div className="voy-create-field-shell mt-2">
-                    <Compass size={16} className="voy-create-field-icon" />
-                    <input
-                      id="voy-create-alternative-count"
-                      type="number"
-                      min={1}
-                      max={5}
-                      className="voy-create-field"
-                      value={formData?.alternativesCount ?? 3}
-                      onChange={(event) =>
-                        handleInputChange("alternativesCount", event.target.value)
-                      }
-                    />
-                  </div>
-                  {fieldErrors.alternativesCount ? (
-                    <p className="voy-inline-error">{fieldErrors.alternativesCount}</p>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="mt-4">
-                <label htmlFor="voy-create-meal-prefs" className="block text-sm text-[var(--voy-text-muted)]">
-                  Meal preferences (comma separated)
-                </label>
-                <div className="voy-create-field-shell mt-2">
-                  <UtensilsCrossed size={16} className="voy-create-field-icon" />
-                  <input
-                    id="voy-create-meal-prefs"
-                    className="voy-create-field"
-                    placeholder="Ex. Vegetarian, Seafood"
-                    value={formData?.constraints?.mealPrefs ?? ""}
-                    onChange={(event) =>
-                      handleConstraintChange("mealPrefs", event.target.value)
-                    }
-                  />
-                </div>
-                {fieldErrors.mealPrefs ? (
-                  <p className="voy-inline-error">{fieldErrors.mealPrefs}</p>
-                ) : null}
-              </div>
-            </div>
-
             <div className="voy-create-actions">
               <Button
                 disabled={loading}
@@ -739,9 +488,7 @@ function CreateTrip() {
       <Dialog open={openDialog} onOpenChange={setOpenDialog}>
         <DialogContent className="voy-create-card max-w-sm w-full text-center">
           <DialogHeader>
-            <DialogTitle className="voy-page-title text-[1.5rem]">
-              Sign In With Google
-            </DialogTitle>
+            <h2 className="voy-page-title text-[1.5rem]">Sign In With Google</h2>
           </DialogHeader>
           <DialogDescription className="voy-page-subtitle">
             Sign in to securely generate and save your trip itinerary.

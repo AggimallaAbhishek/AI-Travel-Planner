@@ -3,7 +3,6 @@ import { cn } from "@/components/lib/utils";
 import { IMAGE_FALLBACKS } from "@/lib/imageManifest";
 
 const UNSPLASH_HOSTS = new Set(["images.unsplash.com", "plus.unsplash.com"]);
-const LOREM_FLICKR_HOSTS = new Set(["loremflickr.com"]);
 const RESPONSIVE_IMAGE_WIDTHS = [320, 480, 640, 768, 960, 1200, 1440];
 
 function isUnsplashUrl(url) {
@@ -34,57 +33,6 @@ function buildUnsplashUrl(url, { width, quality }) {
       parsed.searchParams.set("w", String(Math.round(width)));
     }
 
-    return parsed.toString();
-  } catch {
-    return url;
-  }
-}
-
-function isLoremFlickrUrl(url) {
-  if (typeof url !== "string" || !url.startsWith("http")) {
-    return false;
-  }
-
-  try {
-    const parsed = new URL(url);
-    return LOREM_FLICKR_HOSTS.has(parsed.hostname);
-  } catch {
-    return false;
-  }
-}
-
-function buildLoremFlickrUrl(url, { width }) {
-  try {
-    const parsed = new URL(url);
-    if (!LOREM_FLICKR_HOSTS.has(parsed.hostname)) {
-      return url;
-    }
-
-    const pathSegments = parsed.pathname.split("/").filter(Boolean);
-    if (pathSegments.length < 3) {
-      return url;
-    }
-
-    const sourceWidth = Number.parseInt(pathSegments[0], 10);
-    const sourceHeight = Number.parseInt(pathSegments[1], 10);
-    if (
-      !Number.isFinite(sourceWidth) ||
-      !Number.isFinite(sourceHeight) ||
-      sourceWidth <= 0 ||
-      sourceHeight <= 0
-    ) {
-      return url;
-    }
-
-    const boundedWidth = Number.isFinite(width) && width > 0
-      ? Math.round(width)
-      : sourceWidth;
-    const ratio = sourceHeight / sourceWidth;
-    const boundedHeight = Math.max(200, Math.round(boundedWidth * ratio));
-
-    pathSegments[0] = String(boundedWidth);
-    pathSegments[1] = String(boundedHeight);
-    parsed.pathname = `/${pathSegments.join("/")}`;
     return parsed.toString();
   } catch {
     return url;
@@ -126,10 +74,7 @@ export default function AppImage({
   );
 
   const imageSource = useMemo(() => {
-    const isUnsplash = isUnsplashUrl(activeSrc);
-    const isLoremFlickr = isLoremFlickrUrl(activeSrc);
-
-    if (!isUnsplash && !isLoremFlickr) {
+    if (!isUnsplashUrl(activeSrc)) {
       return {
         src: activeSrc,
         srcSet: undefined,
@@ -141,13 +86,17 @@ export default function AppImage({
     const widths = RESPONSIVE_IMAGE_WIDTHS.filter((width) => width <= boundedMaxWidth);
     const fallbackWidth = widths.length > 0 ? widths[widths.length - 1] : boundedMaxWidth;
 
-    const buildUrl = isUnsplash
-      ? (width) => buildUnsplashUrl(activeSrc, { width, quality })
-      : (width) => buildLoremFlickrUrl(activeSrc, { width });
-
     return {
-      src: buildUrl(fallbackWidth),
-      srcSet: widths.map((width) => `${buildUrl(width)} ${width}w`).join(", "),
+      src: buildUnsplashUrl(activeSrc, {
+        width: fallbackWidth,
+        quality,
+      }),
+      srcSet: widths
+        .map(
+          (width) =>
+            `${buildUnsplashUrl(activeSrc, { width, quality })} ${width}w`
+        )
+        .join(", "),
       sizes:
         sizes ??
         "(max-width: 640px) 92vw, (max-width: 1024px) 60vw, (max-width: 1400px) 40vw, 560px",

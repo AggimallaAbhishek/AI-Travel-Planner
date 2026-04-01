@@ -26,9 +26,3 @@ test("getDestinationSuggestions returns default list for empty query", () => {
   assert.equal(typeof suggestions[0].label, "string");
 });
 
-test("getDestinationSuggestions prioritizes full destination label matches", () => {
-  const suggestions = getDestinationSuggestions("Kyoto, Japan", { limit: 3 });
-
-  assert.ok(suggestions.length > 0);
-  assert.equal(suggestions[0].label, "Kyoto, Japan");
-});

@@ -1,129 +1,130 @@
-#  Travel Planner: LLMs and Services for Smart Itinerary Generation
+# Travel Planner App
 
-**Team Members:**  
-Sundaram, Sambhav Mishra, Aggimalla Abhishek, Nenavath Likhith Naik  
-**Faculty Guide:** Snehalatha S H, Animesh Chaturvedi  
-**Department of Data Science and Artificial Intelligence**  
-**Indian Institute of Information Technology, Dharwad**  
-Dharwad, Karnataka, India  
+Travel Planner is a Vite + React single-page application backed by a small Express API. It uses Firebase Authentication for Google sign-in, Cloud Firestore for saved trips, and Google Gemini for itinerary generation.
 
+## Implemented Product Surface
 
-[![Travel Planner Homepage](public/front_page.png)](https://travel-plannar-20.vercel.app/)
+- Landing page with hero, destinations, world map, and recommendation sections
+- Guided trip creation flow at `/create-trip`
+- Google sign-in flow via Firebase Auth
+- Authenticated trip generation through `/api/trips/generate`
+- Saved trips page at `/my-trips`
+- Trip detail page at `/trips/:tripId`
+- Static informational pages such as About, Features, Help Center, Travel Guides, AI Tips, Blog, and API Docs
+- Global dark/light theming and shared Voyagr design system
+- Frontend snapshot sync into `../frontend_versions/`
 
+## Architecture
 
----
+### Frontend
 
+- React 18 with React Router
+- Vite build system
+- Tailwind CSS plus app-specific `voyagr` styles
+- Firebase client SDK for auth state
+- Toast-based UX feedback and route-level state handling
 
-##  Project Overview
+### Backend
 
-**Travel Planner** is a full-stack web application that revolutionizes the way users plan their trips.  
-Traditionally, travelers rely on multiple platforms—flights, hotels, maps, weather forecasts—which makes planning fragmented and time-consuming.  
-Our system introduces an **AI-powered solution using Google’s Gemini LLM**, enabling **smart, personalized, and automated itinerary generation**.
+- Express 5 API under [`server/`](/Users/aggimallaabhishek/Documents/Travel-Plannar/Travel%20Planner/server)
+- Firebase Admin SDK for token verification and Firestore access
+- Gemini service wrapper for itinerary generation
+- Request validation, auth guards, CORS, and in-memory rate limiting
 
-Through natural language prompts such as *destination*, *duration*, *budget*, and *preferences*, users can generate a **structured, day-by-day itinerary** that integrates **real-world data** like maps and weather.  
+### Storage And Identity
 
-This project was developed as a **college group project** under the Department of Data Science and AI, IIIT Dharwad.
+- Firebase Authentication for user sign-in
+- Cloud Firestore for persisted trips
+- Owner-based access checks for trip read/list endpoints
 
----
+## Routes
 
-##  Key Features
+### Frontend Routes
 
-- **AI-Powered Itinerary Generation** – Uses **Google Gemini LLM** to understand user preferences and create contextual, realistic travel plans.  
-- **Smart Personalization** – Generates custom recommendations based on user budget, travel type, and interests.  
-- **Real-Time Data Integration** – Connects with **Google Maps** and **Weather APIs** for up-to-date route and weather information.  
-- **Dynamic Updates** – Automatically adjusts itineraries using live data to ensure practical travel schedules.  
-- **User Authentication** – Powered by **Firebase Auth** for secure login and personalized trip storage.  
-- **Scalable Architecture** – Modular frontend–backend design ensures flexibility and easy future expansion.  
-- **Responsive UI** – Built with **React**, **Vite**, and **Tailwind CSS** for a smooth experience across all devices.  
+- `/`
+- `/login`
+- `/create-trip`
+- `/my-trips`
+- `/trips/:tripId`
+- `/about`
+- `/contact`
+- `/features`
+- `/our-story`
+- `/team`
+- `/careers`
+- `/privacy-policy`
+- `/help-center`
+- `/faqs`
+- `/feedback`
+- `/travel-guides`
+- `/ai-tips`
+- `/blog`
+- `/api-docs`
 
----
+### Backend Routes
 
-##  System Architecture
+- `GET /api/health`
+- `POST /api/trips/generate`
+- `GET /api/trips/:tripId`
+- `GET /api/my-trips`
 
-The system follows a **three-tier architecture** — *Frontend, Backend, and External Services.*
+## Project Structure
 
-###  Frontend  
-- Developed with **React.js (Vite)** and **Tailwind CSS**.  
-- Provides an intuitive interface where users enter trip details and view AI-generated itineraries.  
-- Integrated with **Firebase Authentication** for secure access.  
-- Deployed seamlessly on **Vercel**.
-
-###  Backend  
-- Built using **Node.js** for efficient request handling.  
-- Communicates with:
-  - **Gemini API** – for itinerary generation and reasoning.  
-  - **Firebase Firestore** – for storing user and trip data.  
-  - **Weather API** – for fetching live climate details.  
-- Implements input validation, caching, and concurrency handling for optimized performance.
-
-###  External Services  
-- **Google Gemini LLM** – Core reasoning and content generation engine.  
-- **Google Maps API** – Provides location and navigation data.  
-- **Weather API** – Supplies real-time forecast integration.  
-- **Firebase Auth & Firestore** – Secure user management and cloud storage.
-
----
-
-##  Tech Stack
-
-| Category | Technologies |
-|-----------|---------------|
-| **Frontend** | React.js, Vite, Tailwind CSS |
-| **Backend** | Node.js, Express.js |
-| **Database** | Firebase Firestore |
-| **AI Model** | Google Gemini API |
-| **APIs** | Google Maps, Weather API |
-| **Auth & Hosting** | Firebase, Vercel |
-| **Dev Tools** | ESLint, PostCSS |
-
----
-
-## 🗂️ Folder Structure
-
-```bash
-TRAVEL_PLANNER/
-├── node_modules/ # Project dependencies
-├── public/ # Static assets (images, icons, HTML)
+```text
+Travel Planner/
+├── public/                     # Static assets
+├── server/                     # Express API
+│   ├── lib/                    # Firebase Admin helpers
+│   ├── middleware/             # Auth, CORS, rate limit
+│   ├── routes/                 # API route handlers
+│   └── services/               # Gemini and trip services
+├── shared/                     # Shared trip normalization / validation
+├── scripts/                    # Frontend backup sync scripts
 ├── src/
-│ ├── assets/ # Icons, fonts, and visuals
-│ ├── components/ # Reusable UI components
-│ ├── constants/ # Configuration and constants
-│ ├── create-trip/ # Module for trip creation
-│ ├── hooks/ # Custom React hooks
-│ ├── my-trips/ # User’s saved trips
-│ ├── pages/ # App pages
-│ ├── service/ # API and LLM service handlers
-│ ├── view-trip/ # Detailed trip view
-│ ├── App.jsx # Root component
-│ ├── App.css # Global styles
-│ └── main.jsx # Entry point
-├── .env.local # Environment variables
-├── package.json # Project dependencies and scripts
-├── tailwind.config.js # Tailwind configuration
-├── vite.config.js # Vite configuration
-└── vercel.json # Deployment settings
-
+│   ├── components/             # Reusable UI and Voyagr homepage modules
+│   ├── constants/              # Planner options and static config
+│   ├── context/                # Auth and theme providers
+│   ├── create-trip/            # Trip creation page
+│   ├── lib/                    # API, images, map, theme, autocomplete helpers
+│   ├── my-trips/               # Saved trips page
+│   ├── pages/                  # Static pages and login
+│   ├── service/                # Firebase client config
+│   ├── styles/                 # Voyagr stylesheets
+│   └── view-trip/              # Trip detail page
+├── tests/                      # Node test runner suites
+├── .env.example
+├── package.json
+└── vite.config.js
 ```
-##  Installation and Setup
 
-### **Prerequisites**
-- Node.js (v18 or higher)  
-- npm or yarn
+## Local Development
 
-### **Setup Instructions**
+### Prerequisites
+
+- Node.js 18+
+- npm
+- Firebase project with:
+  - Authentication -> Google provider enabled
+  - Cloud Firestore created in Native mode
+- Gemini API key with model access
+
+### Install
+
 ```bash
-
-git@github.com:SambhavMishra8319/Travel-Plannar.git
-cd travel-planner
 npm install
-npm run dev
-
 ```
-### Environment Variables
 
-Create a `.env` file in the project root (or copy from `.env.example`):
+### Environment
+
+Copy the template:
+
 ```bash
+cp .env.example .env
+```
 
+Required values:
+
+```env
 VITE_API_BASE_URL=
 VITE_DEV_API_PROXY=http://localhost:3001
 
@@ -135,90 +136,115 @@ VITE_FIREBASE_MESSAGING_SENDER_ID=
 VITE_FIREBASE_APP_ID=
 
 GOOGLE_GEMINI_API_KEY=
-GEMINI_MODEL=gemini-1.5-flash
+GEMINI_MODEL=gemini-2.5-flash
 
 FIREBASE_PROJECT_ID=
 FIREBASE_CLIENT_EMAIL=
 FIREBASE_PRIVATE_KEY=
 
-GOOGLE_PLACES_API_KEY=
-DESTINATION_RECOMMENDATION_LIMIT=6
-DESTINATION_RECOMMENDATION_CACHE_TTL_MS=900000
-DESTINATION_RECOMMENDATION_MOCK_CACHE_TTL_MS=60000
-DESTINATION_RECOMMENDATION_TIMEOUT_MS=12000
-DESTINATION_RECOMMENDATION_RADIUS_METERS=3000
-OSM_USER_AGENT=AI-Travel-Planner/1.0 (destination recommendations)
-
 CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 TRIP_GENERATION_RATE_LIMIT_WINDOW_MS=60000
-TRIP_GENERATION_RATE_LIMIT_MAX=6
-
+TRIP_GENERATION_RATE_LIMIT_MAX=5
+PORT=3001
 ```
-##  Research Background
 
-This project builds upon recent advances in **Large Language Models (LLMs)** and **AI-driven personalization**.  
-It explores how generative AI (like **Gemini**) can understand user context and produce coherent, multi-day travel itineraries automatically.
+### Firebase Setup Notes
 
-Compared to traditional tools like **MakeMyTrip** or **Expedia**, which primarily focus on bookings, our system emphasizes **planning intelligence** — combining AI reasoning with live data sources.
+- `VITE_FIREBASE_*` values come from the Firebase **Web App** config
+- `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, and `FIREBASE_PRIVATE_KEY` come from a Firebase **service account** JSON
+- `FIREBASE_PRIVATE_KEY` must keep escaped newlines:
 
----
+```env
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+```
 
-##  Performance Evaluation
+- Trips are stored in **Cloud Firestore**, not Realtime Database
+- Firestore must exist in the same Firebase project referenced by `FIREBASE_PROJECT_ID`
 
-| Metric                | Before Optimization | After Optimization | Improvement |
-|------------------------|--------------------:|-------------------:|-------------:|
-| API Response Time      | 850 ms              | 220 ms             | 74%          |
-| Database Query Time    | 420 ms              | 95 ms              | 77%          |
-| Concurrent Users       | 50                  | 250                | 400%         |
-| Memory Usage           | 45 MB               | 28 MB              | 38%          |
+## Scripts
 
----
+```bash
+npm run dev                 # Vite dev server + frontend backup sync
+npm run dev:vite            # Vite only
+npm run dev:server          # Express server with watch mode
+npm run server              # Express server
+npm run build               # Production build
+npm run preview             # Preview built frontend
+npm run lint                # ESLint
+npm test                    # Node test runner
+npm run sync:frontend       # One-time mirror into ../frontend_versions
+npm run sync:frontend:watch # Watch-only frontend mirror
+npm run audit:full          # Full npm audit
+npm run audit:prod          # Production dependency audit
+```
 
-##  Comparison with Existing Platforms
+## Frontend Backup Mirror
 
-| **Feature**                    | **Travel Planner** | **MakeMyTrip** | **Expedia** | **Yatra** |
-|--------------------------------|--------------------|----------------|--------------|------------|
-| AI-Generated Itinerary         | Available          | Not Available  | Not Available | Not Available |
-| Real-Time Weather Integration  | Advanced           | Basic          | Basic         | Not Supported |
-| Cost Estimation                | Detailed           | Basic          | Moderate      | Not Supported |
-| Collaboration & Group Planning | Supported          | Not Available  | Not Available | Not Available |
-| Booking APIs (Flights + Hotels)| Integrated         | Supported       | Supported     | Supported |
+Frontend snapshots are maintained in:
 
-##  Future Enhancements
+[`../frontend_versions/`](/Users/aggimallaabhishek/Documents/Travel-Plannar/frontend_versions)
 
-- **Predictive Analytics** – Suggest best travel times and deals using data-driven insights.  
-- **AR Integration** – Overlay landmark information and translations in real time.  
-- **Social & Gamified Features** – Enable trip sharing, badges, and collaborative planning.  
-- **Sustainability Metrics** – Display carbon footprint and eco-friendly suggestions.  
-- **Advanced LLM Memory** – Enable context retention for returning users.  
+`npm run dev` automatically starts the polling-based backup sync process.  
+Manual sync is available through `npm run sync:frontend`.
 
----
+## Testing
 
-##  Limitations
+The project uses the Node test runner and includes coverage for:
 
-- Dependence on third-party APIs (Google, Weather) for data integrity.  
-- Current model uses general-purpose LLM (**Gemini**) without domain-specific fine-tuning.  
-- Limited real-world user testing — future iterations aim for larger-scale evaluation.  
-- Potential for minor inaccuracies in generated itineraries due to generative variability.  
+- Shared trip normalization and validation
+- Theme behavior
+- Route/auth helper logic
+- Rate limiting
+- World map projection helpers
+- Frontend backup sync utilities
+- Backend trip error classification
 
----
+Run:
 
-##  Conclusion
+```bash
+npm test
+```
 
-**Travel Planner** demonstrates how **LLMs** and **AI services** can transform trip planning into an intelligent, interactive, and effortless experience.  
-By integrating modern web technologies with **generative AI**, the system bridges the gap between **research and real-world usability**, offering travelers a **personalized planning assistant** that adapts to their needs.  
+## Troubleshooting
 
-This project establishes a strong foundation for future work in **LLM-powered personalization**, **conversational travel agents**, and **AI-based decision-making systems**.
+### `HTTP 500` while generating a trip
 
-##  Contact Us
+Check the backend terminal logs first.
 
-For any queries, suggestions, or collaboration, feel free to reach out to our project team:
+Common causes:
 
-| Name                     | Roll Number          | Email                                 |
-|--------------------------|-------------------|---------------------------------------|
-| Sundaram                 | 23BDS060          | 23bds060@iiitdwd.ac.in               |
-| Sambhav Mishra           | 23BDS050          | 23bds050@iiitdwd.ac.in               |
-| Aggimalla Abhishek       | 23BDS004          | 23bds004@iiitdwd.ac.in               |
-| Nenavath Likhith Naik    | 23BDS037          | 23bds037@iiitdwd.ac.in               |
-| Snehalatha S H           | 24PHDDI12         | snehalatha.24phddi12@iiitdwd.ac.in  |
-| Animesh Chaturvedi       | -                 | animesh@iiitdwd.ac.in                |
+- Firestore has not been created
+- `FIREBASE_PROJECT_ID` points at the wrong Firebase project
+- Service-account credentials do not belong to the same Firebase project
+- Gemini API key is invalid, rate-limited, or lacks model access
+- Backend server is not running
+
+### `5 NOT_FOUND` while saving trips
+
+This usually means the default Firestore database is missing or the backend is pointed at the wrong Firebase project.
+
+Fix path:
+
+1. Firebase Console -> `Build` -> `Firestore Database`
+2. Create the default Firestore database in Native mode if it does not exist
+3. Confirm `.env` service-account variables target that same Firebase project
+4. Restart the backend
+
+### `Firebase Auth is not configured`
+
+One or more `VITE_FIREBASE_*` variables are missing or invalid.
+
+### `Unable to reach the API server`
+
+Start the backend:
+
+```bash
+npm run server
+```
+
+## Current Constraints
+
+- Trip generation depends on external Gemini availability
+- Firestore and Firebase Auth must be configured correctly for the full flow
+- The frontend backup mirror is operationally useful but not part of runtime behavior
+- Some static pages are informational and do not connect to backend data

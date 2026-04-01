@@ -5,7 +5,6 @@ import {
   buildTripPrompt,
   getUserSelectionErrors,
   normalizeGeneratedTrip,
-  normalizeStoredTrip,
   normalizeUserSelection,
   parseAiTripPayload,
   sortTripsNewestFirst,
@@ -26,14 +25,6 @@ test("normalizeUserSelection maps legacy keys into canonical shape", () => {
     travelers: "Friends",
     travelType: "",
     travelerCount: null,
-    objective: "best_experience",
-    constraints: {
-      dailyTimeLimitHours: 10,
-      budgetCap: null,
-      mobilityPref: "balanced",
-      mealPrefs: [],
-    },
-    alternativesCount: 3,
   });
 });
 
@@ -167,122 +158,4 @@ test("buildTripPrompt contains all normalized user selection fields", () => {
   assert.ok(prompt.includes("Travel Type: Relaxation"));
   assert.ok(prompt.includes("Number of Travelers: 3"));
   assert.ok(prompt.includes("\"total_estimated_cost\""));
-});
-
-test("normalizeStoredTrip preserves persisted place geocodes and map enrichment", () => {
-  const trip = normalizeStoredTrip({
-    id: "trip-persisted-map-data",
-    ownerId: "user-1",
-    ownerEmail: "owner@example.com",
-    createdAt: "2026-04-01T10:00:00.000Z",
-    updatedAt: "2026-04-01T10:05:00.000Z",
-    userSelection: {
-      location: { label: "Tokyo, Japan" },
-      days: 2,
-      budget: "Moderate",
-      travelers: "Friends",
-    },
-    itinerary: {
-      days: [
-        {
-          dayNumber: 1,
-          title: "Tokyo intro",
-          places: [
-            {
-              placeName: "Shibuya Crossing",
-              placeDetails: "Famous scramble crossing.",
-              location: "Shibuya City, Tokyo",
-              mapsUrl: "https://maps.google.com/?q=shibuya",
-              geoCoordinates: { latitude: 35.6595, longitude: 139.7005 },
-              geocodeStatus: "resolved",
-              geocodeSource: "google_places",
-              geocodedAt: "2026-04-01T10:01:00.000Z",
-            },
-            {
-              placeName: "Mystery Cafe",
-              geocodeStatus: "unresolved",
-            },
-          ],
-        },
-      ],
-    },
-    aiPlan: {
-      destination: "Tokyo, Japan",
-      days: [
-        {
-          day: 1,
-          title: "Tokyo intro",
-          activities: ["Shibuya Crossing", "Mystery Cafe"],
-          estimatedCost: "$80-$120",
-          tips: "Start early.",
-        },
-      ],
-      totalEstimatedCost: "$160-$240",
-      travelTips: ["Carry cash."],
-    },
-    mapEnrichment: {
-      status: "partial",
-      lastAttemptedAt: "2026-04-01T10:01:00.000Z",
-      geocodedStopCount: 1,
-      unresolvedStopCount: 1,
-      cityBounds: {
-        north: 35.82,
-        south: 35.55,
-        east: 139.92,
-        west: 139.55,
-      },
-      markerDays: [
-        {
-          dayNumber: 1,
-          title: "Tokyo intro",
-          places: [
-            {
-              placeName: "Shibuya Crossing",
-              location: "Shibuya City, Tokyo",
-              mapsUrl: "https://maps.google.com/?q=shibuya",
-              geoCoordinates: { latitude: 35.6595, longitude: 139.7005 },
-              geocodeStatus: "resolved",
-              geocodeSource: "google_places",
-            },
-            {
-              placeName: "Shinjuku Gyoen National Garden",
-              location: "Shinjuku City, Tokyo",
-              mapsUrl: "https://maps.google.com/?q=shinjuku+gyoen",
-              geoCoordinates: { latitude: 35.6852, longitude: 139.7101 },
-              geocodeStatus: "resolved",
-              geocodeSource: "fallback_inferred",
-            },
-          ],
-        },
-      ],
-    },
-  });
-
-  assert.equal(trip.itinerary.days[0].places[0].location, "Shibuya City, Tokyo");
-  assert.equal(
-    trip.itinerary.days[0].places[0].mapsUrl,
-    "https://maps.google.com/?q=shibuya"
-  );
-  assert.equal(trip.itinerary.days[0].places[0].geocodeStatus, "resolved");
-  assert.equal(trip.itinerary.days[0].places[0].geocodeSource, "google_places");
-  assert.equal(
-    trip.itinerary.days[0].places[0].geocodedAt,
-    "2026-04-01T10:01:00.000Z"
-  );
-  assert.equal(trip.itinerary.days[0].places[1].geocodeStatus, "unresolved");
-  assert.equal(trip.mapEnrichment.status, "partial");
-  assert.equal(trip.mapEnrichment.geocodedStopCount, 1);
-  assert.equal(trip.mapEnrichment.unresolvedStopCount, 1);
-  assert.deepEqual(trip.mapEnrichment.cityBounds, {
-    north: 35.82,
-    south: 35.55,
-    east: 139.92,
-    west: 139.55,
-  });
-  assert.equal(trip.mapEnrichment.markerDays.length, 1);
-  assert.equal(trip.mapEnrichment.markerDays[0].places.length, 2);
-  assert.equal(
-    trip.mapEnrichment.markerDays[0].places[1].placeName,
-    "Shinjuku Gyoen National Garden"
-  );
 });

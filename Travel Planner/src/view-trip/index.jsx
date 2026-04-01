@@ -2,25 +2,12 @@ import React, { useEffect, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import InfoSection from "./components/InfoSection";
 import Hotels from "./components/Hotels";
-import Restaurants from "./components/Restaurants";
 import PlacesToVisit from "./components/PlacesToVisit";
+import { toast } from "react-toastify";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/lib/api";
-import { fetchTripRecommendations } from "@/lib/tripRecommendations";
 import { Button } from "@/components/ui/button";
 import { buildLoginPath } from "@/lib/authRedirect";
-
-const TRIP_DETAIL_REQUEST_TIMEOUT_MS = 25_000;
-
-const INITIAL_RECOMMENDATION_STATE = {
-  hotels: [],
-  restaurants: [],
-  provider: "",
-  warning: "",
-  destination: "",
-  loading: false,
-  errorMessage: "",
-};
 
 function Viewtrip() {
   const { tripId } = useParams();
@@ -29,10 +16,6 @@ function Viewtrip() {
   const [trip, setTrip] = useState(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
-  const [recommendations, setRecommendations] = useState(
-    INITIAL_RECOMMENDATION_STATE
-  );
-  const [recommendationReloadToken, setRecommendationReloadToken] = useState(0);
   const loginPath = buildLoginPath(`${location.pathname}${location.search}${location.hash}`);
 
   useEffect(() => {
@@ -41,8 +24,6 @@ function Viewtrip() {
     if (!tripId || !user) {
       setLoading(false);
       setTrip(null);
-      setRecommendations(INITIAL_RECOMMENDATION_STATE);
-      console.info("[view-trip] Skipping trip detail load without trip id or authenticated user");
       return () => controller.abort();
     }
 
@@ -53,7 +34,6 @@ function Viewtrip() {
       try {
         const response = await apiFetch(`/api/trips/${tripId}`, {
           signal: controller.signal,
-          timeoutMs: TRIP_DETAIL_REQUEST_TIMEOUT_MS,
         });
         setTrip(response.trip ?? null);
       } catch (error) {
@@ -62,8 +42,9 @@ function Viewtrip() {
         }
 
         console.error("[view-trip] Failed to load trip", error);
-        setRecommendations(INITIAL_RECOMMENDATION_STATE);
+        setTrip(null);
         setErrorMessage(error.message ?? "Unable to load this trip.");
+        toast.error(error.message ?? "Unable to load this trip.");
       } finally {
         setLoading(false);
       }
@@ -73,75 +54,6 @@ function Viewtrip() {
 
     return () => controller.abort();
   }, [tripId, user]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    const destination = trip?.userSelection?.location?.label ?? "";
-
-    if (!trip?.id || !user) {
-      setRecommendations(INITIAL_RECOMMENDATION_STATE);
-      return () => controller.abort();
-    }
-
-    if (!destination) {
-      setRecommendations({
-        ...INITIAL_RECOMMENDATION_STATE,
-        errorMessage: "A destination is required before hotels and restaurants can be loaded.",
-      });
-      return () => controller.abort();
-    }
-
-    async function loadRecommendations() {
-      setRecommendations((previous) => ({
-        ...previous,
-        hotels: recommendationReloadToken > 0 ? [] : previous.hotels,
-        restaurants: recommendationReloadToken > 0 ? [] : previous.restaurants,
-        destination,
-        loading: true,
-        errorMessage: "",
-      }));
-
-      try {
-        const response = await fetchTripRecommendations(trip.id, {
-          signal: controller.signal,
-          force: recommendationReloadToken > 0,
-        });
-
-        setRecommendations({
-          ...response,
-          loading: false,
-          errorMessage: "",
-        });
-      } catch (error) {
-        if (error.name === "AbortError") {
-          return;
-        }
-
-        console.error("[view-trip] Failed to load recommendations", {
-          tripId: trip.id,
-          destination,
-          message: error?.message,
-        });
-
-        setRecommendations((previous) => ({
-          ...previous,
-          destination,
-          loading: false,
-          errorMessage:
-            error.message ??
-            "Unable to load destination recommendations right now.",
-        }));
-      }
-    }
-
-    loadRecommendations();
-
-    return () => controller.abort();
-  }, [trip?.id, trip?.userSelection?.location?.label, user, recommendationReloadToken]);
-
-  const handleRetryRecommendations = () => {
-    setRecommendationReloadToken((previous) => previous + 1);
-  };
 
   if (authLoading) {
     return (
@@ -206,22 +118,7 @@ function Viewtrip() {
     <section className="voy-view-shell">
       <div className="voy-view-content">
         <InfoSection trip={trip} />
-        <Hotels
-          trip={trip}
-          hotels={recommendations.hotels}
-          isLoading={recommendations.loading}
-          errorMessage={recommendations.errorMessage}
-          note={recommendations.warning}
-          onRetry={handleRetryRecommendations}
-        />
-        <Restaurants
-          trip={trip}
-          restaurants={recommendations.restaurants}
-          isLoading={recommendations.loading}
-          errorMessage={recommendations.errorMessage}
-          note={recommendations.warning}
-          onRetry={handleRetryRecommendations}
-        />
+        <Hotels trip={trip} />
         <PlacesToVisit trip={trip} />
       </div>
     </section>

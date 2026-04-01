@@ -1,15 +1,8 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { VOYAGR_DESTINATIONS } from "./data";
 import SectionHeader from "./SectionHeader";
 import AppImage from "@/components/ui/AppImage";
 import { IMAGE_FALLBACKS } from "@/lib/imageManifest";
-import {
-  buildDestinationMapsUrl,
-  formatDestinationStartingPrice,
-  persistVoyagrCurrencyPreference,
-  readVoyagrCurrencyPreference,
-  VOYAGR_CURRENCY_OPTIONS,
-} from "@/lib/voyagrCurrency";
 
 const FILTERS = [
   { id: "all", label: "All" },
@@ -33,9 +26,9 @@ function getFilteredDestinations(activeFilter) {
 export default function DestinationsSection({
   activeFilter,
   onFilterChange,
+  onExploreDestination,
 }) {
   const [savedDestinations, setSavedDestinations] = useState(new Set());
-  const [currencyCode, setCurrencyCode] = useState(() => readVoyagrCurrencyPreference());
 
   const destinations = useMemo(
     () => getFilteredDestinations(activeFilter),
@@ -56,21 +49,8 @@ export default function DestinationsSection({
         count: next.size,
       });
       return next;
-      });
-  };
-
-  const handleCurrencyChange = (event) => {
-    const nextCurrency = event.target.value;
-    const normalizedCurrencyCode = persistVoyagrCurrencyPreference(nextCurrency);
-    console.info("[voyagr-destinations] currency changed", {
-      currencyCode: normalizedCurrencyCode,
     });
-    setCurrencyCode(normalizedCurrencyCode);
   };
-
-  useEffect(() => {
-    persistVoyagrCurrencyPreference(currencyCode);
-  }, [currencyCode]);
 
   return (
     <section id="destinations" className="voy-section voy-destinations">
@@ -81,44 +61,22 @@ export default function DestinationsSection({
         subtitle="Handpicked locations loved by travelers worldwide, adapted to your trip goals."
       />
 
-      <div className="voy-dest-toolbar voy-reveal">
-        <div className="voy-filter-bar">
-          {FILTERS.map((filter) => (
-            <button
-              key={filter.id}
-              type="button"
-              className={`voy-filter-btn ${activeFilter === filter.id ? "active" : ""}`}
-              onClick={() => onFilterChange(filter.id)}
-            >
-              {filter.label}
-            </button>
-          ))}
-        </div>
-
-        <label className="voy-dest-currency" htmlFor="destination-currency">
-          <span>Currency</span>
-          <select
-            id="destination-currency"
-            value={currencyCode}
-            onChange={handleCurrencyChange}
+      <div className="voy-filter-bar voy-reveal">
+        {FILTERS.map((filter) => (
+          <button
+            key={filter.id}
+            type="button"
+            className={`voy-filter-btn ${activeFilter === filter.id ? "active" : ""}`}
+            onClick={() => onFilterChange(filter.id)}
           >
-            {VOYAGR_CURRENCY_OPTIONS.map((currency) => (
-              <option key={currency.value} value={currency.value}>
-                {currency.label}
-              </option>
-            ))}
-          </select>
-        </label>
+            {filter.label}
+          </button>
+        ))}
       </div>
 
       <div className="voy-dest-grid">
         {destinations.map((destination) => {
           const isSaved = savedDestinations.has(destination.id);
-          const mapsUrl = buildDestinationMapsUrl(destination);
-          const priceLabel = formatDestinationStartingPrice(
-            destination.startingPriceUsd,
-            currencyCode
-          );
 
           return (
             <article className="voy-dest-card" key={destination.id}>
@@ -155,21 +113,17 @@ export default function DestinationsSection({
                     <span>★ {destination.rating}</span>
                     <span>({destination.reviews.toLocaleString()})</span>
                   </div>
-                  <div className="voy-dest-price">{priceLabel}</div>
+                  <div className="voy-dest-price">{destination.price}</div>
                 </div>
-                <a
+                <button
+                  type="button"
                   className="voy-dest-explore"
-                  href={mapsUrl}
                   onClick={() =>
-                    console.info("[voyagr-destinations] opening destination in Google Maps", {
-                      destinationId: destination.id,
-                      destination: `${destination.name}, ${destination.country}`,
-                      mapsUrl,
-                    })
+                    onExploreDestination(`${destination.name}, ${destination.country}`)
                   }
                 >
-                  Show in Maps
-                </a>
+                  Use for Trip Planning
+                </button>
               </div>
             </article>
           );

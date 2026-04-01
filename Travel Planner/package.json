@@ -3,9 +3,6 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "engines": {
-    "node": "22.x"
-  },
   "scripts": {
     "dev": "node ./scripts/devWithFrontendSync.mjs",
     "dev:vite": "vite",
@@ -15,13 +12,6 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "node --test",
-    "eval:research": "node ./scripts/researchEvaluation.mjs",
-    "data:city-maps:build": "node ./scripts/buildCityMapDataset.mjs",
-    "data:city-maps:verify": "node ./scripts/buildCityMapDataset.mjs --verify",
-    "data:city-maps:stats": "node ./scripts/buildCityMapDataset.mjs --stats",
-    "data:poi:build": "node ./scripts/buildWorldPoiIndex.mjs",
-    "data:poi:verify": "node ./scripts/buildWorldPoiIndex.mjs --verify",
-    "data:poi:stats": "node ./scripts/buildWorldPoiIndex.mjs --stats",
     "sync:frontend": "node ./scripts/frontendBackupSync.mjs --full",
     "sync:frontend:watch": "node ./scripts/frontendBackupSync.mjs --watch",
     "audit:full": "npm audit",
@@ -39,7 +29,6 @@
     "express": "^5.1.0",
     "firebase": "^11.5.0",
     "firebase-admin": "^13.7.0",
-    "jspdf": "^4.2.1",
     "lucide-react": "^0.483.0",
     "postcss": "^8.5.3",
     "react": "^18.3.1",
