@@ -118,11 +118,12 @@ export default function DestinationsSection({
                 <button
                   type="button"
                   className="voy-dest-explore"
+                  aria-label={`Show ${destination.name}, ${destination.country} in Google Maps`}
                   onClick={() =>
                     onExploreDestination(`${destination.name}, ${destination.country}`)
                   }
                 >
-                  Use for Trip Planning
+                  Show in Map
                 </button>
               </div>
             </article>

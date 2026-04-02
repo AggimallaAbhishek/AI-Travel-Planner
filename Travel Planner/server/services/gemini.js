@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { parseAiTripPayload } from "../../shared/trips.js";
+import { incrementPlanningMetric } from "../lib/planningMetrics.js";
 
 let model;
 const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
@@ -263,6 +264,9 @@ export async function generateGroundedNarrative({
     console.warn("[gemini] Narrative generation skipped; missing API key", {
       traceId: traceId || null,
     });
+    incrementPlanningMetric("narrative_template_used", {
+      reason: "missing_api_key",
+    });
     return {
       ...fallback,
       discardedReason: "missing_api_key",
@@ -296,6 +300,9 @@ export async function generateGroundedNarrative({
         dayCount: narrative.days.length,
         traceId: traceId || null,
       });
+      incrementPlanningMetric("narrative_accepted", {
+        source: "gemini",
+      });
 
       return {
         ...narrative,
@@ -310,8 +317,14 @@ export async function generateGroundedNarrative({
         message: error instanceof Error ? error.message : String(error),
         traceId: traceId || null,
       });
+      incrementPlanningMetric("narrative_rejected", {
+        retryable: retryable ? "yes" : "no",
+      });
 
       if (!retryable) {
+        incrementPlanningMetric("narrative_template_used", {
+          reason: "invalid_or_failed_response",
+        });
         return {
           ...fallback,
           discardedReason: "invalid_or_failed_response",

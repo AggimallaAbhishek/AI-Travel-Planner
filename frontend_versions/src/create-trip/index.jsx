@@ -307,6 +307,7 @@ function FoodTag({ item, active, onClick }) {
       className={`voy-create-tag ${active ? "active" : ""}`}
       onClick={onClick}
       aria-pressed={active}
+      title={item.description}
     >
       <span aria-hidden="true">{item.icon}</span>
       <span>{item.title}</span>
@@ -321,6 +322,7 @@ function PaceButton({ item, active, onClick }) {
       className={`voy-create-segment ${active ? "active" : ""}`}
       onClick={onClick}
       aria-pressed={active}
+      title={item.description}
     >
       <span aria-hidden="true">{item.icon}</span>
       <div>
@@ -361,6 +363,22 @@ function CreateTrip() {
   const [openDialog, setOpenDialog] = useState(false);
   const [loading, setLoading] = useState(false);
   const [autocompleteLoading, setAutocompleteLoading] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(() =>
+    typeof window !== "undefined"
+      ? window.matchMedia("(max-width: 767px)").matches
+      : false
+  );
+  const [collapsedSidebarBlocks, setCollapsedSidebarBlocks] = useState(() => {
+    const startsCollapsed =
+      typeof window !== "undefined"
+        ? window.matchMedia("(max-width: 767px)").matches
+        : false;
+
+    return {
+      validation: startsCollapsed,
+      suggestions: startsCollapsed,
+    };
+  });
   const [showDestinationSuggestions, setShowDestinationSuggestions] = useState(false);
   const [destinationSuggestions, setDestinationSuggestions] = useState([]);
   const [activeDestinationSuggestionIndex, setActiveDestinationSuggestionIndex] =
@@ -396,6 +414,14 @@ function CreateTrip() {
   const budgetBreakdown = useMemo(
     () => getBudgetBreakdownDetails(submissionPreview),
     [submissionPreview]
+  );
+  const briefCompletionStatus = useMemo(
+    () =>
+      getBriefCompletionStatus({
+        ...submissionPreview,
+        planType: selectedPlanType,
+      }),
+    [selectedPlanType, submissionPreview]
   );
   const recommendedBudgetRange = useMemo(
     () => getRecommendedBudgetRange(safeIntelligenceInput),
@@ -436,6 +462,37 @@ function CreateTrip() {
     ];
   }, [destinationInputValue, destinationSuggestions]);
   const destinationListId = "voy-create-destination-listbox";
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return undefined;
+    }
+
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
+
+    const applyViewportState = (matches) => {
+      setIsMobileViewport((previousValue) => {
+        if (previousValue === matches) {
+          return previousValue;
+        }
+
+        setCollapsedSidebarBlocks({
+          validation: matches,
+          suggestions: matches,
+        });
+        return matches;
+      });
+    };
+
+    applyViewportState(mediaQuery.matches);
+
+    const onChange = (event) => {
+      applyViewportState(event.matches);
+    };
+
+    mediaQuery.addEventListener("change", onChange);
+    return () => mediaQuery.removeEventListener("change", onChange);
+  }, []);
 
   useEffect(() => {
     if (hasAppliedPrefillRef.current) {
@@ -566,6 +623,13 @@ function CreateTrip() {
       setShowDestinationSuggestions(false);
       setActiveDestinationSuggestionIndex(-1);
     }
+  };
+
+  const toggleSidebarBlock = (key) => {
+    setCollapsedSidebarBlocks((previousState) => ({
+      ...previousState,
+      [key]: !previousState[key],
+    }));
   };
 
   const buildSubmissionPayload = () => {

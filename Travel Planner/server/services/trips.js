@@ -3,11 +3,11 @@ import {
   buildStoredTrip,
   getUserSelectionErrors,
   normalizeStoredTrip,
-  normalizeUserSelection,
   sortTripsNewestFirst,
 } from "../../shared/trips.js";
 import { getAdminDb } from "../lib/firebaseAdmin.js";
 import { buildDataDrivenTripPlan } from "./planningEngine.js";
+import { normalizePlanningRequest } from "./planningRequest.js";
 
 const COLLECTION_NAME = "AITrips";
 
@@ -68,18 +68,25 @@ async function backfillLegacyOwnership(docRef, user) {
 }
 
 export function validateTripRequest(body = {}) {
-  const userSelection = normalizeUserSelection(body.userSelection ?? body);
+  const planningRequest = normalizePlanningRequest(body.userSelection ?? body);
+  const userSelection = planningRequest.selection;
   const errors = getUserSelectionErrors(userSelection);
 
-  return { userSelection, errors };
+  return { userSelection, errors, planningRequest };
 }
 
-export async function createTripForUser({ user, userSelection, traceId = "" }) {
+export async function createTripForUser({
+  user,
+  userSelection,
+  planningRequest,
+  traceId = "",
+}) {
   const tripId = randomUUID();
   const dataDrivenPlan = await buildDataDrivenTripPlan({
     tripId,
     user,
     userSelection,
+    planningRequest,
     traceId,
   });
   const trip = buildStoredTrip({
@@ -88,6 +95,7 @@ export async function createTripForUser({ user, userSelection, traceId = "" }) {
     ownerEmail: user.email ?? "",
     userSelection,
     generatedTrip: dataDrivenPlan.generatedTrip,
+    groundedPlan: dataDrivenPlan.groundedPlan,
     planningMeta: dataDrivenPlan.planningMeta,
     optimization: dataDrivenPlan.optimization,
     routePlans: dataDrivenPlan.generatedTrip.routePlans,

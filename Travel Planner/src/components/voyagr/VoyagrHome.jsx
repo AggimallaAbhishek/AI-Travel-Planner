@@ -38,6 +38,26 @@ export default function VoyagrHome() {
     navigate(targetPath);
   };
 
+  const openDestinationInGoogleMaps = (destination = "") => {
+    const destinationLabel = String(destination ?? "").trim();
+    if (!destinationLabel) {
+      return;
+    }
+
+    const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+      destinationLabel
+    )}`;
+    console.info("[voyagr-home] opening destination in google maps", {
+      destination: destinationLabel,
+      mapsUrl,
+    });
+
+    const popupWindow = window.open(mapsUrl, "_blank", "noopener,noreferrer");
+    if (!popupWindow) {
+      window.location.assign(mapsUrl);
+    }
+  };
+
   const applyHeroFilter = (filterId) => {
     setActiveFilter(filterId);
     jumpToHash("#destinations");
@@ -54,9 +74,7 @@ export default function VoyagrHome() {
       <DestinationsSection
         activeFilter={activeFilter}
         onFilterChange={setActiveFilter}
-        onExploreDestination={(destination) =>
-          openTripCreator({ destination, travelers: "2 Travelers" })
-        }
+        onExploreDestination={openDestinationInGoogleMaps}
       />
 
       <Suspense

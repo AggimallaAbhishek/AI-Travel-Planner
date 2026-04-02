@@ -1,6 +1,7 @@
 import { normalizeUserSelection } from "../../shared/trips.js";
 import { ensureStructuredDestinationData } from "./destinationIngestion.js";
 import { computeStructuredTripOptimization } from "./planningEngine.js";
+import { buildGroundedTransportEdges } from "./transportEdges.js";
 
 function normalizeText(value, fallback = "") {
   if (typeof value !== "string") {
@@ -56,11 +57,18 @@ export async function getTripRoutePlan({
     forceRefresh,
     traceId,
   });
+  const transportContext = await buildGroundedTransportEdges({
+    destinationId: ingestion.destination.id,
+    places: ingestion.places,
+    existingEdges: ingestion.edges,
+    forceRefresh,
+    traceId,
+  });
   const optimization = await computeStructuredTripOptimization({
     tripId: trip.id,
     destinationRecord: ingestion.destination,
     places: ingestion.places,
-    edges: ingestion.edges,
+    edges: transportContext.edges,
     userSelection: selection,
     forceRefresh,
     traceId,
@@ -88,7 +96,7 @@ export async function getTripRoutePlan({
       cacheHit: optimization.optimization.cacheHit,
       generatedAt: new Date().toISOString(),
       freshness: ingestion.freshness?.freshUntil ?? null,
+      usedFallbackEdges: transportContext.usedFallbackEdges,
     },
   };
 }
-

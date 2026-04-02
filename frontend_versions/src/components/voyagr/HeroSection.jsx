@@ -176,19 +176,15 @@ export default function HeroSection({ activeFilter, onFilterSelect, onStartPlann
 
       <div className="voy-hero-stats">
         <div className="voy-hero-stat">
-          <span className="voy-stat-number">180</span>
           <span className="voy-stat-label">Countries</span>
         </div>
         <div className="voy-hero-stat">
-          <span className="voy-stat-number">12.4k</span>
           <span className="voy-stat-label">Destinations</span>
         </div>
         <div className="voy-hero-stat">
-          <span className="voy-stat-number">98%</span>
           <span className="voy-stat-label">Happy Travelers</span>
         </div>
         <div className="voy-hero-stat">
-          <span className="voy-stat-number">50k+</span>
           <span className="voy-stat-label">Trips Planned</span>
         </div>
       </div>

@@ -201,7 +201,7 @@ router.get("/places/autocomplete", async (req, res) => {
 });
 
 router.post("/trips/generate", requireAuth, tripGenerationRateLimit, async (req, res) => {
-  const { userSelection, errors } = validateTripRequest(req.body);
+  const { userSelection, errors, planningRequest } = validateTripRequest(req.body);
 
   if (errors.length > 0) {
     res.status(400).json({
@@ -215,6 +215,7 @@ router.post("/trips/generate", requireAuth, tripGenerationRateLimit, async (req,
     const trip = await createTripForUser({
       user: req.user,
       userSelection,
+      planningRequest,
       traceId: req.traceId,
     });
 

@@ -1,8 +1,4 @@
-import {
-  buildBudgetBreakdown,
-  formatBudgetAmount,
-  normalizeUserSelection,
-} from "../../shared/trips.js";
+import { formatBudgetAmount } from "../../shared/trips.js";
 import {
   getHybridStoreMode,
   getLatestStructuredRouteRun,
@@ -16,7 +12,13 @@ import {
   buildRecommendationsFromStructuredPlaces,
   ensureStructuredDestinationData,
 } from "./destinationIngestion.js";
-import { generateTripPlan, resolveGeminiApiKey } from "./gemini.js";
+import {
+  generateGroundedNarrative,
+  resolveGeminiApiKey,
+} from "./gemini.js";
+import { buildGroundedPlan } from "./groundedPlanBuilder.js";
+import { normalizePlanningRequest } from "./planningRequest.js";
+import { incrementPlanningMetric } from "../lib/planningMetrics.js";
 import {
   buildWeightMatrixFromEdges,
   hashPlanningInput,
@@ -24,6 +26,7 @@ import {
   rankCandidatePlaces,
 } from "./planningMath.js";
 import { runPythonRouteOptimization } from "./pythonOptimizer.js";
+import { buildGroundedTransportEdges } from "./transportEdges.js";
 
 const routeOptimizationCache = createMultiLayerCache({
   namespace: "trip-route-optimization",
@@ -64,8 +67,11 @@ function normalizeText(value, fallback = "") {
 }
 
 function resolveCandidateLimit(dayCount) {
-  const configured = parsePositiveInteger(process.env.ROUTE_CANDIDATE_LIMIT, dayCount * 8);
-  return Math.min(60, Math.max(8, configured));
+  const configured = parsePositiveInteger(
+    process.env.ROUTE_CANDIDATE_LIMIT,
+    dayCount * 6
+  );
+  return Math.min(48, Math.max(6, configured));
 }
 
 function resolveNarrativeEnabled() {
@@ -95,7 +101,8 @@ function toHotelCard(place = {}) {
 function toItineraryPlace(place = {}, order) {
   return {
     placeName: place.name,
-    placeDetails: place.description || "Recommended stop generated from structured place data.",
+    placeDetails:
+      place.description || "Recommended stop generated from structured place data.",
     placeImageUrl: place?.metadata?.imageUrl ?? "",
     geoCoordinates: {
       latitude: place?.coordinates?.latitude ?? null,
@@ -103,7 +110,11 @@ function toItineraryPlace(place = {}, order) {
     },
     ticketPricing: place.priceLevel || "Included in trip budget",
     rating: place.rating ?? null,
-    travelTime: "Optimized by route planner",
+    travelTime:
+      Number.isFinite(place?.travelTimeFromPreviousMinutes) &&
+      place.travelTimeFromPreviousMinutes > 0
+        ? `${place.travelTimeFromPreviousMinutes} min`
+        : "Optimized by route planner",
     bestTimeToVisit: "Flexible",
     category: place.category || "Attraction",
     visitOrder: order,
@@ -176,42 +187,6 @@ function buildCandidateRecords({ tripId, candidatePlaces, dayPlans, clusterAssig
   });
 }
 
-function buildDaySummaries({
-  destination,
-  dayPlans = [],
-  candidatePlaces = [],
-  userSelection = {},
-  narrativePlan = null,
-}) {
-  const selection = normalizeUserSelection(userSelection);
-  const budgetBreakdown = buildBudgetBreakdown(selection.budgetAmount, selection.planType);
-  const safeDayCount = Math.max(1, selection.days || dayPlans.length || 1);
-  const dailyBudget = Math.max(1, Math.round((budgetBreakdown.total || 0) / safeDayCount));
-
-  return dayPlans.map((dayPlan, index) => {
-    const stops = dayPlan.visitOrder
-      .map((placeIndex) => candidatePlaces[placeIndex])
-      .filter(Boolean);
-    const itineraryPlaces = stops.map((stop, stopIndex) =>
-      toItineraryPlace(stop, stopIndex + 1)
-    );
-    const narrativeDay = narrativePlan?.aiPlan?.days?.[index] ?? null;
-    const fallbackTitle = `Day ${dayPlan.day} in ${destination}`;
-
-    return {
-      day: dayPlan.day,
-      title: normalizeText(narrativeDay?.title, fallbackTitle),
-      activities: itineraryPlaces.map((place) => place.placeName),
-      estimatedCost: `${formatBudgetAmount(dailyBudget)} approx.`,
-      tips: normalizeText(
-        narrativeDay?.tips,
-        "Follow the optimized stop order to reduce transit overhead."
-      ),
-      itineraryPlaces,
-    };
-  });
-}
-
 function buildOptimizationResponse({
   result,
   dayPlans,
@@ -240,7 +215,7 @@ function buildOptimizationResponse({
   }));
 
   return {
-    objective: "minimize_total_distance",
+    objective: "minimize_total_travel_time",
     algorithmVersion: normalizeText(result.algorithm, "python-nearest-neighbor-2opt"),
     totalWeight: Number.parseFloat(result.totalWeight) || 0,
     visitOrder: Array.isArray(result.visitOrder) ? result.visitOrder : [],
@@ -256,19 +231,95 @@ function buildOptimizationResponse({
   };
 }
 
-async function maybeGenerateNarrativePlan(userSelection) {
-  if (!resolveNarrativeEnabled()) {
-    return null;
+function collectUniqueHotelsFromGroundedPlan(groundedPlan = {}) {
+  const hotelsById = new Map();
+
+  for (const day of groundedPlan.days ?? []) {
+    for (const hotel of day.hotels ?? []) {
+      if (!hotelsById.has(hotel.id)) {
+        hotelsById.set(hotel.id, hotel);
+      }
+    }
   }
 
-  try {
-    return await generateTripPlan(userSelection);
-  } catch (error) {
-    console.warn("[planning] Narrative enrichment failed; continuing with algorithmic plan", {
-      message: error instanceof Error ? error.message : String(error),
-    });
-    return null;
+  return [...hotelsById.values()];
+}
+
+function buildItineraryDaysFromGroundedPlan(groundedPlan = {}) {
+  return (groundedPlan.days ?? []).map((day) => ({
+    dayNumber: day.day,
+    title: day.title,
+    places: day.places.map((place, index) => toItineraryPlace(place, index + 1)),
+  }));
+}
+
+function buildAiPlanDaysFromGroundedPlan(groundedPlan = {}) {
+  return (groundedPlan.days ?? []).map((day) => ({
+    day: day.day,
+    title: day.title,
+    summary: day.summary,
+    activities: day.places.map((place) => place.name),
+    estimatedCost: day.cost,
+    tips: Array.isArray(day.tips) ? day.tips.join(" ") : "",
+  }));
+}
+
+function buildTravelTipsFromGroundedPlan(groundedPlan = {}, narrativeSource = "template") {
+  const warnings = Array.isArray(groundedPlan?.validation?.warnings)
+    ? groundedPlan.validation.warnings
+    : [];
+  const baseTips = [
+    "Use the verified stop order to reduce cumulative transit time.",
+    "Keep a small budget buffer for dynamic pricing and local transport changes.",
+    "Open saved map links before you start the day in case connectivity is limited.",
+  ];
+
+  if (narrativeSource !== "gemini") {
+    baseTips.push("Narrative details used the deterministic fallback because Gemini output was unavailable or invalid.");
   }
+
+  return [...warnings, ...baseTips].slice(0, 6);
+}
+
+function buildTotalEstimatedCostLabel(groundedPlan = {}, selection = {}) {
+  const totalEstimatedCostAmount = (groundedPlan.days ?? []).reduce(
+    (total, day) => total + (Number.parseInt(day.estimatedCostAmount, 10) || 0),
+    0
+  );
+
+  if (totalEstimatedCostAmount > 0) {
+    return formatBudgetAmount(totalEstimatedCostAmount);
+  }
+
+  return formatBudgetAmount(selection.budgetAmount || 0) || "Budget not specified";
+}
+
+function mergeNarrativeIntoGroundedPlan(groundedPlan = {}, narrative = {}) {
+  return {
+    ...groundedPlan,
+    days: (groundedPlan.days ?? []).map((day, index) => ({
+      ...day,
+      title: narrative.days?.[index]?.title || day.title,
+      summary: narrative.days?.[index]?.summary || day.summary,
+      tips:
+        Array.isArray(narrative.days?.[index]?.tips) &&
+        narrative.days[index].tips.length > 0
+          ? narrative.days[index].tips
+          : day.tips,
+    })),
+    validation: {
+      ...(groundedPlan.validation ?? {}),
+      narrativeSource: narrative.source ?? "template",
+      warnings: [
+        ...((groundedPlan.validation?.warnings ?? []).filter(Boolean)),
+        ...(narrative.source === "gemini"
+          ? []
+          : [
+              "Narrative fallback was used because Gemini output was unavailable or invalid.",
+            ]),
+      ],
+    },
+  };
 }
 
 export async function computeStructuredTripOptimization({
@@ -276,11 +327,15 @@ export async function computeStructuredTripOptimization({
   destinationRecord,
   places = [],
   edges = [],
-  userSelection = {},
+  planningRequest,
+  userSelection,
   forceRefresh = false,
   traceId = "",
 } = {}) {
-  const selection = normalizeUserSelection(userSelection);
+  const resolvedPlanningRequest = normalizePlanningRequest(
+    planningRequest?.selection ?? planningRequest ?? userSelection ?? {}
+  );
+  const selection = resolvedPlanningRequest.selection;
   const dayCount = Math.max(1, selection.days || 1);
   const candidatePlaces = rankCandidatePlaces(
     places,
@@ -288,18 +343,20 @@ export async function computeStructuredTripOptimization({
     destinationRecord,
     {
       limit: resolveCandidateLimit(dayCount),
-      preferredCategories: ["attraction", "restaurant"],
+      preferredCategories: ["attraction"],
     }
   );
   const fallbackCandidates =
     candidatePlaces.length > 0
       ? candidatePlaces
-      : places.filter((place) => place.category !== "hotel").slice(0, dayCount * 6);
+      : places
+          .filter((place) => place.category === "attraction")
+          .slice(0, dayCount * 4);
 
   if (fallbackCandidates.length === 0) {
     return {
       optimization: {
-        objective: "minimize_total_distance",
+        objective: "minimize_total_travel_time",
         algorithmVersion: "none",
         totalWeight: 0,
         visitOrder: [],
@@ -313,6 +370,7 @@ export async function computeStructuredTripOptimization({
       },
       dayPlans: [],
       candidatePlaces: [],
+      transportEdges: edges,
     };
   }
 
@@ -320,6 +378,9 @@ export async function computeStructuredTripOptimization({
   const inputHash = hashPlanningInput({
     destinationVersion: destinationRecord?.version ?? 0,
     dayCount,
+    pace: selection.pace,
+    travelStyle: selection.travelStyle,
+    foodPreferences: selection.foodPreferences,
     matrix,
     places: fallbackCandidates.map((place) => ({
       id: place.id,
@@ -346,6 +407,7 @@ export async function computeStructuredTripOptimization({
         },
         dayPlans: cacheResult.value.dayPlans,
         candidatePlaces: fallbackCandidates,
+        transportEdges: edges,
       };
     }
 
@@ -379,6 +441,7 @@ export async function computeStructuredTripOptimization({
         optimization,
         dayPlans: savedDayPlans,
         candidatePlaces: fallbackCandidates,
+        transportEdges: edges,
       };
     }
   }
@@ -438,6 +501,7 @@ export async function computeStructuredTripOptimization({
     optimization,
     dayPlans,
     candidatePlaces: fallbackCandidates,
+    transportEdges: edges,
   };
 }
 
@@ -445,13 +509,29 @@ export async function buildDataDrivenTripPlan({
   tripId,
   user,
   userSelection,
+  planningRequest,
   forceRefresh = false,
   traceId = "",
 }) {
-  const selection = normalizeUserSelection(userSelection);
+  const resolvedPlanningRequest =
+    planningRequest && typeof planningRequest === "object"
+      ? planningRequest
+      : normalizePlanningRequest(userSelection);
+  const selection = resolvedPlanningRequest.selection;
   const structuredUser = await upsertStructuredUser({
     firebaseUid: user.uid,
     email: user.email ?? "",
+  });
+
+  console.info("[planning] Normalized planning request", {
+    destination: resolvedPlanningRequest.destination,
+    days: resolvedPlanningRequest.days,
+    budgetAmount: resolvedPlanningRequest.budgetAmount,
+    travelStyle: resolvedPlanningRequest.travelStyle,
+    pace: resolvedPlanningRequest.pace,
+    isComplete: resolvedPlanningRequest.isComplete,
+    missingFields: resolvedPlanningRequest.missingFields,
+    traceId: traceId || null,
   });
 
   const ingestion = await ensureStructuredDestinationData({
@@ -459,6 +539,28 @@ export async function buildDataDrivenTripPlan({
     forceRefresh,
     traceId,
   });
+  const transportContext = await buildGroundedTransportEdges({
+    destinationId: ingestion.destination.id,
+    places: ingestion.places,
+    existingEdges: ingestion.edges,
+    forceRefresh,
+    traceId,
+  });
+  if (transportContext.cacheHits > 0) {
+    incrementPlanningMetric("transport_cache_hit", {
+      source: "structured_edges",
+    });
+  }
+  if (transportContext.liveRefreshedEdges > 0) {
+    incrementPlanningMetric("transport_live_refresh", {
+      source: "distance_matrix",
+    });
+  }
+  if (transportContext.fallbackEdges > 0) {
+    incrementPlanningMetric("transport_fallback_edge", {
+      source: "haversine",
+    });
+  }
 
   await upsertStructuredTrip({
     id: tripId,
@@ -473,6 +575,14 @@ export async function buildDataDrivenTripPlan({
       generatedAt: new Date().toISOString(),
       freshness: ingestion.freshness?.freshUntil ?? null,
       storageMode: getHybridStoreMode(),
+      intentStatus: resolvedPlanningRequest.isComplete ? "complete" : "incomplete",
+      missingFields: resolvedPlanningRequest.missingFields,
+      validation: {
+        status: "planning",
+        usedFallbackEdges: transportContext.usedFallbackEdges,
+        fallbackEdgeCount: transportContext.fallbackEdges,
+        narrativeSource: "pending",
+      },
     },
     createdAt: new Date().toISOString(),
   });
@@ -481,61 +591,126 @@ export async function buildDataDrivenTripPlan({
     tripId,
     destinationRecord: ingestion.destination,
     places: ingestion.places,
-    edges: ingestion.edges,
-    userSelection: selection,
+    edges: transportContext.edges,
+    planningRequest: resolvedPlanningRequest,
     forceRefresh,
     traceId,
   });
-  const narrativePlan = await maybeGenerateNarrativePlan(selection);
-  const daySummaries = buildDaySummaries({
+
+  let groundedPlan = buildGroundedPlan({
     destination: ingestion.destination.canonicalName,
+    selection,
     dayPlans: optimizationPayload.dayPlans,
     candidatePlaces: optimizationPayload.candidatePlaces,
-    userSelection: selection,
-    narrativePlan,
+    placesByCategory: ingestion.placesByCategory,
+    transportEdges: transportContext.edges,
+    narrativeDays: [],
   });
 
-  const itineraryDays = daySummaries.map((daySummary) => ({
-    dayNumber: daySummary.day,
-    title: daySummary.title,
-    places: daySummary.itineraryPlaces,
-  }));
-  const aiPlanDays = daySummaries.map((daySummary) => ({
-    day: daySummary.day,
-    title: daySummary.title,
-    activities: daySummary.activities,
-    estimatedCost: daySummary.estimatedCost,
-    tips: daySummary.tips,
-  }));
+  if (
+    groundedPlan.validation.errors.length > 0 &&
+    optimizationPayload.candidatePlaces.length > Math.max(selection.days, 1)
+  ) {
+    incrementPlanningMetric("degraded_partial_plan", {
+      reason: "initial_validation_failed",
+    });
+    console.warn("[planning] Retrying grounded plan with fewer stops", {
+      tripId,
+      originalCandidateCount: optimizationPayload.candidatePlaces.length,
+      errorCount: groundedPlan.validation.errors.length,
+      traceId: traceId || null,
+    });
+    const reducedCandidatePlaces = optimizationPayload.candidatePlaces.slice(
+      0,
+      Math.max(selection.days * 2, selection.days)
+    );
 
+    groundedPlan = buildGroundedPlan({
+      destination: ingestion.destination.canonicalName,
+      selection,
+      dayPlans: splitVisitOrderByDays(
+        reducedCandidatePlaces.map((_place, index) => index),
+        Math.max(1, selection.days)
+      ),
+      candidatePlaces: reducedCandidatePlaces,
+      placesByCategory: ingestion.placesByCategory,
+      transportEdges: transportContext.edges,
+      narrativeDays: [],
+    });
+    groundedPlan.validation.status =
+      groundedPlan.validation.errors.length === 0 ? "verified" : "partial";
+    groundedPlan.validation.warnings = [
+      ...(groundedPlan.validation.warnings ?? []),
+      "A reduced-stop partial itinerary was used to keep the route feasible.",
+    ];
+  }
+
+  const narrative = resolveNarrativeEnabled()
+    ? await generateGroundedNarrative({
+        planningRequest: resolvedPlanningRequest,
+        groundedPlan,
+        traceId,
+      })
+    : {
+        days: groundedPlan.days.map((day) => ({
+          day: day.day,
+          title: day.title,
+          summary: day.summary,
+          tips: day.tips,
+        })),
+        source: "template",
+      };
+
+  groundedPlan = mergeNarrativeIntoGroundedPlan(groundedPlan, narrative);
+  if (groundedPlan.validation.usedFallbackEdges) {
+    incrementPlanningMetric("grounded_plan_used_fallback_edges", {
+      destination: ingestion.destination.canonicalName,
+    });
+  }
+
+  const itineraryDays = buildItineraryDaysFromGroundedPlan(groundedPlan);
+  const aiPlanDays = buildAiPlanDaysFromGroundedPlan(groundedPlan);
   const recommendations = buildRecommendationsFromStructuredPlaces({
     destination: ingestion.destination.canonicalName,
     provider: ingestion.provider,
     warning: ingestion.warning,
     places: ingestion.places,
   });
-  const hotels = ingestion.placesByCategory.hotels.slice(0, 8).map(toHotelCard);
-  const totalEstimatedCostLabel =
-    formatBudgetAmount(selection.budgetAmount || 0) || "Budget not specified";
-  const travelTips = Array.isArray(narrativePlan?.aiPlan?.travelTips)
-    ? narrativePlan.aiPlan.travelTips
-    : [
-        "Use the optimized stop order to reduce cumulative transit distance.",
-        "Batch nearby activities together to keep daily plans efficient.",
-        "Reserve a small budget buffer for delays and dynamic price changes.",
-      ];
+  const hotels = collectUniqueHotelsFromGroundedPlan(groundedPlan).map(toHotelCard);
+  const totalEstimatedCostLabel = buildTotalEstimatedCostLabel(
+    groundedPlan,
+    selection
+  );
+  const travelTips = buildTravelTipsFromGroundedPlan(
+    groundedPlan,
+    narrative.source
+  );
 
   const planningMeta = {
     dataProvider: ingestion.provider,
     algorithmVersion: optimizationPayload.optimization.algorithmVersion,
-    cacheHit: optimizationPayload.optimization.cacheHit,
+    cacheHit:
+      optimizationPayload.optimization.cacheHit &&
+      transportContext.liveRefreshedEdges === 0,
     generatedAt: new Date().toISOString(),
     freshness: ingestion.freshness?.freshUntil ?? null,
     storageMode: getHybridStoreMode(),
     recommendationProvider: recommendations.provider,
+    intentStatus: resolvedPlanningRequest.isComplete ? "complete" : "incomplete",
+    missingFields: resolvedPlanningRequest.missingFields,
+    validation: {
+      ...groundedPlan.validation,
+      narrativeSource: narrative.source,
+    },
+    transport: {
+      cacheHits: transportContext.cacheHits,
+      liveRefreshedEdges: transportContext.liveRefreshedEdges,
+      fallbackEdges: transportContext.fallbackEdges,
+    },
   };
 
   const generatedTrip = {
+    groundedPlan,
     hotels,
     itinerary: {
       days: itineraryDays,
@@ -558,13 +733,14 @@ export async function buildDataDrivenTripPlan({
     days: selection.days,
     budgetAmount: selection.budgetAmount,
     preferences: selection,
-    status: "active",
+    status: groundedPlan.validation.status === "verified" ? "active" : "partial",
     planningMeta,
     createdAt: new Date().toISOString(),
   });
 
   return {
     generatedTrip,
+    groundedPlan,
     planningMeta,
     optimization: optimizationPayload.optimization,
   };

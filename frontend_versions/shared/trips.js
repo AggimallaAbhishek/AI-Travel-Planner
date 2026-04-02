@@ -1186,6 +1186,11 @@ function normalizePlanningMeta(input = {}) {
       recommendationProvider: "",
       intentStatus: "",
       missingFields: [],
+      transport: {
+        cacheHits: 0,
+        liveRefreshedEdges: 0,
+        fallbackEdges: 0,
+      },
       validation: normalizeGroundedValidation({}),
     };
   }
@@ -1205,6 +1210,27 @@ function normalizePlanningMeta(input = {}) {
       input.missingFields ?? input.intent?.missingFields,
       8
     ),
+    transport:
+      input.transport && typeof input.transport === "object"
+        ? {
+            cacheHits:
+              Number.isFinite(Number.parseFloat(input.transport.cacheHits))
+                ? Math.round(Number.parseFloat(input.transport.cacheHits))
+                : 0,
+            liveRefreshedEdges:
+              Number.isFinite(Number.parseFloat(input.transport.liveRefreshedEdges))
+                ? Math.round(Number.parseFloat(input.transport.liveRefreshedEdges))
+                : 0,
+            fallbackEdges:
+              Number.isFinite(Number.parseFloat(input.transport.fallbackEdges))
+                ? Math.round(Number.parseFloat(input.transport.fallbackEdges))
+                : 0,
+          }
+        : {
+            cacheHits: 0,
+            liveRefreshedEdges: 0,
+            fallbackEdges: 0,
+          },
     validation: normalizeGroundedValidation(input.validation),
   };
 }
