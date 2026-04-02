@@ -94,3 +94,70 @@ test("getDestinationAutocompleteSuggestions caches live provider responses", asy
     clearDestinationAutocompleteCache();
   }
 });
+
+test("getDestinationAutocompleteSuggestions evicts least recently used entries when cache cap is reached", async () => {
+  const originalApiKey = process.env.GOOGLE_PLACES_API_KEY;
+  const originalMaxEntries = process.env.DESTINATION_AUTOCOMPLETE_CACHE_MAX_ENTRIES;
+  const originalFetch = global.fetch;
+  const fetchQueries = [];
+
+  try {
+    process.env.GOOGLE_PLACES_API_KEY = "test-key";
+    process.env.DESTINATION_AUTOCOMPLETE_CACHE_MAX_ENTRIES = "2";
+    clearDestinationAutocompleteCache();
+
+    global.fetch = async (input) => {
+      const requestUrl =
+        input instanceof URL
+          ? input
+          : new URL(
+              typeof input === "string" ? input : String(input?.url ?? "")
+            );
+      const query = requestUrl.searchParams.get("input") ?? "";
+      fetchQueries.push(query);
+
+      return new Response(
+        JSON.stringify({
+          status: "OK",
+          predictions: [
+            {
+              description: `${query}, Testland`,
+              place_id: `${query}-place-id`,
+              structured_formatting: {
+                main_text: query,
+                secondary_text: "Testland",
+              },
+            },
+          ],
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }
+      );
+    };
+
+    await getDestinationAutocompleteSuggestions({ query: "alpha" });
+    await getDestinationAutocompleteSuggestions({ query: "beta" });
+    await getDestinationAutocompleteSuggestions({ query: "alpha" });
+    await getDestinationAutocompleteSuggestions({ query: "gamma" });
+    await getDestinationAutocompleteSuggestions({ query: "beta" });
+
+    assert.deepEqual(fetchQueries, ["alpha", "beta", "gamma", "beta"]);
+  } finally {
+    if (originalApiKey === undefined) {
+      delete process.env.GOOGLE_PLACES_API_KEY;
+    } else {
+      process.env.GOOGLE_PLACES_API_KEY = originalApiKey;
+    }
+
+    if (originalMaxEntries === undefined) {
+      delete process.env.DESTINATION_AUTOCOMPLETE_CACHE_MAX_ENTRIES;
+    } else {
+      process.env.DESTINATION_AUTOCOMPLETE_CACHE_MAX_ENTRIES = originalMaxEntries;
+    }
+
+    global.fetch = originalFetch;
+    clearDestinationAutocompleteCache();
+  }
+});

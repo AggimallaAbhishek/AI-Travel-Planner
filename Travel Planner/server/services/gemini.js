@@ -229,7 +229,7 @@ Exception: You may suggest new walkable places strictly in the 'tips' section if
 Return valid JSON only.
 
 INPUT:
-\${JSON.stringify(payload, null, 2)}
+${JSON.stringify(payload, null, 2)}
 
 
 TASK:

@@ -1,6 +1,7 @@
 import express from "express";
 import { requireAuth } from "../middleware/auth.js";
 import {
+  placesAutocompleteRateLimit,
   recommendationsRateLimit,
   routeOptimizationRateLimit,
   tripGenerationRateLimit,
@@ -187,7 +188,7 @@ export function resolveTripGenerationFailure(error) {
   };
 }
 
-router.get("/places/autocomplete", async (req, res) => {
+router.get("/places/autocomplete", placesAutocompleteRateLimit, async (req, res) => {
   try {
     const suggestions = await getDestinationAutocompleteSuggestions({
       query: req.query.q,

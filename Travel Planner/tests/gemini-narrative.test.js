@@ -62,6 +62,8 @@ test("buildGroundedNarrativePrompt contains strict anti-hallucination instructio
   assert.match(prompt, /Do NOT invent/i);
   assert.match(prompt, /Return valid JSON only/i);
   assert.match(prompt, /Fushimi Inari Taisha/);
+  assert.match(prompt, /"destination": "Kyoto, Japan"/);
+  assert.doesNotMatch(prompt, /\$\{JSON\.stringify\(payload, null, 2\)\}/);
 });
 
 test("generateGroundedNarrative falls back to template output without Gemini credentials", async () => {

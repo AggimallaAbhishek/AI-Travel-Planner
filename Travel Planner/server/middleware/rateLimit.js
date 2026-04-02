@@ -158,6 +158,22 @@ export function createEndpointRateLimiter(options = {}) {
   };
 }
 
+export function createPlacesAutocompleteRateLimiter(options = {}) {
+  return createEndpointRateLimiter({
+    label: "places-autocomplete",
+    windowMs:
+      options.windowMs ?? process.env.PLACES_AUTOCOMPLETE_RATE_LIMIT_WINDOW_MS,
+    maxRequests:
+      options.maxRequests ?? process.env.PLACES_AUTOCOMPLETE_RATE_LIMIT_MAX,
+    message:
+      options.message ??
+      "Too many autocomplete requests. Please try again shortly.",
+    now: options.now,
+  });
+}
+
+export const placesAutocompleteRateLimit = createPlacesAutocompleteRateLimiter();
+
 export const recommendationsRateLimit = createEndpointRateLimiter({
   label: "destination-recommendations",
   windowMs: process.env.RECOMMENDATIONS_RATE_LIMIT_WINDOW_MS,

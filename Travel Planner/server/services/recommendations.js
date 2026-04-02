@@ -4,6 +4,7 @@ import {
   normalizeDestinationRecommendations,
   normalizeRecommendationItem,
 } from "../../shared/recommendations.js";
+import { createBoundedTtlCache } from "../lib/boundedTtlCache.js";
 import { safeFetch } from "../lib/safeFetch.js";
 import { getDestinationSuggestions } from "../../shared/destinationAutocomplete.js";
 
@@ -18,9 +19,21 @@ const MAX_ITEMS_PER_CATEGORY = 6;
 const DEFAULT_PROVIDER_TIMEOUT_MS = 8_000;
 const DEFAULT_LIVE_CACHE_TTL_MS = 5 * 60 * 1_000;
 const DEFAULT_MOCK_CACHE_TTL_MS = 30 * 1_000;
-const DESTINATION_RECOMMENDATION_CACHE = new Map();
-const DESTINATION_DATA_BUNDLE_CACHE = new Map();
-const DESTINATION_AUTOCOMPLETE_CACHE = new Map();
+const DEFAULT_RECOMMENDATIONS_CACHE_MAX_ENTRIES = 200;
+const DEFAULT_DESTINATION_DATA_BUNDLE_CACHE_MAX_ENTRIES = 100;
+const DEFAULT_DESTINATION_AUTOCOMPLETE_CACHE_MAX_ENTRIES = 500;
+const DESTINATION_RECOMMENDATION_CACHE = createBoundedTtlCache({
+  defaultTtlMs: DEFAULT_LIVE_CACHE_TTL_MS,
+  resolveMaxEntries: resolveRecommendationsCacheMaxEntries,
+});
+const DESTINATION_DATA_BUNDLE_CACHE = createBoundedTtlCache({
+  defaultTtlMs: DEFAULT_LIVE_CACHE_TTL_MS,
+  resolveMaxEntries: resolveDestinationDataBundleCacheMaxEntries,
+});
+const DESTINATION_AUTOCOMPLETE_CACHE = createBoundedTtlCache({
+  defaultTtlMs: DEFAULT_LIVE_CACHE_TTL_MS,
+  resolveMaxEntries: resolveDestinationAutocompleteCacheMaxEntries,
+});
 
 const HOTEL_MOCK_TEMPLATES = Object.freeze([
   {
@@ -235,6 +248,27 @@ function resolveMockCacheTtlMs() {
   );
 }
 
+function resolveRecommendationsCacheMaxEntries() {
+  return parsePositiveInteger(
+    process.env.RECOMMENDATIONS_CACHE_MAX_ENTRIES,
+    DEFAULT_RECOMMENDATIONS_CACHE_MAX_ENTRIES
+  );
+}
+
+function resolveDestinationDataBundleCacheMaxEntries() {
+  return parsePositiveInteger(
+    process.env.DESTINATION_DATA_BUNDLE_CACHE_MAX_ENTRIES,
+    DEFAULT_DESTINATION_DATA_BUNDLE_CACHE_MAX_ENTRIES
+  );
+}
+
+function resolveDestinationAutocompleteCacheMaxEntries() {
+  return parsePositiveInteger(
+    process.env.DESTINATION_AUTOCOMPLETE_CACHE_MAX_ENTRIES,
+    DEFAULT_DESTINATION_AUTOCOMPLETE_CACHE_MAX_ENTRIES
+  );
+}
+
 function resolvePriceLabelFromGoogleLevel(level) {
   const numericLevel = Number.parseInt(level, 10);
   if (!Number.isInteger(numericLevel) || numericLevel < 0) {
@@ -259,49 +293,21 @@ function resolveRecommendationsCacheTtlMs(recommendations = {}) {
 }
 
 function readCachedRecommendations(cacheKey) {
-  const cacheEntry = DESTINATION_RECOMMENDATION_CACHE.get(cacheKey);
-  const now = Date.now();
-
-  if (!cacheEntry) {
-    return null;
-  }
-
-  if (cacheEntry.expiresAt <= now) {
-    DESTINATION_RECOMMENDATION_CACHE.delete(cacheKey);
-    return null;
-  }
-
-  return cacheEntry.value;
+  return DESTINATION_RECOMMENDATION_CACHE.get(cacheKey);
 }
 
 function writeCachedRecommendations(cacheKey, recommendations) {
   const ttlMs = resolveRecommendationsCacheTtlMs(recommendations);
-  DESTINATION_RECOMMENDATION_CACHE.set(cacheKey, {
-    value: recommendations,
-    expiresAt: Date.now() + ttlMs,
-  });
+  DESTINATION_RECOMMENDATION_CACHE.set(cacheKey, recommendations, ttlMs);
 }
 
 function readCachedDestinationDataBundle(cacheKey) {
-  const cacheEntry = DESTINATION_DATA_BUNDLE_CACHE.get(cacheKey);
-  if (!cacheEntry) {
-    return null;
-  }
-
-  if (cacheEntry.expiresAt <= Date.now()) {
-    DESTINATION_DATA_BUNDLE_CACHE.delete(cacheKey);
-    return null;
-  }
-
-  return cacheEntry.value;
+  return DESTINATION_DATA_BUNDLE_CACHE.get(cacheKey);
 }
 
 function writeCachedDestinationDataBundle(cacheKey, bundle) {
   const ttlMs = resolveRecommendationsCacheTtlMs(bundle?.recommendations ?? {});
-  DESTINATION_DATA_BUNDLE_CACHE.set(cacheKey, {
-    value: bundle,
-    expiresAt: Date.now() + ttlMs,
-  });
+  DESTINATION_DATA_BUNDLE_CACHE.set(cacheKey, bundle, ttlMs);
 }
 
 function getAutocompleteCacheKey(query) {
@@ -311,24 +317,15 @@ function getAutocompleteCacheKey(query) {
 }
 
 function readCachedAutocompleteSuggestions(cacheKey) {
-  const cacheEntry = DESTINATION_AUTOCOMPLETE_CACHE.get(cacheKey);
-  if (!cacheEntry) {
-    return null;
-  }
-
-  if (cacheEntry.expiresAt <= Date.now()) {
-    DESTINATION_AUTOCOMPLETE_CACHE.delete(cacheKey);
-    return null;
-  }
-
-  return cacheEntry.value;
+  return DESTINATION_AUTOCOMPLETE_CACHE.get(cacheKey);
 }
 
 function writeCachedAutocompleteSuggestions(cacheKey, suggestions) {
-  DESTINATION_AUTOCOMPLETE_CACHE.set(cacheKey, {
-    value: suggestions,
-    expiresAt: Date.now() + resolveLiveCacheTtlMs(),
-  });
+  DESTINATION_AUTOCOMPLETE_CACHE.set(
+    cacheKey,
+    suggestions,
+    resolveLiveCacheTtlMs()
+  );
 }
 
 function withTimeout(promise, timeoutMs, errorMessage) {
