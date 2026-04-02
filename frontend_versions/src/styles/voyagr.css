@@ -2366,7 +2366,7 @@ html[data-theme="light"] .voy-inline-error {
 
 .voy-create-segmented-control {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(140px, 1fr));
   gap: 0.45rem;
 }
 
@@ -2378,7 +2378,7 @@ html[data-theme="light"] .voy-inline-error {
   text-align: left;
   display: grid;
   gap: 0.32rem;
-  min-height: 82px;
+  min-height: 78px;
   padding: 0.58rem;
   transition:
     transform var(--voy-transition),
@@ -2409,7 +2409,7 @@ html[data-theme="light"] .voy-inline-error {
   line-height: 1.2;
   font-size: 0.71rem;
   display: -webkit-box;
-  -webkit-line-clamp: 1;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -2418,13 +2418,26 @@ html[data-theme="light"] .voy-inline-error {
 .voy-create-preferences-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.7rem;
+  gap: 0.62rem;
+  align-items: start;
+}
+
+.voy-create-budget-plan-grid {
+  grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.88fr);
+}
+
+.voy-create-preferences-grid {
+  row-gap: 0.55rem;
 }
 
 .voy-create-subsection {
   display: grid;
   gap: 0.45rem;
   align-content: start;
+}
+
+.voy-create-subsection-full {
+  grid-column: 1 / -1;
 }
 
 .voy-create-subsection-head {
@@ -2447,7 +2460,7 @@ html[data-theme="light"] .voy-inline-error {
 }
 
 .voy-create-subsection-head-tight {
-  margin-top: 0.2rem;
+  margin-top: 0;
 }
 
 .voy-create-compact-option-grid {
@@ -2457,6 +2470,44 @@ html[data-theme="light"] .voy-inline-error {
 
 .voy-create-compact-option-grid-plan {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+}
+
+.voy-create-compact-option-grid-plan .voy-create-compact-option {
+  position: relative;
+  grid-template-columns: 1fr;
+  grid-template-areas:
+    "icon"
+    "label"
+    "meta";
+  justify-items: center;
+  align-content: center;
+  text-align: center;
+  min-height: 118px;
+  padding: 0.62rem 0.72rem 0.7rem;
+  gap: 0.34rem;
+}
+
+.voy-create-compact-option-grid-plan .voy-create-compact-option-icon {
+  margin-top: 0.08rem;
+}
+
+.voy-create-compact-option-grid-plan .voy-create-compact-option-label {
+  text-align: center;
+  line-height: 1.14;
+}
+
+.voy-create-compact-option-grid-plan .voy-create-compact-option-meta {
+  justify-self: center;
+  text-align: center;
+  max-width: 100%;
+}
+
+.voy-create-compact-option-grid-plan .voy-create-compact-option-hint {
+  position: absolute;
+  top: 0.52rem;
+  right: 0.52rem;
+  grid-area: unset;
 }
 
 .voy-create-compact-option-grid-style {
@@ -2465,13 +2516,16 @@ html[data-theme="light"] .voy-inline-error {
 
 .voy-create-compact-option {
   display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "icon label hint"
+    "icon meta meta";
+  align-items: start;
   gap: 0.42rem;
   border: 1px solid var(--voy-border);
   background: color-mix(in srgb, var(--voy-surface) 88%, transparent);
   border-radius: 10px;
-  min-height: 40px;
+  min-height: 44px;
   padding: 0.42rem 0.5rem;
   color: var(--voy-text);
   text-align: left;
@@ -2495,6 +2549,7 @@ html[data-theme="light"] .voy-inline-error {
 }
 
 .voy-create-compact-option-icon {
+  grid-area: icon;
   width: 22px;
   height: 22px;
   border-radius: 7px;
@@ -2506,12 +2561,18 @@ html[data-theme="light"] .voy-inline-error {
 }
 
 .voy-create-compact-option-label {
+  grid-area: label;
+  min-width: 0;
   font-size: 0.78rem;
   font-weight: 600;
   line-height: 1.2;
 }
 
 .voy-create-compact-option-meta {
+  grid-area: meta;
+  justify-self: start;
+  align-self: start;
+  min-width: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2519,13 +2580,17 @@ html[data-theme="light"] .voy-inline-error {
   border-radius: 999px;
   background: color-mix(in srgb, var(--voy-gold-dim) 78%, transparent);
   color: var(--voy-gold);
-  font-size: 0.57rem;
+  font-size: 0.54rem;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
+  line-height: 1.1;
 }
 
 .voy-create-compact-option-hint {
+  grid-area: hint;
+  justify-self: end;
+  align-self: start;
   color: var(--voy-text-faint);
   display: inline-flex;
   align-items: center;

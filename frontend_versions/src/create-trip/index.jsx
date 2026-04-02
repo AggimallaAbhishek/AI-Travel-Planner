@@ -41,6 +41,7 @@ import {
   BUDGET_MAX,
   BUDGET_MIN,
   BUDGET_STEP,
+  getBriefCompletionStatus,
   getBudgetBreakdownDetails,
   getRecommendedBudgetRange,
   getRecommendedPlanType,
@@ -1094,7 +1095,12 @@ function CreateTrip() {
                         />
                       ))}
                     </div>
+                    {state.fieldErrors.travelStyle ? (
+                      <p className="voy-inline-error">{state.fieldErrors.travelStyle}</p>
+                    ) : null}
+                  </div>
 
+                  <div className="voy-create-subsection voy-create-subsection-full">
                     <div className="voy-create-subsection-head voy-create-subsection-head-tight">
                       <h4>Time Preference</h4>
                       <p>Controls how dense each itinerary day should feel.</p>
@@ -1109,9 +1115,6 @@ function CreateTrip() {
                         />
                       ))}
                     </div>
-                    {state.fieldErrors.travelStyle ? (
-                      <p className="voy-inline-error">{state.fieldErrors.travelStyle}</p>
-                    ) : null}
                     {state.fieldErrors.pace ? (
                       <p className="voy-inline-error">{state.fieldErrors.pace}</p>
                     ) : null}
