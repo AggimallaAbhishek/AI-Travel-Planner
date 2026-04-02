@@ -11,7 +11,7 @@ Travel Planner is a Vite + React single-page application backed by an Express AP
 - Saved trips page at `/my-trips`
 - Trip detail page at `/trips/:tripId`
 - Static informational pages such as About, Features, Help Center, Travel Guides, AI Tips, Blog, and API Docs
-- Global dark/light theming and shared Voyagr design system
+- Global dark/light theming and shared AI TRAVEL PLANNER design system
 - Frontend snapshot sync into `../frontend_versions/`
 
 ## Architecture
@@ -87,7 +87,7 @@ Travel Planner/
 ├── shared/                     # Shared trip normalization / validation
 ├── scripts/                    # Frontend backup sync scripts
 ├── src/
-│   ├── components/             # Reusable UI and Voyagr homepage modules
+│   ├── components/             # Reusable UI and AI TRAVEL PLANNER homepage modules
 │   ├── constants/              # Planner options and static config
 │   ├── context/                # Auth and theme providers
 │   ├── create-trip/            # Trip creation page
@@ -95,7 +95,7 @@ Travel Planner/
 │   ├── my-trips/               # Saved trips page
 │   ├── pages/                  # Static pages and login
 │   ├── service/                # Firebase client config
-│   ├── styles/                 # Voyagr stylesheets
+│   ├── styles/                 # AI TRAVEL PLANNER stylesheets
 │   └── view-trip/              # Trip detail page
 ├── tests/                      # Node test runner suites
 ├── .env.example

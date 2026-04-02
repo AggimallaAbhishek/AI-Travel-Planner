@@ -499,6 +499,9 @@ function mapGooglePlaceToStructuredPlace(place = {}, category, destination) {
       mapsUrl: recommendation.mapsUrl,
       imageUrl: recommendation.imageUrl,
       providerStatus: "live",
+      types: Array.isArray(place?.types)
+        ? place.types.filter((value) => typeof value === "string")
+        : [],
     },
   };
 }
