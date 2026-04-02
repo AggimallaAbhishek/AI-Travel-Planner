@@ -68,6 +68,8 @@ const INITIAL_FORM_STATE = {
   foodPreferences: [],
   travelStyle: "",
   pace: "Balanced",
+  accommodation: "",
+  logistics: "",
 };
 
 const INITIAL_STATE = {
@@ -124,6 +126,8 @@ function createHydratedForm(prefill = {}) {
     ...(prefill.budgetAmount ? { budgetAmount: prefill.budgetAmount } : {}),
     ...(prefill.travelStyle ? { travelStyle: prefill.travelStyle } : {}),
     ...(prefill.pace ? { pace: prefill.pace } : {}),
+    ...(prefill.accommodation ? { accommodation: prefill.accommodation } : {}),
+    ...(prefill.logistics ? { logistics: prefill.logistics } : {}),
     ...(Array.isArray(prefill.foodPreferences)
       ? { foodPreferences: prefill.foodPreferences }
       : {}),
@@ -267,6 +271,30 @@ function formReducer(state, action) {
       return {
         ...state,
         manualPlanType: Boolean(action.value),
+      };
+    case "set_accommodation":
+      return {
+        ...state,
+        form: {
+          ...state.form,
+          accommodation: action.value,
+        },
+        fieldErrors: {
+          ...state.fieldErrors,
+          accommodation: "",
+        },
+      };
+    case "set_logistics":
+      return {
+        ...state,
+        form: {
+          ...state.form,
+          logistics: action.value,
+        },
+        fieldErrors: {
+          ...state.fieldErrors,
+          logistics: "",
+        },
       };
     case "set_field_errors":
       return {
@@ -639,6 +667,8 @@ function CreateTrip() {
       food_preference: normalizedSelection.foodPreferences,
       pace: normalizedSelection.pace,
       budget: normalizedSelection.budgetAmount,
+      accommodation: normalizedSelection.accommodation,
+      logistics: normalizedSelection.logistics,
     };
 
     console.info("[create-trip] Final normalized submit payload", payload);
@@ -1040,6 +1070,35 @@ function CreateTrip() {
                 </div>
 
                 <div className="voy-create-preferences-grid">
+                  <div className="voy-create-subsection voy-create-subsection-full mb-6">
+                    <div className="voy-create-subsection-head voy-create-subsection-head-tight">
+                      <h4>Logistics & Stay</h4>
+                      <p>Optional: Where are you staying and when do you arrive/depart? Gemini will optimize the route around your accommodation and logistics.</p>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <label className="voy-create-budget-input-wrap text-left">
+                        <span className="text-sm font-medium mb-1 block">Preferred Accommodation</span>
+                        <input
+                          type="text"
+                          placeholder="Ex. The Hilton Downtown, Airbnb in Soho..."
+                          className="voy-create-field w-full px-4 py-2"
+                          value={state.form.accommodation}
+                          onChange={(event) => dispatch({ type: "set_accommodation", value: event.target.value })}
+                        />
+                      </label>
+                      <label className="voy-create-budget-input-wrap text-left">
+                        <span className="text-sm font-medium mb-1 block">Arrival / Departure Info</span>
+                        <input
+                          type="text"
+                          placeholder="Ex. Arrive 10am day 1, depart 5pm last day..."
+                          className="voy-create-field w-full px-4 py-2"
+                          value={state.form.logistics}
+                          onChange={(event) => dispatch({ type: "set_logistics", value: event.target.value })}
+                        />
+                      </label>
+                    </div>
+                  </div>
+
                   <div className="voy-create-subsection">
                     <div className="voy-create-subsection-head">
                       <h4>Food Preferences</h4>

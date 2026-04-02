@@ -190,6 +190,11 @@ export function buildGroundedNarrativePrompt({
   planningRequest,
   groundedPlan,
 }) {
+  const stay = planningRequest.selection?.accommodation || planningRequest.accommodation;
+  const logistics = planningRequest.selection?.logistics || planningRequest.logistics;
+  const hasStay = Boolean(stay);
+  const hasLogistics = Boolean(logistics);
+
   const payload = {
     trip_request: {
       destination: planningRequest.destination,
@@ -198,27 +203,41 @@ export function buildGroundedNarrativePrompt({
       travel_style: planningRequest.travelStyle,
       pace: planningRequest.pace,
       food_preferences: planningRequest.foodPreferences,
+      accommodation: hasStay ? stay : "Not specified",
+      arrival_and_departure: hasLogistics ? logistics : "Not specified",
     },
     planned_days: (groundedPlan.days ?? []).map((day) => buildPromptDay(day)),
   };
 
+  const extraConstraints = [];
+  if (hasStay) {
+    extraConstraints.push(`- Incorporate the travel accommodation (${stay}) into the daily summaries (e.g. starting the day or returning to the hotel).`);
+    extraConstraints.push(`- Suggest 1 or 2 walkable distance places near the accommodation (${stay}) in your tips.`);
+  }
+  if (hasLogistics) {
+    extraConstraints.push(`- For Day 1, strictly incorporate Arrival Logistics: ${logistics}.`);
+    extraConstraints.push(`- For the final Day, strictly incorporate Departure Logistics: ${logistics}.`);
+  }
+
   return `You are a travel itinerary narrator.
 
-You must ONLY use the provided JSON data.
-Do NOT invent, rename, infer, or substitute hotels, restaurants, attractions, routes, prices, durations, or neighborhoods.
+You must ONLY use the provided JSON data for the main itinerary.
+Do NOT invent, rename, infer, or substitute hotels, restaurants, attractions, routes, prices, durations, or neighborhoods in the 'summary'.
 If any field is missing, return "Data not available".
-Do NOT add places that are not present in the input.
 Do NOT change the stop order.
+Exception: You may suggest new walkable places strictly in the 'tips' section if an accommodation is provided.
 Return valid JSON only.
 
 INPUT:
-${JSON.stringify(payload, null, 2)}
+\${JSON.stringify(payload, null, 2)}
+
 
 TASK:
 For each day, write:
 - "title": concise grounded title
-- "summary": 2-3 sentences using only provided facts
+- "summary": 2-3 sentences using only provided facts. 
 - "tips": 2-4 practical tips using only provided facts
+${extraConstraints.join("\n")}
 
 OUTPUT:
 {

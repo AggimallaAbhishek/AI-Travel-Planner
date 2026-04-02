@@ -744,6 +744,8 @@ export function normalizeUserSelection(input = {}) {
       input.foodPreference ??
       input.food_preference
   );
+  const accommodation = normalizeText(input.accommodation ?? input.stay ?? "");
+  const logistics = normalizeText(input.logistics ?? input.travelLogistics ?? "");
 
   return {
     location: normalizeLocation(input.location ?? input.destination),
@@ -759,6 +761,8 @@ export function normalizeUserSelection(input = {}) {
     pace,
     foodPreferences,
     travelerCount,
+    accommodation,
+    logistics,
   };
 }
 
