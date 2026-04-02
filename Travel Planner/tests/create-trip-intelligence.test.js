@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   buildAiSuggestionChips,
+  getBriefCompletionStatus,
   buildSelectionTags,
   buildSmartValidationWarnings,
   getBudgetBreakdownDetails,
@@ -91,4 +92,33 @@ test("buildAiSuggestionChips returns plan, budget, and destination chips", () =>
   assert.equal(chips[0].kind, "plan");
   assert.equal(chips[1].kind, "budget");
   assert.equal(chips.some((chip) => chip.label === "Banff, Canada"), true);
+});
+
+test("getBriefCompletionStatus tracks progress for required brief signals", () => {
+  const partial = getBriefCompletionStatus({
+    location: { label: "Paris, France" },
+    days: 4,
+    travelers: "A Couple",
+    pace: "Balanced",
+  });
+  const complete = getBriefCompletionStatus({
+    location: { label: "Paris, France" },
+    days: 4,
+    travelers: "A Couple",
+    planType: "Moderate Plan",
+    budgetAmount: 2400,
+    travelStyle: "Cultural",
+    pace: "Balanced",
+  });
+
+  assert.deepEqual(partial, {
+    completed: 4,
+    total: 7,
+    isReady: false,
+  });
+  assert.deepEqual(complete, {
+    completed: 7,
+    total: 7,
+    isReady: true,
+  });
 });

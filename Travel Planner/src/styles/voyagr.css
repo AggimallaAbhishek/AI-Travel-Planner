@@ -1722,6 +1722,13 @@ html[data-theme="light"] .voy-map-graticule {
 }
 
 .voy-create-page {
+  --voy-create-gap-section: 0.78rem;
+  --voy-create-gap-card: 0.62rem;
+  --voy-create-gap-control: 0.55rem;
+  --voy-create-gap-helper: 0.32rem;
+  --voy-create-section-padding: 0.75rem;
+  --voy-create-icon-size: 32px;
+  --voy-create-sticky-top: calc(68px + 0.75rem);
   min-height: 100vh;
   background: linear-gradient(145deg, var(--voy-bg) 0%, var(--voy-bg2) 100%);
   color: var(--voy-text);
@@ -1740,18 +1747,18 @@ html[data-theme="light"] .voy-map-graticule {
 }
 
 .voy-create-page::before {
-  width: 320px;
-  height: 320px;
-  top: 8%;
-  left: -80px;
+  width: 260px;
+  height: 260px;
+  top: 10%;
+  left: -95px;
   background: color-mix(in srgb, var(--voy-gold) 36%, transparent);
 }
 
 .voy-create-page::after {
-  width: 280px;
-  height: 280px;
-  right: -70px;
-  bottom: 10%;
+  width: 240px;
+  height: 240px;
+  right: -88px;
+  bottom: 12%;
   background: color-mix(in srgb, var(--voy-gold-light) 32%, transparent);
 }
 

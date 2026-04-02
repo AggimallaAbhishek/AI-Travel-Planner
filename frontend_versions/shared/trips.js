@@ -494,6 +494,7 @@ function normalizeAiDay(rawDay = {}, index) {
   return {
     day: dayNumber,
     title,
+    summary: normalizeText(rawDay.summary, ""),
     activities:
       activities.length > 0
         ? activities
@@ -974,6 +975,147 @@ export function normalizeAiPlan(payload = {}, fallbackSelection = {}) {
   };
 }
 
+function formatDurationMinutes(totalMinutes) {
+  const minutes = Math.max(0, Math.round(Number.parseFloat(totalMinutes) || 0));
+  if (minutes <= 0) {
+    return "Data not available";
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+
+  if (hours === 0) {
+    return `${remainder}m`;
+  }
+
+  return `${hours}h ${String(remainder).padStart(2, "0")}m`;
+}
+
+function normalizeGroundedEntity(entity = {}, fallbackCategory = "attraction") {
+  return {
+    id: normalizeText(entity.id),
+    name: normalizeText(entity.name, "Unknown Place"),
+    category: normalizeText(entity.category, fallbackCategory),
+    address: normalizeText(entity.address),
+    coordinates: normalizeCoordinates(entity.coordinates),
+    rating: normalizeRating(entity.rating),
+    priceLevel: normalizeText(entity.priceLevel),
+    description: normalizeText(entity.description),
+    source: normalizeText(entity.source),
+    foodTags: normalizeFoodPreferences(entity.foodTags ?? entity.food_tags),
+    distanceToClusterMeters:
+      Number.isFinite(Number.parseFloat(entity.distanceToClusterMeters))
+        ? Math.round(Number.parseFloat(entity.distanceToClusterMeters))
+        : null,
+    travelTimeFromPreviousMinutes:
+      Number.isFinite(Number.parseFloat(entity.travelTimeFromPreviousMinutes))
+        ? Math.round(Number.parseFloat(entity.travelTimeFromPreviousMinutes))
+        : 0,
+    metadata:
+      entity.metadata && typeof entity.metadata === "object" ? entity.metadata : {},
+  };
+}
+
+function normalizeGroundedDay(day = {}, index = 0) {
+  const dayNumber = clampInteger(day.day, 1, 30, index + 1);
+  const estimatedTimeMinutes = Number.isFinite(
+    Number.parseFloat(day.estimatedTimeMinutes ?? day.estimated_time_minutes)
+  )
+    ? Math.round(Number.parseFloat(day.estimatedTimeMinutes ?? day.estimated_time_minutes))
+    : 0;
+  const estimatedCostAmount = roundBudgetAmount(
+    day.estimatedCostAmount ?? day.estimated_cost_amount
+  );
+
+  return {
+    day: dayNumber,
+    title: normalizeText(day.title, `Day ${dayNumber}`),
+    summary: normalizeText(day.summary, ""),
+    tips: normalizeStringArray(day.tips, 6),
+    places: Array.isArray(day.places)
+      ? day.places.map((entity) => normalizeGroundedEntity(entity, "attraction"))
+      : [],
+    hotels: Array.isArray(day.hotels)
+      ? day.hotels.map((entity) => normalizeGroundedEntity(entity, "hotel"))
+      : [],
+    restaurants: Array.isArray(day.restaurants)
+      ? day.restaurants.map((entity) => normalizeGroundedEntity(entity, "restaurant"))
+      : [],
+    route: Array.isArray(day.route)
+      ? day.route.map((value) => normalizeText(value)).filter(Boolean)
+      : [],
+    estimatedTimeMinutes,
+    estimated_time: normalizeText(
+      day.estimated_time,
+      formatDurationMinutes(estimatedTimeMinutes)
+    ),
+    estimatedCostAmount,
+    cost: normalizeText(
+      day.cost,
+      estimatedCostAmount ? formatBudgetAmount(estimatedCostAmount) : "Data not available"
+    ),
+    wasTrimmed: normalizeBoolean(day.wasTrimmed),
+    routeLegs: Array.isArray(day.routeLegs)
+      ? day.routeLegs
+          .map((leg) => ({
+            fromPlaceId: normalizeText(leg.fromPlaceId),
+            toPlaceId: normalizeText(leg.toPlaceId),
+            durationMinutes:
+              Number.isFinite(Number.parseFloat(leg.durationMinutes))
+                ? Math.round(Number.parseFloat(leg.durationMinutes))
+                : null,
+            source: normalizeText(leg.source),
+          }))
+          .filter((leg) => leg.fromPlaceId && leg.toPlaceId)
+      : [],
+    validation:
+      day.validation && typeof day.validation === "object"
+        ? {
+            isTimeFeasible: normalizeBoolean(day.validation.isTimeFeasible),
+            isTransitFeasible: normalizeBoolean(day.validation.isTransitFeasible),
+            isStopCountFeasible: normalizeBoolean(day.validation.isStopCountFeasible),
+            isBudgetFeasible: normalizeBoolean(day.validation.isBudgetFeasible),
+          }
+        : {
+            isTimeFeasible: true,
+            isTransitFeasible: true,
+            isStopCountFeasible: true,
+            isBudgetFeasible: true,
+          },
+  };
+}
+
+function normalizeGroundedValidation(validation = {}) {
+  return {
+    status: normalizeText(validation.status, "verified"),
+    usedFallbackEdges: normalizeBoolean(validation.usedFallbackEdges),
+    fallbackEdgeCount:
+      Number.isFinite(Number.parseFloat(validation.fallbackEdgeCount))
+        ? Math.round(Number.parseFloat(validation.fallbackEdgeCount))
+        : 0,
+    narrativeSource: normalizeText(validation.narrativeSource, "template"),
+    errors: normalizeStringArray(validation.errors, 20),
+    warnings: normalizeStringArray(validation.warnings, 20),
+  };
+}
+
+export function normalizeGroundedPlan(input = {}, fallbackSelection = {}) {
+  const selection = normalizeUserSelection(fallbackSelection);
+  const destination = normalizeText(
+    input.destination,
+    selection.location.label || "Unknown destination"
+  );
+  const days = Array.isArray(input.days)
+    ? input.days.map((day, index) => normalizeGroundedDay(day, index))
+    : [];
+
+  return {
+    destination,
+    days,
+    validation: normalizeGroundedValidation(input.validation),
+  };
+}
+
 export function normalizeGeneratedTrip(input = {}, options = {}) {
   const payload = parseAiTripPayload(input);
 
@@ -1042,6 +1184,9 @@ function normalizePlanningMeta(input = {}) {
       freshness: "",
       storageMode: "",
       recommendationProvider: "",
+      intentStatus: "",
+      missingFields: [],
+      validation: normalizeGroundedValidation({}),
     };
   }
 
@@ -1053,6 +1198,14 @@ function normalizePlanningMeta(input = {}) {
     freshness: normalizeCreatedAt(input.freshness) ?? normalizeText(input.freshness),
     storageMode: normalizeText(input.storageMode),
     recommendationProvider: normalizeText(input.recommendationProvider),
+    intentStatus: normalizeText(
+      input.intentStatus ?? input.intent?.status
+    ),
+    missingFields: normalizeStringArray(
+      input.missingFields ?? input.intent?.missingFields,
+      8
+    ),
+    validation: normalizeGroundedValidation(input.validation),
   };
 }
 
@@ -1144,6 +1297,7 @@ export function buildStoredTrip({
   ownerEmail,
   userSelection,
   generatedTrip,
+  groundedPlan = {},
   planningMeta = {},
   optimization = {},
   routePlans = [],
@@ -1153,6 +1307,12 @@ export function buildStoredTrip({
   const normalizedGeneratedTrip = normalizeGeneratedTrip(generatedTrip, {
     userSelection,
   });
+  const normalizedGroundedPlan = normalizeGroundedPlan(
+    groundedPlan && typeof groundedPlan === "object"
+      ? groundedPlan
+      : generatedTrip?.groundedPlan,
+    userSelection
+  );
 
   return {
     id,
@@ -1178,6 +1338,7 @@ export function buildStoredTrip({
         ? optimization
         : generatedTrip?.optimization
     ),
+    groundedPlan: normalizedGroundedPlan,
     routePlans: normalizeRoutePlans(
       Array.isArray(routePlans) && routePlans.length > 0
         ? routePlans
@@ -1210,11 +1371,13 @@ export function normalizeStoredTrip(input = {}) {
         input.travelTips ??
         input.travel_tips ??
         input.tripData?.travel_tips,
+      groundedPlan: input.groundedPlan ?? input.tripData?.groundedPlan,
       recommendations: input.recommendations,
       planningMeta: input.planningMeta,
       optimization: input.optimization,
       routePlans: input.routePlans,
     },
+    groundedPlan: input.groundedPlan ?? input.tripData?.groundedPlan,
     planningMeta: input.planningMeta,
     optimization: input.optimization,
     routePlans: input.routePlans,

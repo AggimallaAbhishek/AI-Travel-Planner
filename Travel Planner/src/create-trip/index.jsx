@@ -5,8 +5,11 @@ import { toast } from "react-toastify";
 import { AiOutlineLoading3Quarters } from "react-icons/ai";
 import {
   CalendarRange,
+  ChevronDown,
+  ChevronUp,
   Compass,
   DollarSign,
+  Info,
   MapPinned,
   ShieldCheck,
   Sparkles,
@@ -324,6 +327,31 @@ function PaceButton({ item, active, onClick }) {
         <strong>{item.title}</strong>
         <small>{item.description}</small>
       </div>
+    </button>
+  );
+}
+
+function CompactOptionButton({ item, active, onClick, meta = "", className = "" }) {
+  return (
+    <button
+      type="button"
+      className={`voy-create-compact-option ${active ? "active" : ""} ${className}`}
+      onClick={onClick}
+      aria-pressed={active}
+      title={item.description}
+    >
+      <span className="voy-create-compact-option-icon" aria-hidden="true">
+        {item.icon}
+      </span>
+      <span className="voy-create-compact-option-label">{item.title}</span>
+      {meta ? <span className="voy-create-compact-option-meta">{meta}</span> : null}
+      <span
+        className="voy-create-compact-option-hint"
+        aria-hidden="true"
+        title={item.description}
+      >
+        <Info size={12} />
+      </span>
     </button>
   );
 }
@@ -672,7 +700,7 @@ function CreateTrip() {
             </div>
           </header>
 
-          <div className="voy-create-layout mt-8">
+          <div className="voy-create-layout">
             <div className="voy-create-main-stack">
               <section className="voy-create-section">
                 <div className="voy-create-section-head">
@@ -864,109 +892,87 @@ function CreateTrip() {
               <section className="voy-create-section">
                 <div className="voy-create-section-head">
                   <div className="voy-create-section-icon">
-                    <Sparkles size={18} />
-                  </div>
-                  <div>
-                    <h3>Select Your Plan Type</h3>
-                    <p>Choose a spending intent or let the budget auto-suggest the best fit.</p>
-                  </div>
-                </div>
-                <div className="voy-create-choice-grid voy-create-choice-grid-plan">
-                  {PLAN_TYPE_OPTIONS.map((item) => (
-                    <ChoiceCard
-                      key={item.id}
-                      item={item}
-                      active={selectedPlanType === item.id}
-                      onClick={() => dispatch({ type: "set_plan_type", value: item.id })}
-                      meta={recommendedPlanType === item.id ? "Recommended" : item.accent}
-                    />
-                  ))}
-                </div>
-                <p className="voy-create-helper-copy">
-                  Budget currently maps to <strong>{recommendedPlanType}</strong>. Manual selections stay locked until you change them.
-                </p>
-              </section>
-
-              <section className="voy-create-section">
-                <div className="voy-create-section-head">
-                  <div className="voy-create-section-icon">
                     <DollarSign size={18} />
                   </div>
                   <div>
-                    <h3>Estimated Budget</h3>
-                    <p>Use the number input or slider. Breakdown updates live for stay, food, and travel.</p>
+                    <h3>Budget + Plan Type</h3>
+                    <p>Set your budget and intent together so the route strategy stays aligned.</p>
                   </div>
                 </div>
-                <div className="voy-create-budget-grid">
-                  <label className="voy-create-budget-input-wrap">
-                    <span>Total budget (USD)</span>
-                    <div className="voy-create-field-shell">
-                      <DollarSign size={16} className="voy-create-field-icon" />
-                      <input
-                        type="number"
-                        min={BUDGET_MIN}
-                        max={BUDGET_MAX}
-                        step={BUDGET_STEP}
-                        className="voy-create-field"
-                        value={state.form.budgetAmount}
-                        aria-invalid={Boolean(state.fieldErrors.budgetAmount)}
-                        onChange={(event) => handleBudgetChange(event.target.value)}
-                      />
-                    </div>
-                  </label>
-                  <div className="voy-create-budget-meta">
-                    <strong>{formatBudgetAmount(state.form.budgetAmount)}</strong>
-                    <span>
-                      Recommended range: {formatBudgetAmount(recommendedBudgetRange.min)} - {formatBudgetAmount(recommendedBudgetRange.max)}
-                    </span>
-                  </div>
-                </div>
-                <input
-                  className="voy-create-slider"
-                  type="range"
-                  min={BUDGET_MIN}
-                  max={BUDGET_MAX}
-                  step={BUDGET_STEP}
-                  value={state.form.budgetAmount}
-                  onChange={(event) => handleBudgetChange(event.target.value)}
-                  aria-label="Total budget"
-                />
-                {state.fieldErrors.budgetAmount ? (
-                  <p className="voy-inline-error">{state.fieldErrors.budgetAmount}</p>
-                ) : (
-                  <p className="voy-create-helper-copy">
-                    Breakdown preview is based on {selectedPlanType} and a {(state.form.pace || "Balanced").toLowerCase()} pace.
-                  </p>
-                )}
-              </section>
 
-              <section className="voy-create-section">
-                <div className="voy-create-section-head">
-                  <div className="voy-create-section-icon">
-                    <Sparkles size={18} />
+                <div className="voy-create-budget-plan-grid">
+                  <div className="voy-create-subsection">
+                    <div className="voy-create-subsection-head">
+                      <h4>Plan Type</h4>
+                      <p>Compact intent selection with quick detail tooltips.</p>
+                    </div>
+                    <div className="voy-create-compact-option-grid voy-create-compact-option-grid-plan">
+                      {PLAN_TYPE_OPTIONS.map((item) => (
+                        <CompactOptionButton
+                          key={item.id}
+                          item={item}
+                          active={selectedPlanType === item.id}
+                          onClick={() => dispatch({ type: "set_plan_type", value: item.id })}
+                          meta={recommendedPlanType === item.id ? "Recommended" : item.accent}
+                        />
+                      ))}
+                    </div>
+                    <p className="voy-create-helper-copy">
+                      Budget currently maps to <strong>{recommendedPlanType}</strong>. Manual selections stay locked until you change them.
+                    </p>
+                    {state.fieldErrors.planType ? (
+                      <p className="voy-inline-error">{state.fieldErrors.planType}</p>
+                    ) : null}
                   </div>
-                  <div>
-                    <h3>Food Preferences</h3>
-                    <p>Multi-select works. Mixed clears the other tags to keep dining logic realistic.</p>
-                  </div>
-                </div>
-                <div className="voy-create-tag-grid">
-                  {FOOD_PREFERENCE_OPTIONS.map((item) => (
-                    <FoodTag
-                      key={item.id}
-                      item={item}
-                      active={state.form.foodPreferences.includes(item.id)}
-                      onClick={() => dispatch({ type: "toggle_food_preference", value: item.id })}
+
+                  <div className="voy-create-subsection">
+                    <div className="voy-create-subsection-head">
+                      <h4>Estimated Budget</h4>
+                      <p>Use input + slider. Breakdown updates live for stay, food, and travel.</p>
+                    </div>
+                    <div className="voy-create-budget-grid">
+                      <label className="voy-create-budget-input-wrap">
+                        <span>Total budget (USD)</span>
+                        <div className="voy-create-field-shell">
+                          <DollarSign size={16} className="voy-create-field-icon" />
+                          <input
+                            type="number"
+                            min={BUDGET_MIN}
+                            max={BUDGET_MAX}
+                            step={BUDGET_STEP}
+                            className="voy-create-field"
+                            value={state.form.budgetAmount}
+                            aria-invalid={Boolean(state.fieldErrors.budgetAmount)}
+                            onChange={(event) => handleBudgetChange(event.target.value)}
+                          />
+                        </div>
+                      </label>
+                      <div className="voy-create-budget-meta">
+                        <strong>{formatBudgetAmount(state.form.budgetAmount)}</strong>
+                        <span>
+                          Recommended range: {formatBudgetAmount(recommendedBudgetRange.min)} - {formatBudgetAmount(recommendedBudgetRange.max)}
+                        </span>
+                      </div>
+                    </div>
+                    <input
+                      className="voy-create-slider"
+                      type="range"
+                      min={BUDGET_MIN}
+                      max={BUDGET_MAX}
+                      step={BUDGET_STEP}
+                      value={state.form.budgetAmount}
+                      onChange={(event) => handleBudgetChange(event.target.value)}
+                      aria-label="Total budget"
                     />
-                  ))}
+                    {state.fieldErrors.budgetAmount ? (
+                      <p className="voy-inline-error">{state.fieldErrors.budgetAmount}</p>
+                    ) : (
+                      <p className="voy-create-helper-copy">
+                        Breakdown preview is based on {selectedPlanType} and a {(state.form.pace || "Balanced").toLowerCase()} pace.
+                      </p>
+                    )}
+                  </div>
                 </div>
-                {state.fieldErrors.foodPreferences ? (
-                  <p className="voy-inline-error">{state.fieldErrors.foodPreferences}</p>
-                ) : (
-                  <p className="voy-create-helper-copy">
-                    Selected dining tags are used to bias restaurant and meal recommendations.
-                  </p>
-                )}
               </section>
 
               <section className="voy-create-section">
@@ -975,43 +981,77 @@ function CreateTrip() {
                     <Compass size={18} />
                   </div>
                   <div>
-                    <h3>Travel Style</h3>
-                    <p>Helps Gemini pick the right daily shape and attraction mix.</p>
+                    <h3>Preferences Bundle</h3>
+                    <p>Compact controls for food, style, and day pacing.</p>
                   </div>
                 </div>
-                <div className="voy-create-choice-grid voy-create-choice-grid-plan">
-                  {TRAVEL_STYLE_OPTIONS.map((item) => (
-                    <ChoiceCard
-                      key={item.id}
-                      item={item}
-                      active={state.form.travelStyle === item.id}
-                      onClick={() =>
-                        dispatch({ type: "set_travel_style", value: item.id })
-                      }
-                    />
-                  ))}
-                </div>
-              </section>
 
-              <section className="voy-create-section">
-                <div className="voy-create-section-head">
-                  <div className="voy-create-section-icon">
-                    <CalendarRange size={18} />
+                <div className="voy-create-preferences-grid">
+                  <div className="voy-create-subsection">
+                    <div className="voy-create-subsection-head">
+                      <h4>Food Preferences</h4>
+                      <p>Mixed clears the other tags to keep dining logic realistic.</p>
+                    </div>
+                    <div className="voy-create-tag-grid">
+                      {FOOD_PREFERENCE_OPTIONS.map((item) => (
+                        <FoodTag
+                          key={item.id}
+                          item={item}
+                          active={state.form.foodPreferences.includes(item.id)}
+                          onClick={() =>
+                            dispatch({ type: "toggle_food_preference", value: item.id })
+                          }
+                        />
+                      ))}
+                    </div>
+                    {state.fieldErrors.foodPreferences ? (
+                      <p className="voy-inline-error">{state.fieldErrors.foodPreferences}</p>
+                    ) : (
+                      <p className="voy-create-helper-copy">
+                        Selected dining tags bias restaurant and meal recommendations.
+                      </p>
+                    )}
                   </div>
-                  <div>
-                    <h3>Time Preference</h3>
-                    <p>Use pace to tell Gemini how dense each day should feel.</p>
+
+                  <div className="voy-create-subsection">
+                    <div className="voy-create-subsection-head">
+                      <h4>Travel Style</h4>
+                      <p>Pick the dominant travel mode; details are available via tooltips.</p>
+                    </div>
+                    <div className="voy-create-compact-option-grid voy-create-compact-option-grid-style">
+                      {TRAVEL_STYLE_OPTIONS.map((item) => (
+                        <CompactOptionButton
+                          key={item.id}
+                          item={item}
+                          active={state.form.travelStyle === item.id}
+                          onClick={() =>
+                            dispatch({ type: "set_travel_style", value: item.id })
+                          }
+                        />
+                      ))}
+                    </div>
+
+                    <div className="voy-create-subsection-head voy-create-subsection-head-tight">
+                      <h4>Time Preference</h4>
+                      <p>Controls how dense each itinerary day should feel.</p>
+                    </div>
+                    <div className="voy-create-segmented-control">
+                      {PACE_OPTIONS.map((item) => (
+                        <PaceButton
+                          key={item.id}
+                          item={item}
+                          active={state.form.pace === item.id}
+                          onClick={() => dispatch({ type: "set_pace", value: item.id })}
+                        />
+                      ))}
+                    </div>
+                    {state.fieldErrors.travelStyle ? (
+                      <p className="voy-inline-error">{state.fieldErrors.travelStyle}</p>
+                    ) : null}
+                    {state.fieldErrors.pace ? (
+                      <p className="voy-inline-error">{state.fieldErrors.pace}</p>
+                    ) : null}
                   </div>
-                </div>
-                <div className="voy-create-segmented-control">
-                  {PACE_OPTIONS.map((item) => (
-                    <PaceButton
-                      key={item.id}
-                      item={item}
-                      active={state.form.pace === item.id}
-                      onClick={() => dispatch({ type: "set_pace", value: item.id })}
-                    />
-                  ))}
                 </div>
               </section>
 
@@ -1037,6 +1077,25 @@ function CreateTrip() {
                   <span className="voy-create-summary-kicker">Itinerary brief</span>
                   <h3>{selectedPlanType}</h3>
                   <p>{formatBudgetSummary(submissionPreview)}</p>
+                </div>
+
+                <div className="voy-create-summary-status">
+                  <div className="voy-create-summary-status-item">
+                    <span>Signals</span>
+                    <strong>
+                      {briefCompletionStatus.completed}/{briefCompletionStatus.total}
+                    </strong>
+                  </div>
+                  <div
+                    className={`voy-create-summary-status-item ${
+                      briefCompletionStatus.isReady ? "ready" : ""
+                    }`}
+                  >
+                    <span>Status</span>
+                    <strong>
+                      {briefCompletionStatus.isReady ? "Ready to generate" : "In progress"}
+                    </strong>
+                  </div>
                 </div>
 
                 <div className="voy-create-summary-block">
@@ -1074,61 +1133,107 @@ function CreateTrip() {
                   </div>
                 </div>
 
-                <div className="voy-create-summary-block">
-                  <div className="voy-create-summary-title">Smart validation</div>
-                  <div className="voy-create-warning-list" aria-live="polite">
-                    {smartWarnings.length > 0 ? (
-                      smartWarnings.map((warning) => (
-                        <div key={warning} className="voy-create-warning-item">
-                          <span>Heads-up</span>
-                          <p>{warning}</p>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="voy-create-warning-item success">
-                        <span>Ready</span>
-                        <p>Your current combination looks realistic for itinerary generation.</p>
-                      </div>
-                    )}
+                <div className="voy-create-summary-block compact">
+                  <div className="voy-create-summary-title-row">
+                    <div className="voy-create-summary-title">Smart validation</div>
+                    {isMobileViewport ? (
+                      <button
+                        type="button"
+                        className="voy-create-summary-toggle"
+                        aria-expanded={!collapsedSidebarBlocks.validation}
+                        onClick={() => toggleSidebarBlock("validation")}
+                      >
+                        {collapsedSidebarBlocks.validation ? (
+                          <>
+                            Show <ChevronDown size={14} />
+                          </>
+                        ) : (
+                          <>
+                            Hide <ChevronUp size={14} />
+                          </>
+                        )}
+                      </button>
+                    ) : null}
                   </div>
+
+                  {!isMobileViewport || !collapsedSidebarBlocks.validation ? (
+                    <div className="voy-create-warning-list" aria-live="polite">
+                      {smartWarnings.length > 0 ? (
+                        smartWarnings.map((warning) => (
+                          <div key={warning} className="voy-create-warning-item">
+                            <span>Heads-up</span>
+                            <p>{warning}</p>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="voy-create-warning-item success">
+                          <span>Ready</span>
+                          <p>Your current combination looks realistic for itinerary generation.</p>
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
                 </div>
 
-                <div className="voy-create-summary-block">
-                  <div className="voy-create-summary-title">AI suggestions</div>
-                  <div className="voy-create-ai-chip-list">
-                    {aiSuggestionChips.map((chip) => (
+                <div className="voy-create-summary-block compact">
+                  <div className="voy-create-summary-title-row">
+                    <div className="voy-create-summary-title">AI suggestions</div>
+                    {isMobileViewport ? (
                       <button
-                        key={chip.id}
                         type="button"
-                        className={`voy-create-ai-chip ${chip.kind}`}
-                        onClick={() => {
-                          if (chip.kind === "destination") {
-                            applyDestinationSuggestion({
-                              label: chip.value,
-                              primaryText: chip.value,
-                              secondaryText: "Popular match",
-                              source: "ai_suggestion",
-                            });
-                            return;
-                          }
-
-                          if (chip.kind === "plan") {
-                            dispatch({ type: "set_plan_type", value: chip.value });
-                            return;
-                          }
-
-                          if (chip.kind === "budget") {
-                            const midpoint = Math.round(
-                              (recommendedBudgetRange.min + recommendedBudgetRange.max) / 2
-                            );
-                            handleBudgetChange(String(midpoint));
-                          }
-                        }}
+                        className="voy-create-summary-toggle"
+                        aria-expanded={!collapsedSidebarBlocks.suggestions}
+                        onClick={() => toggleSidebarBlock("suggestions")}
                       >
-                        {chip.label}
+                        {collapsedSidebarBlocks.suggestions ? (
+                          <>
+                            Show <ChevronDown size={14} />
+                          </>
+                        ) : (
+                          <>
+                            Hide <ChevronUp size={14} />
+                          </>
+                        )}
                       </button>
-                    ))}
+                    ) : null}
                   </div>
+
+                  {!isMobileViewport || !collapsedSidebarBlocks.suggestions ? (
+                    <div className="voy-create-ai-chip-list">
+                      {aiSuggestionChips.map((chip) => (
+                        <button
+                          key={chip.id}
+                          type="button"
+                          className={`voy-create-ai-chip ${chip.kind}`}
+                          onClick={() => {
+                            if (chip.kind === "destination") {
+                              applyDestinationSuggestion({
+                                label: chip.value,
+                                primaryText: chip.value,
+                                secondaryText: "Popular match",
+                                source: "ai_suggestion",
+                              });
+                              return;
+                            }
+
+                            if (chip.kind === "plan") {
+                              dispatch({ type: "set_plan_type", value: chip.value });
+                              return;
+                            }
+
+                            if (chip.kind === "budget") {
+                              const midpoint = Math.round(
+                                (recommendedBudgetRange.min + recommendedBudgetRange.max) / 2
+                              );
+                              handleBudgetChange(String(midpoint));
+                            }
+                          }}
+                        >
+                          {chip.label}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </aside>

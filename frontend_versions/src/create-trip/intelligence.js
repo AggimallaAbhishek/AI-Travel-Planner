@@ -19,6 +19,8 @@ const DESTINATION_SUGGESTIONS_BY_STYLE = {
   default: ["Kyoto, Japan", "Bali, Indonesia", "Cape Town, South Africa"],
 };
 
+const REQUIRED_BRIEF_SIGNAL_COUNT = 7;
+
 export function getRecommendedPlanType(selectionInput = {}) {
   const selection = normalizeUserSelection(selectionInput);
   return (
@@ -151,6 +153,26 @@ export function buildSmartValidationWarnings(selectionInput = {}) {
   }
 
   return warnings;
+}
+
+export function getBriefCompletionStatus(selectionInput = {}) {
+  const selection = normalizeUserSelection(selectionInput);
+  const checks = [
+    Boolean(selection.location?.label),
+    Number.isInteger(selection.days) && selection.days > 0,
+    Boolean(selection.travelers),
+    Boolean(selection.planType),
+    Number.isFinite(selection.budgetAmount) && selection.budgetAmount > 0,
+    Boolean(selection.travelStyle),
+    Boolean(selection.pace),
+  ];
+  const completed = checks.filter(Boolean).length;
+
+  return {
+    completed,
+    total: REQUIRED_BRIEF_SIGNAL_COUNT,
+    isReady: completed === REQUIRED_BRIEF_SIGNAL_COUNT,
+  };
 }
 
 export function buildAiSuggestionChips(selectionInput = {}) {

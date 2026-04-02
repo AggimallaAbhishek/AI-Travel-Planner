@@ -224,7 +224,7 @@ function createHotelRecord(place = {}, centroid) {
   };
 }
 
-function createRestaurantRecord(place = {}, centroid, foodPreferences = [], travelTimeFromPreviousMinutes = 0) {
+function createRestaurantRecord(place = {}, centroid, _foodPreferences = [], travelTimeFromPreviousMinutes = 0) {
   const distanceToClusterMeters = Number.isFinite(
     haversineDistanceMeters(place.coordinates, centroid)
   )

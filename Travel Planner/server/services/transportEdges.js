@@ -122,7 +122,7 @@ async function fetchDistanceMatrixBatch({
   destinations,
   apiKey,
   mode,
-  traceId = "",
+  traceId: _traceId = "",
 }) {
   const endpoint = new URL(GOOGLE_DISTANCE_MATRIX_URL);
   endpoint.searchParams.set("origins", toCoordinateString(origin));
