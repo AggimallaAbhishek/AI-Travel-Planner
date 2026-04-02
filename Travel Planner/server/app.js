@@ -1,5 +1,6 @@
 import cors from "cors";
 import express from "express";
+import indiaRouter from "./routes/india.js";
 import tripsRouter from "./routes/trips.js";
 import { attachRequestTrace } from "./lib/trace.js";
 
@@ -84,6 +85,7 @@ app.get("/api/health", (_req, res) => {
   });
 });
 
+app.use("/api/india", indiaRouter);
 app.use("/api", tripsRouter);
 
 app.use((error, _req, res, _next) => {

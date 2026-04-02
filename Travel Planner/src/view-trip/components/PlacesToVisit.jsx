@@ -1,6 +1,16 @@
 import React from "react";
 import PlaceCardItem from "../components/PlaceCardItem";
-import { FaMapMarkerAlt, FaClock, FaUmbrellaBeach } from "react-icons/fa";
+import {
+  FaMapMarkerAlt,
+  FaClock,
+  FaUmbrellaBeach,
+  FaCar,
+  FaTrain,
+  FaPlane,
+  FaBus,
+  FaWalking,
+  FaRoute,
+} from "react-icons/fa";
 import { GiStoneBridge } from "react-icons/gi";
 
 function PlacesToVisit({ trip }) {
@@ -18,6 +28,44 @@ function PlacesToVisit({ trip }) {
     if (placeName?.toLowerCase().includes("stone"))
       return <GiStoneBridge className="text-[var(--voy-text-muted)]" />;
     return <FaMapMarkerAlt className="text-[var(--voy-gold)]" />;
+  };
+
+  const resolveTransportLabel = (mode = "") => {
+    const normalized = String(mode ?? "").trim().toLowerCase();
+    if (normalized === "flight") return "Flight";
+    if (normalized === "train") return "Train";
+    if (normalized === "transit") return "Transit";
+    if (normalized === "road" || normalized === "bus") return "Road";
+    if (normalized === "walk" || normalized === "walking") return "Walk";
+    if (normalized === "start") return "Start";
+    return "Drive";
+  };
+
+  const renderTransportIcon = (mode = "") => {
+    const normalized = String(mode ?? "").trim().toLowerCase();
+    if (normalized === "flight") return <FaPlane className="text-[var(--voy-gold)]" />;
+    if (normalized === "train") return <FaTrain className="text-[var(--voy-gold)]" />;
+    if (normalized === "road" || normalized === "bus") return <FaBus className="text-[var(--voy-gold)]" />;
+    if (normalized === "walk" || normalized === "walking") return <FaWalking className="text-[var(--voy-gold)]" />;
+    return <FaCar className="text-[var(--voy-gold)]" />;
+  };
+
+  const formatDistanceLabel = (place = {}) => {
+    if (Number.isFinite(place?.travelDistanceFromPreviousKm)) {
+      return `${place.travelDistanceFromPreviousKm} km`;
+    }
+    if (typeof place?.travelDistance === "string" && place.travelDistance.trim()) {
+      return place.travelDistance.trim();
+    }
+    return "Distance not available";
+  };
+
+  const resolvePlaceSummary = (place = {}) => {
+    const summary =
+      place.placeSummary ||
+      place.placeDetails ||
+      "Curated stop for this day, selected by the route planner.";
+    return summary.length > 140 ? `${summary.slice(0, 139).trim()}…` : summary;
   };
 
   return (
@@ -92,17 +140,61 @@ function PlacesToVisit({ trip }) {
 
                   <div className="p-6">
                     {dayPlaces.length > 0 ? (
-                      <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
-                        {dayPlaces.map((place, placeIndex) => (
-                          <div key={placeIndex} className="bg-[var(--voy-surface2)] rounded-xl p-5 shadow border border-[var(--voy-border)] flex items-start">
-                            <div className="w-10 h-10 min-w-10 min-h-10 rounded-full bg-[var(--voy-bg2)] flex items-center justify-center mr-3 mt-1">
-                              {getPlaceIcon(place.placeName)}
+                      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]">
+                        <div className="space-y-6">
+                          {dayPlaces.map((place, placeIndex) => (
+                            <div key={placeIndex} className="bg-[var(--voy-surface2)] rounded-xl p-5 shadow border border-[var(--voy-border)] flex items-start">
+                              <div className="w-10 h-10 min-w-10 min-h-10 rounded-full bg-[var(--voy-bg2)] flex items-center justify-center mr-3 mt-1">
+                                {getPlaceIcon(place.placeName)}
+                              </div>
+                              <div className="flex-1 w-full">
+                                <PlaceCardItem place={place} />
+                              </div>
                             </div>
-                            <div className="flex-1 w-full">
-                              <PlaceCardItem place={place} />
-                            </div>
+                          ))}
+                        </div>
+
+                        <aside className="h-fit rounded-xl border border-[var(--voy-border)] bg-[var(--voy-surface2)] p-5">
+                          <div className="flex items-center gap-2 text-[var(--voy-text)] font-semibold">
+                            <FaRoute className="text-[var(--voy-gold)]" />
+                            <span>Transport & Day Brief</span>
                           </div>
-                        ))}
+
+                          <p className="mt-3 text-sm text-[var(--voy-text-muted)] leading-relaxed">
+                            {narrativeForDay?.summary ||
+                              `A practical route across ${dayPlaces.length} stops with optimized transfer order for this day.`}
+                          </p>
+
+                          <div className="mt-4 space-y-3">
+                            {dayPlaces.map((place, placeIndex) => (
+                              <article
+                                key={`summary-${placeIndex}`}
+                                className="rounded-lg border border-[var(--voy-border)] bg-[var(--voy-surface)] p-3"
+                              >
+                                <h4 className="text-sm font-semibold text-[var(--voy-text)]">
+                                  {place.placeName}
+                                </h4>
+                                <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-[var(--voy-bg2)] px-2 py-1 text-[var(--voy-text-muted)]">
+                                    {renderTransportIcon(place.transportMode)}
+                                    {resolveTransportLabel(place.transportMode)}
+                                  </span>
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-[var(--voy-bg2)] px-2 py-1 text-[var(--voy-text-muted)]">
+                                    <FaClock className="text-[var(--voy-gold)]" />
+                                    {place.travelTime || "Not specified"}
+                                  </span>
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-[var(--voy-bg2)] px-2 py-1 text-[var(--voy-text-muted)]">
+                                    <FaMapMarkerAlt className="text-[var(--voy-gold)]" />
+                                    {formatDistanceLabel(place)}
+                                  </span>
+                                </div>
+                                <p className="mt-2 text-xs text-[var(--voy-text-muted)] leading-relaxed">
+                                  {resolvePlaceSummary(place)}
+                                </p>
+                              </article>
+                            ))}
+                          </div>
+                        </aside>
                       </div>
                     ) : (
                       <div className="text-center py-12 bg-[var(--voy-surface2)] rounded-xl border border-[var(--voy-border)]">

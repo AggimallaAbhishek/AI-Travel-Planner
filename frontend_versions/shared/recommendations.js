@@ -1,3 +1,5 @@
+import { buildGoogleMapsQueryUrl, resolveGoogleMapsUrl } from "./maps.js";
+
 function normalizeText(value, fallback = "") {
   if (typeof value !== "string") {
     return fallback;
@@ -87,14 +89,7 @@ export function normalizeDestinationLabel(destination, fallback = "") {
 }
 
 export function buildGoogleMapsSearchUrl(query) {
-  const normalizedQuery = normalizeText(query);
-  if (!normalizedQuery) {
-    return "https://www.google.com/maps";
-  }
-
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-    normalizedQuery
-  )}`;
+  return buildGoogleMapsQueryUrl(query);
 }
 
 export function normalizeRecommendationItem(item = {}, type = "hotel") {
@@ -107,9 +102,18 @@ export function normalizeRecommendationItem(item = {}, type = "hotel") {
   const name = normalizeText(item.name ?? item.hotelName ?? item.restaurantName, defaultLabel);
   const location = normalizeText(item.location ?? item.hotelAddress ?? item.address);
   const description = normalizeText(item.description ?? item.details, defaultDescription);
-  const mapsUrl = isRemoteUrl(item.mapsUrl)
-    ? item.mapsUrl
-    : buildGoogleMapsSearchUrl([name, location].filter(Boolean).join(", "));
+  const geoCoordinates = normalizeCoordinates(
+    item.geoCoordinates ?? item.coordinates ?? item.locationCoordinates
+  );
+  const externalPlaceId = normalizeText(item.externalPlaceId ?? item.placeId);
+  const mapsUrl = resolveGoogleMapsUrl({
+    mapsUrl: isRemoteUrl(item.mapsUrl) ? item.mapsUrl : "",
+    placeId: normalizeText(item.placeId),
+    externalPlaceId,
+    coordinates: geoCoordinates,
+    name,
+    address: location,
+  });
   const imageUrlSource =
     item.imageUrl ??
     item.image ??
@@ -127,9 +131,9 @@ export function normalizeRecommendationItem(item = {}, type = "hotel") {
       item.priceLabel ?? item.price ?? item.priceRange ?? item.price_level
     ),
     mapsUrl,
-    geoCoordinates: normalizeCoordinates(
-      item.geoCoordinates ?? item.coordinates ?? item.locationCoordinates
-    ),
+    geoCoordinates,
+    externalPlaceId,
+    source: normalizeText(item.source),
   };
 }
 

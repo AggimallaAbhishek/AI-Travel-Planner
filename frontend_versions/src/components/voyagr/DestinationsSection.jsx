@@ -119,9 +119,7 @@ export default function DestinationsSection({
                   type="button"
                   className="voy-dest-explore"
                   aria-label={`Show ${destination.name}, ${destination.country} in Google Maps`}
-                  onClick={() =>
-                    onExploreDestination(`${destination.name}, ${destination.country}`)
-                  }
+                  onClick={() => onExploreDestination(destination)}
                 >
                   Show in Map
                 </button>

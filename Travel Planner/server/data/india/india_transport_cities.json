@@ -1,0 +1,53 @@
+[
+  {
+    "city_id": "city--delhi",
+    "canonical_name": "Delhi",
+    "state_ut_name": "Delhi",
+    "latitude": 28.6139,
+    "longitude": 77.209,
+    "aliases": [
+      "New Delhi",
+      "Delhi NCR"
+    ],
+    "has_flight": true,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city--jaipur",
+    "canonical_name": "Jaipur",
+    "state_ut_name": "Rajasthan",
+    "latitude": 26.9124,
+    "longitude": 75.7873,
+    "aliases": [
+      "Pink City"
+    ],
+    "has_flight": true,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city--agra",
+    "canonical_name": "Agra",
+    "state_ut_name": "Uttar Pradesh",
+    "latitude": 27.1767,
+    "longitude": 78.0081,
+    "aliases": [],
+    "has_flight": false,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city--varanasi",
+    "canonical_name": "Varanasi",
+    "state_ut_name": "Uttar Pradesh",
+    "latitude": 25.3176,
+    "longitude": 82.9739,
+    "aliases": [
+      "Banaras"
+    ],
+    "has_flight": false,
+    "has_train": true,
+    "has_road": true
+  }
+]

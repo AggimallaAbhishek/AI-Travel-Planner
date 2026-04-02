@@ -1,0 +1,83 @@
+city_id,canonical_name,state_ut_name,latitude,longitude,aliases,has_flight,has_train,has_road
+city-agartala,Agartala,,23.833333333333,91.266666666667,"[""Agartala""]",True,False,False
+city-agatti-island-lakshadweep,Agatti Island Lakshadweep,,10.8476321,72.1888468,"[""Agatti Island (Lakshadweep)"", ""Agatti Island Lakshadweep""]",True,False,False
+city-agra,Agra,,27.18,78.02,"[""Agra""]",True,True,True
+city-ahmedabad,Ahmedabad,,23.021944444444443,72.57972222222222,"[""Ahmedabad""]",True,True,True
+city-aizawl,Aizawl,,23.733333333333,92.716666666667,"[""Aizawl""]",True,False,False
+city-akola,Akola,,20.5,77.166666666667,"[""Akola""]",True,False,False
+city-aligarh,Aligarh,,27.833333333333,78.166666666667,"[""Aligarh""]",False,True,True
+city-allahabad,Allahabad,,25.45,81.85,"[""Allahabad""]",True,False,True
+city-amritsar,Amritsar,,31.626917,74.87704,"[""Amritsar""]",True,True,True
+city-aurangabad,Aurangabad,,24.75,84.3667,"[""Aurangabad""]",True,True,True
+city-bareilly,Bareilly,,28.364,79.415,"[""Bareilly""]",False,True,True
+city-bathinda,Bathinda,,30.21,74.94,"[""Bathinda""]",True,False,False
+city-belagavi-belgaum,Belagavi Belgaum,,15.8402819,74.5093749,"[""Belagavi (Belgaum)"", ""Belagavi Belgaum""]",True,False,False
+city-bellary,Bellary,,15.15,76.9333,"[""Bellary""]",True,False,False
+city-bengaluru,Bengaluru,,12.9791198,77.5912997,"[""Bangalore"", ""Bengaluru""]",True,True,True
+city-bhavnagar,Bhavnagar,,21.770277777778,72.143055555556,"[""Bhavnagar""]",True,False,False
+city-bhopal,Bhopal,,23.25,77.416666666667,"[""Bhopal""]",True,True,True
+city-bhubaneswar,Bhubaneswar,,20.295,85.825,"[""Bhubaneswar""]",True,False,False
+city-bhuj,Bhuj,,23.25,69.67,"[""Bhuj""]",True,False,False
+city-bikaner,Bikaner,,28.018055555556,73.316944444444,"[""Bikaner""]",True,False,False
+city-chandigarh,Chandigarh,,30.736388888889,76.788333333333,"[""Chandigarh""]",True,True,True
+city-chennai,Chennai,,13.0825,80.275,"[""Chennai""]",True,True,True
+city-coimbatore,Coimbatore,,11.000833333333333,76.96333333333334,"[""Coimbatore""]",True,True,True
+city-cooch-behar,Cooch Behar,,26.324188888889,89.451030555556,"[""Cooch Behar""]",True,False,False
+city-dabolim-vasco-da-gama,Dabolim Vasco Da Gama,,15.3849641,73.8377125,"[""Dabolim (Vasco da Gama)"", ""Dabolim Vasco Da Gama""]",True,False,False
+city-daporijo,Daporijo,,27.986111111111,94.221666666667,"[""Daporijo""]",True,False,False
+city-dehradun,Dehradun,,30.318,78.029,"[""Dehradun""]",True,False,False
+city-delhi,Delhi,,28.666666666667,77.216666666667,"[""Delhi"", ""New Delhi""]",True,True,True
+city-dhanbad,Dhanbad,,23.79,86.43,"[""Dhanbad""]",True,True,True
+city-dharamshala-kangra,Dharamshala Kangra,,32.1978182,76.3211613,"[""Dharamshala / Kangra"", ""Dharamshala Kangra""]",True,False,False
+city-dibrugarh,Dibrugarh,,27.474161111111,94.918097222222,"[""Dibrugarh""]",True,False,False
+city-dimapur,Dimapur,,25.9125,93.741666666667,"[""Dimapur""]",True,False,False
+city-diu,Diu,,23.878611111111113,90.32138888888889,"[""Diu""]",True,False,False
+city-faridabad,Faridabad,,28.416666666667,77.3,"[""Faridabad""]",False,True,True
+city-gaya,Gaya,,11.887777777778,3.4466666666667,"[""Gaya""]",True,False,False
+city-gorakhpur,Gorakhpur,,26.761111111111113,83.36666666666666,"[""Gorakhpur""]",True,False,False
+city-guna,Guna,,24.65,77.316666666667,"[""Guna""]",True,False,False
+city-guwahati,Guwahati,,26.1805876,91.750238,"[""Guwahati""]",True,True,True
+city-gwalior,Gwalior,,26.2125,78.1775,"[""Gwalior""]",True,True,True
+city-hisar,Hisar,,38.526388888889,68.538055555556,"[""Hisar""]",True,False,False
+city-howrah,Howrah,,22.5736296,88.3251045,"[""Howrah""]",False,True,True
+city-hubballi-hubli,Hubballi Hubli,,15.3427544,75.1694536,"[""Hubballi (Hubli)"", ""Hubballi Hubli""]",True,False,False
+city-hubli,Hubli,,15.458981,75.00779,"[""Hubli""]",True,True,True
+city-hyderabad,Hyderabad,,17.361666666666668,78.47472222222223,"[""Hyderabad""]",True,True,True
+city-indore,Indore,,22.718611111111112,75.855,"[""Indore""]",True,True,True
+city-jabalpur,Jabalpur,,23.166666666667,79.933333333333,"[""Jabalpur""]",False,True,True
+city-jaipur,Jaipur,,26.915,75.82,"[""Jaipur""]",True,True,True
+city-jodhpur,Jodhpur,,26.294444444444444,73.02777777777777,"[""Jodhpur""]",True,True,True
+city-kadapa,Kadapa,,14.48,78.81,"[""Kadapa""]",True,False,False
+city-kalyan,Kalyan,,19.25,73.15,"[""Kalyan""]",False,True,True
+city-kanpur,Kanpur,,26.4725,80.331111111111,"[""Kanpur""]",False,True,True
+city-khajuraho,Khajuraho,,24.85,79.933333333333,"[""Khajuraho""]",True,False,False
+city-kochi,Kochi,,33.55883333333333,133.53122222222223,"[""Kochi""]",True,False,False
+city-kolkata,Kolkata,,22.5675,88.37,"[""Kolkata""]",True,True,True
+city-kota,Kota,,-7.817161672774816,112.03000152005602,"[""Kota""]",False,True,True
+city-kozhikode-calicut,Kozhikode Calicut,,11.2450558,75.7754716,"[""Kozhikode (Calicut)"", ""Kozhikode Calicut""]",True,False,False
+city-lucknow,Lucknow,,26.847,80.947,"[""Lucknow""]",True,True,True
+city-ludhiana,Ludhiana,,30.908333333333,75.848611111111,"[""Ludhiana""]",False,True,True
+city-madurai,Madurai,,9.9196611111111,78.119394444444,"[""Madurai""]",True,True,True
+city-mangaluru-mangalore,Mangaluru Mangalore,,12.9798673,74.8246658,"[""Mangaluru (Mangalore)"", ""Mangaluru Mangalore""]",True,False,False
+city-meerut,Meerut,,28.98,77.706388888889,"[""Meerut""]",False,True,True
+city-moradabad,Moradabad,,28.843236111111,78.728741666667,"[""Moradabad""]",False,True,True
+city-mumbai,Mumbai,,19.075833333333332,72.8775,"[""Mumbai""]",True,True,True
+city-mysore,Mysore,,12.30861111111111,76.65305555555555,"[""Mysore""]",True,True,True
+city-nagpur,Nagpur,,21.149722222222223,79.08055555555555,"[""Nagpur""]",True,True,True
+city-nashik,Nashik,,19.994166666667,73.797222222222,"[""Nashik""]",True,True,True
+city-navi-mumbai,Navi Mumbai,,19.03,73.01,"[""Navi Mumbai""]",False,True,True
+city-patna,Patna,,25.61,85.141388888889,"[""Patna""]",True,True,True
+city-prayagraj,Prayagraj,,25.45,81.85,"[""Prayagraj""]",False,True,False
+city-prayagraj-allahabad,Prayagraj Allahabad,,25.4741716,81.8495397,"[""Prayagraj (Allahabad)"", ""Prayagraj Allahabad""]",True,False,False
+city-pune,Pune,,18.52111111111111,73.85527777777777,"[""Pune""]",True,True,True
+city-raipur,Raipur,,21.2379468,81.6336833,"[""Raipur""]",True,True,True
+city-rajkot,Rajkot,,22.3,70.78,"[""Rajkot""]",True,True,True
+city-ranchi,Ranchi,,23.355555555556,85.334722222222,"[""Ranchi""]",True,True,True
+city-siliguri,Siliguri,,26.72,88.42,"[""Siliguri""]",True,False,False
+city-solapur,Solapur,,17.35,75.16,"[""Solapur""]",False,True,True
+city-srinagar,Srinagar,,34.091111111111,74.806111111111,"[""Srinagar""]",True,True,True
+city-tiruchirappalli,Tiruchirappalli,,10.826944444444,78.692777777778,"[""Tiruchirappalli""]",True,True,True
+city-vadodara,Vadodara,,22.3,73.2,"[""Vadodara""]",True,True,True
+city-varanasi,Varanasi,,25.318888888889,83.012777777778,"[""Varanasi""]",True,True,True
+city-vasai,Vasai,,19.47,72.8,"[""Vasai""]",False,True,True
+city-vijayawada,Vijayawada,,16.516666666667,80.616666666667,"[""Vijayawada""]",True,True,True

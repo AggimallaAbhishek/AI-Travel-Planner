@@ -1,0 +1,586 @@
+[
+  {
+    "canonical_name": "Agartala",
+    "aliases": [
+      "Agartala"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Agatti Island Lakshadweep",
+    "aliases": [
+      "Agatti Island (Lakshadweep)",
+      "Agatti Island Lakshadweep"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Agra",
+    "aliases": [
+      "Agra"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Ahmedabad",
+    "aliases": [
+      "Ahmedabad"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Aizawl",
+    "aliases": [
+      "Aizawl"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Akola",
+    "aliases": [
+      "Akola"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Aligarh",
+    "aliases": [
+      "Aligarh"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Allahabad",
+    "aliases": [
+      "Allahabad"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Amritsar",
+    "aliases": [
+      "Amritsar"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Aurangabad",
+    "aliases": [
+      "Aurangabad"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Bareilly",
+    "aliases": [
+      "Bareilly"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Bathinda",
+    "aliases": [
+      "Bathinda"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Belagavi Belgaum",
+    "aliases": [
+      "Belagavi (Belgaum)",
+      "Belagavi Belgaum"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Bellary",
+    "aliases": [
+      "Bellary"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Bengaluru",
+    "aliases": [
+      "Bangalore",
+      "Bengaluru"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Bhavnagar",
+    "aliases": [
+      "Bhavnagar"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Bhopal",
+    "aliases": [
+      "Bhopal"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Bhubaneswar",
+    "aliases": [
+      "Bhubaneswar"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Bhuj",
+    "aliases": [
+      "Bhuj"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Bikaner",
+    "aliases": [
+      "Bikaner"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Chandigarh",
+    "aliases": [
+      "Chandigarh"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Chennai",
+    "aliases": [
+      "Chennai"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Coimbatore",
+    "aliases": [
+      "Coimbatore"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Cooch Behar",
+    "aliases": [
+      "Cooch Behar"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Dabolim Vasco Da Gama",
+    "aliases": [
+      "Dabolim (Vasco da Gama)",
+      "Dabolim Vasco Da Gama"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Daporijo",
+    "aliases": [
+      "Daporijo"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Dehradun",
+    "aliases": [
+      "Dehradun"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Delhi",
+    "aliases": [
+      "Delhi",
+      "New Delhi"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Dhanbad",
+    "aliases": [
+      "Dhanbad"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Dharamshala Kangra",
+    "aliases": [
+      "Dharamshala / Kangra",
+      "Dharamshala Kangra"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Dibrugarh",
+    "aliases": [
+      "Dibrugarh"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Dimapur",
+    "aliases": [
+      "Dimapur"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Diu",
+    "aliases": [
+      "Diu"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Faridabad",
+    "aliases": [
+      "Faridabad"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Gaya",
+    "aliases": [
+      "Gaya"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Gorakhpur",
+    "aliases": [
+      "Gorakhpur"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Guna",
+    "aliases": [
+      "Guna"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Guwahati",
+    "aliases": [
+      "Guwahati"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Gwalior",
+    "aliases": [
+      "Gwalior"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Hisar",
+    "aliases": [
+      "Hisar"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Howrah",
+    "aliases": [
+      "Howrah"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Hubballi Hubli",
+    "aliases": [
+      "Hubballi (Hubli)",
+      "Hubballi Hubli"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Hubli",
+    "aliases": [
+      "Hubli"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Hyderabad",
+    "aliases": [
+      "Hyderabad"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Indore",
+    "aliases": [
+      "Indore"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Jabalpur",
+    "aliases": [
+      "Jabalpur"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Jaipur",
+    "aliases": [
+      "Jaipur"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Jodhpur",
+    "aliases": [
+      "Jodhpur"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Kadapa",
+    "aliases": [
+      "Kadapa"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Kalyan",
+    "aliases": [
+      "Kalyan"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Kanpur",
+    "aliases": [
+      "Kanpur"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Khajuraho",
+    "aliases": [
+      "Khajuraho"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Kochi",
+    "aliases": [
+      "Kochi"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Kolkata",
+    "aliases": [
+      "Kolkata"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Kota",
+    "aliases": [
+      "Kota"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Kozhikode Calicut",
+    "aliases": [
+      "Kozhikode (Calicut)",
+      "Kozhikode Calicut"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Lucknow",
+    "aliases": [
+      "Lucknow"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Ludhiana",
+    "aliases": [
+      "Ludhiana"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Madurai",
+    "aliases": [
+      "Madurai"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Mangaluru Mangalore",
+    "aliases": [
+      "Mangaluru (Mangalore)",
+      "Mangaluru Mangalore"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Meerut",
+    "aliases": [
+      "Meerut"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Moradabad",
+    "aliases": [
+      "Moradabad"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Mumbai",
+    "aliases": [
+      "Mumbai"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Mysore",
+    "aliases": [
+      "Mysore"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Nagpur",
+    "aliases": [
+      "Nagpur"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Nashik",
+    "aliases": [
+      "Nashik"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Navi Mumbai",
+    "aliases": [
+      "Navi Mumbai"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Patna",
+    "aliases": [
+      "Patna"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Prayagraj",
+    "aliases": [
+      "Prayagraj"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Prayagraj Allahabad",
+    "aliases": [
+      "Prayagraj (Allahabad)",
+      "Prayagraj Allahabad"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Pune",
+    "aliases": [
+      "Pune"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Raipur",
+    "aliases": [
+      "Raipur"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Rajkot",
+    "aliases": [
+      "Rajkot"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Ranchi",
+    "aliases": [
+      "Ranchi"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Siliguri",
+    "aliases": [
+      "Siliguri"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Solapur",
+    "aliases": [
+      "Solapur"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Srinagar",
+    "aliases": [
+      "Srinagar"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Tiruchirappalli",
+    "aliases": [
+      "Tiruchirappalli"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Vadodara",
+    "aliases": [
+      "Vadodara"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Varanasi",
+    "aliases": [
+      "Varanasi"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Vasai",
+    "aliases": [
+      "Vasai"
+    ],
+    "state_ut_name": ""
+  },
+  {
+    "canonical_name": "Vijayawada",
+    "aliases": [
+      "Vijayawada"
+    ],
+    "state_ut_name": ""
+  }
+]

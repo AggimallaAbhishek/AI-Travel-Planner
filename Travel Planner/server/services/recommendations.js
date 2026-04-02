@@ -4,14 +4,21 @@ import {
   normalizeDestinationRecommendations,
   normalizeRecommendationItem,
 } from "../../shared/recommendations.js";
+import { resolveGoogleMapsUrl, hasCoordinates } from "../../shared/maps.js";
 import { createBoundedTtlCache } from "../lib/boundedTtlCache.js";
 import { safeFetch } from "../lib/safeFetch.js";
 import { getDestinationSuggestions } from "../../shared/destinationAutocomplete.js";
+import {
+  getIndiaDestinationDetail,
+  resolveIndiaDestination,
+} from "./indiaData.js";
 
 const GOOGLE_PLACES_TEXT_SEARCH_URL =
   "https://maps.googleapis.com/maps/api/place/textsearch/json";
 const GOOGLE_PLACES_AUTOCOMPLETE_URL =
   "https://maps.googleapis.com/maps/api/place/autocomplete/json";
+const GOOGLE_PLACES_NEARBY_SEARCH_URL =
+  "https://maps.googleapis.com/maps/api/place/nearbysearch/json";
 const MAX_DESTINATION_LENGTH = 120;
 const MIN_AUTOCOMPLETE_QUERY_LENGTH = 2;
 const MAX_AUTOCOMPLETE_RESULTS = 8;
@@ -19,9 +26,13 @@ const MAX_ITEMS_PER_CATEGORY = 6;
 const DEFAULT_PROVIDER_TIMEOUT_MS = 8_000;
 const DEFAULT_LIVE_CACHE_TTL_MS = 5 * 60 * 1_000;
 const DEFAULT_MOCK_CACHE_TTL_MS = 30 * 1_000;
+const DEFAULT_UNAVAILABLE_CACHE_TTL_MS = 30 * 1_000;
+const DEFAULT_NEARBY_SEARCH_RADIUS_METERS = 12_000;
 const DEFAULT_RECOMMENDATIONS_CACHE_MAX_ENTRIES = 200;
 const DEFAULT_DESTINATION_DATA_BUNDLE_CACHE_MAX_ENTRIES = 100;
 const DEFAULT_DESTINATION_AUTOCOMPLETE_CACHE_MAX_ENTRIES = 500;
+const DEFAULT_ALLOW_MOCK_PLACE_DATA = false;
+const MAX_INDIA_ATTRACTIONS_PER_DESTINATION = 15;
 const DESTINATION_RECOMMENDATION_CACHE = createBoundedTtlCache({
   defaultTtlMs: DEFAULT_LIVE_CACHE_TTL_MS,
   resolveMaxEntries: resolveRecommendationsCacheMaxEntries,
@@ -227,6 +238,204 @@ function parsePositiveInteger(value, fallback) {
   return fallback;
 }
 
+function parseBoolean(value, fallback = false) {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  const normalized = String(value ?? "")
+    .trim()
+    .toLowerCase();
+  if (!normalized) {
+    return fallback;
+  }
+
+  return normalized === "1" || normalized === "true" || normalized === "yes";
+}
+
+function normalizeText(value, fallback = "") {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const normalized = value.replace(/\s+/g, " ").trim();
+  return normalized || fallback;
+}
+
+function normalizeCoordinate(value) {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function resolveAllowMockPlaceData() {
+  return parseBoolean(
+    process.env.ALLOW_MOCK_PLACE_DATA,
+    DEFAULT_ALLOW_MOCK_PLACE_DATA
+  );
+}
+
+function isPlaceholderAttractionName(name = "") {
+  const normalized = normalizeText(name).toLowerCase();
+  if (!normalized) {
+    return true;
+  }
+
+  if (normalized === "explore") {
+    return true;
+  }
+
+  if (/^top\s+\d+/i.test(normalized)) {
+    return true;
+  }
+
+  return /(must-try|discover .*|savour .*|where the world is)/i.test(
+    normalized
+  );
+}
+
+function buildVerifiedUnavailableRecommendations(destination, warning) {
+  return normalizeDestinationRecommendations({
+    destination,
+    provider: "verified_unavailable",
+    warning,
+    hotels: [],
+    restaurants: [],
+  });
+}
+
+function buildVerifiedUnavailableDestinationDataBundle(destination, warning) {
+  return {
+    destination,
+    provider: "verified_unavailable",
+    warning,
+    recommendations: buildVerifiedUnavailableRecommendations(destination, warning),
+    places: {
+      hotels: [],
+      restaurants: [],
+      attractions: [],
+    },
+  };
+}
+
+function buildIndiaDatasetDestinationDataBundle(destination) {
+  let resolvedIndiaDestination = null;
+  try {
+    resolvedIndiaDestination = resolveIndiaDestination(destination);
+  } catch (error) {
+    console.warn("[recommendations] India dataset lookup unavailable", {
+      destination,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
+
+  if (!resolvedIndiaDestination) {
+    return null;
+  }
+
+  let detail = null;
+  try {
+    detail = getIndiaDestinationDetail(resolvedIndiaDestination.destination_id);
+  } catch (error) {
+    console.warn("[recommendations] India destination detail lookup failed", {
+      destination,
+      destinationId: resolvedIndiaDestination.destination_id,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
+  if (!detail?.destination) {
+    return null;
+  }
+
+  const destinationRecord = detail.destination;
+  const destinationLabel = [
+    destinationRecord.destination_name,
+    destinationRecord.state_ut_name,
+    "India",
+  ]
+    .filter(Boolean)
+    .join(", ");
+  const destinationCoordinates = {
+    latitude: normalizeCoordinate(destinationRecord.latitude),
+    longitude: normalizeCoordinate(destinationRecord.longitude),
+  };
+
+  const attractions = (detail.attractions ?? [])
+    .filter((attraction) =>
+      !isPlaceholderAttractionName(attraction?.attraction_name)
+    )
+    .slice(0, MAX_INDIA_ATTRACTIONS_PER_DESTINATION)
+    .map((attraction, index) => {
+      const attractionName = normalizeText(
+        attraction.attraction_name,
+        `Attraction ${index + 1}`
+      );
+      const attractionCoordinates = {
+        latitude: normalizeCoordinate(attraction.latitude),
+        longitude: normalizeCoordinate(attraction.longitude),
+      };
+      const resolvedCoordinates = hasCoordinates(attractionCoordinates)
+        ? attractionCoordinates
+        : destinationCoordinates;
+      const address = destinationLabel || destination;
+
+      return {
+        source: "india_dataset",
+        externalPlaceId: normalizeText(
+          attraction.attraction_id,
+          `${destinationRecord.destination_id}--${index + 1}`
+        ),
+        category: normalizeText(attraction.category, "attraction").toLowerCase(),
+        name: attractionName,
+        address,
+        coordinates: resolvedCoordinates,
+        rating: null,
+        priceLevel: "",
+        description: normalizeText(
+          attraction.summary,
+          `Verified attraction from official India tourism records in ${destinationLabel || destination}.`
+        ),
+        metadata: {
+          mapsUrl: resolveGoogleMapsUrl({
+            coordinates: resolvedCoordinates,
+            name: attractionName,
+            address,
+          }),
+          imageUrl: normalizeText(destinationRecord.image_url),
+          sourceUrl: normalizeText(attraction.source_url),
+          sourceType: normalizeText(attraction.source_type, "india_dataset"),
+          providerStatus: "verified_static",
+          contentSource: normalizeText(
+            destinationRecord.content_source,
+            "india_dataset"
+          ),
+        },
+      };
+    });
+
+  const warning =
+    "Live provider is unavailable. Showing verified attractions from the India tourism dataset. Hotels and restaurants are temporarily unavailable.";
+
+  return {
+    destination,
+    provider: "india_dataset",
+    warning,
+    recommendations: normalizeDestinationRecommendations({
+      destination,
+      provider: "india_dataset",
+      warning,
+      hotels: [],
+      restaurants: [],
+    }),
+    places: {
+      hotels: [],
+      restaurants: [],
+      attractions,
+    },
+  };
+}
+
 function resolveProviderTimeoutMs() {
   return parsePositiveInteger(
     process.env.RECOMMENDATIONS_PROVIDER_TIMEOUT_MS,
@@ -245,6 +454,20 @@ function resolveMockCacheTtlMs() {
   return parsePositiveInteger(
     process.env.RECOMMENDATIONS_MOCK_CACHE_TTL_MS,
     DEFAULT_MOCK_CACHE_TTL_MS
+  );
+}
+
+function resolveUnavailableCacheTtlMs() {
+  return parsePositiveInteger(
+    process.env.RECOMMENDATIONS_UNAVAILABLE_CACHE_TTL_MS,
+    DEFAULT_UNAVAILABLE_CACHE_TTL_MS
+  );
+}
+
+function resolveNearbySearchRadiusMeters() {
+  return parsePositiveInteger(
+    process.env.RECOMMENDATIONS_NEARBY_RADIUS_METERS,
+    DEFAULT_NEARBY_SEARCH_RADIUS_METERS
   );
 }
 
@@ -287,9 +510,48 @@ function getCacheKey(destination) {
 }
 
 function resolveRecommendationsCacheTtlMs(recommendations = {}) {
+  if (recommendations.provider === "verified_unavailable") {
+    return resolveUnavailableCacheTtlMs();
+  }
+
   return recommendations.provider === "mock"
     ? resolveMockCacheTtlMs()
     : resolveLiveCacheTtlMs();
+}
+
+function hasCategoryRecommendations(recommendations = {}) {
+  const hotels = Array.isArray(recommendations?.hotels)
+    ? recommendations.hotels
+    : [];
+  const restaurants = Array.isArray(recommendations?.restaurants)
+    ? recommendations.restaurants
+    : [];
+
+  return hotels.length > 0 || restaurants.length > 0;
+}
+
+function shouldBypassCachedRecommendations(cachedRecommendations) {
+  if (!cachedRecommendations) {
+    return false;
+  }
+
+  if (!resolveGooglePlacesApiKey()) {
+    return false;
+  }
+
+  if (cachedRecommendations.provider === "google_places") {
+    return false;
+  }
+
+  return !hasCategoryRecommendations(cachedRecommendations);
+}
+
+function shouldBypassCachedDestinationDataBundle(cachedBundle) {
+  if (!cachedBundle) {
+    return false;
+  }
+
+  return shouldBypassCachedRecommendations(cachedBundle.recommendations);
 }
 
 function readCachedRecommendations(cacheKey) {
@@ -445,7 +707,11 @@ function buildLocalAutocompleteSuggestions(query) {
 function mapGooglePlaceToRecommendation(place = {}, category, destination) {
   const name = String(place.name ?? "").trim();
   const location = String(place.formatted_address ?? place.vicinity ?? "").trim();
-  const query = [name, location || destination].filter(Boolean).join(", ");
+  const geoCoordinates = {
+    latitude: place?.geometry?.location?.lat ?? null,
+    longitude: place?.geometry?.location?.lng ?? null,
+  };
+  const placeId = String(place.place_id ?? "").trim();
 
   const defaultDescription =
     category === "restaurant"
@@ -459,11 +725,17 @@ function mapGooglePlaceToRecommendation(place = {}, category, destination) {
       description: defaultDescription,
       rating: place.rating,
       priceLabel: resolvePriceLabelFromGoogleLevel(place.price_level),
-      mapsUrl: buildGoogleMapsSearchUrl(query || destination),
-      geoCoordinates: {
-        latitude: place?.geometry?.location?.lat ?? null,
-        longitude: place?.geometry?.location?.lng ?? null,
-      },
+      placeId,
+      externalPlaceId: placeId,
+      mapsUrl: resolveGoogleMapsUrl({
+        placeId,
+        coordinates: geoCoordinates,
+        name,
+        address: location || destination,
+        destination,
+      }),
+      geoCoordinates,
+      source: "google_places",
     },
     category
   );
@@ -479,9 +751,7 @@ function mapGooglePlaceToStructuredPlace(place = {}, category, destination) {
     externalPlaceId: String(
       place.place_id ??
         `${category}:${name || "place"}:${location || destination}`
-    )
-      .trim()
-      .toLowerCase(),
+    ).trim(),
     category,
     name: recommendation.name,
     address: recommendation.location || location || destination,
@@ -501,6 +771,61 @@ function mapGooglePlaceToStructuredPlace(place = {}, category, destination) {
         : [],
     },
   };
+}
+
+function extractCoordinatesFromGooglePlace(place = {}) {
+  const coordinates = {
+    latitude: place?.geometry?.location?.lat ?? null,
+    longitude: place?.geometry?.location?.lng ?? null,
+  };
+
+  return hasCoordinates(coordinates) ? coordinates : null;
+}
+
+function findFirstValidCoordinates(places = []) {
+  for (const place of places) {
+    const coordinates = extractCoordinatesFromGooglePlace(place);
+    if (coordinates) {
+      return coordinates;
+    }
+  }
+
+  return null;
+}
+
+function buildGooglePlaceDedupeKey(place = {}) {
+  const placeId = normalizeText(String(place?.place_id ?? ""));
+  if (placeId) {
+    return `place_id:${placeId}`;
+  }
+
+  const name = normalizeText(String(place?.name ?? "")).toLowerCase();
+  const address = normalizeText(
+    String(place?.formatted_address ?? place?.vicinity ?? "")
+  ).toLowerCase();
+  if (name || address) {
+    return `fallback:${name}|${address}`;
+  }
+
+  return "";
+}
+
+function mergeUniqueGooglePlaces(primaryPlaces = [], fallbackPlaces = []) {
+  const merged = [];
+  const seenKeys = new Set();
+
+  for (const place of [...primaryPlaces, ...fallbackPlaces]) {
+    const dedupeKey = buildGooglePlaceDedupeKey(place);
+    if (dedupeKey && seenKeys.has(dedupeKey)) {
+      continue;
+    }
+    if (dedupeKey) {
+      seenKeys.add(dedupeKey);
+    }
+    merged.push(place);
+  }
+
+  return merged;
 }
 
 async function fetchPlacesByTextSearch(query, apiKey) {
@@ -524,6 +849,201 @@ async function fetchPlacesByTextSearch(query, apiKey) {
   return Array.isArray(payload?.results) ? payload.results : [];
 }
 
+async function fetchPlacesByNearbySearch({
+  apiKey,
+  coordinates,
+  type,
+  keyword = "",
+}) {
+  if (!hasCoordinates(coordinates)) {
+    return [];
+  }
+
+  const endpoint = new URL(GOOGLE_PLACES_NEARBY_SEARCH_URL);
+  endpoint.searchParams.set(
+    "location",
+    `${coordinates.latitude},${coordinates.longitude}`
+  );
+  endpoint.searchParams.set(
+    "radius",
+    String(resolveNearbySearchRadiusMeters())
+  );
+  endpoint.searchParams.set("type", type);
+  endpoint.searchParams.set("key", apiKey);
+
+  const normalizedKeyword = normalizeText(keyword);
+  if (normalizedKeyword) {
+    endpoint.searchParams.set("keyword", normalizedKeyword);
+  }
+
+  const response = await safeFetch(endpoint);
+
+  if (!response.ok) {
+    throw new Error(
+      `Google Places nearby request failed with status ${response.status}.`
+    );
+  }
+
+  const payload = await response.json();
+  const status = String(payload?.status ?? "");
+  if (status && status !== "OK" && status !== "ZERO_RESULTS") {
+    throw new Error(`Google Places nearby search returned status ${status}.`);
+  }
+
+  return Array.isArray(payload?.results) ? payload.results : [];
+}
+
+async function resolveDestinationCenterCoordinates({
+  destination,
+  apiKey,
+  timeoutMs,
+  seedResults = [],
+}) {
+  const seedCoordinates = findFirstValidCoordinates(seedResults);
+  if (seedCoordinates) {
+    return seedCoordinates;
+  }
+
+  try {
+    const destinationResults = await withTimeout(
+      fetchPlacesByTextSearch(destination, apiKey),
+      timeoutMs,
+      "Destination center lookup timed out."
+    );
+    return findFirstValidCoordinates(destinationResults);
+  } catch (error) {
+    console.warn("[recommendations] Destination center lookup failed", {
+      destination,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
+}
+
+async function backfillMissingCategoriesWithNearbySearch({
+  destination,
+  apiKey,
+  timeoutMs,
+  currentHotelResults = [],
+  currentRestaurantResults = [],
+  currentAttractionResults = [],
+  includeAttractions = false,
+}) {
+  const missingHotels = currentHotelResults.length === 0;
+  const missingRestaurants = currentRestaurantResults.length === 0;
+  const missingAttractions = includeAttractions && currentAttractionResults.length === 0;
+
+  if (!missingHotels && !missingRestaurants && !missingAttractions) {
+    return {
+      hotels: currentHotelResults,
+      restaurants: currentRestaurantResults,
+      attractions: currentAttractionResults,
+    };
+  }
+
+  const center = await resolveDestinationCenterCoordinates({
+    destination,
+    apiKey,
+    timeoutMs,
+    seedResults: [
+      ...currentHotelResults,
+      ...currentRestaurantResults,
+      ...currentAttractionResults,
+    ],
+  });
+
+  if (!center) {
+    console.warn("[recommendations] Nearby fallback skipped due to missing center", {
+      destination,
+      missingHotels,
+      missingRestaurants,
+      missingAttractions,
+    });
+    return {
+      hotels: currentHotelResults,
+      restaurants: currentRestaurantResults,
+      attractions: currentAttractionResults,
+    };
+  }
+
+  const nearbyFallbackRequests = [];
+  if (missingHotels) {
+    nearbyFallbackRequests.push(
+      withTimeout(
+        fetchPlacesByNearbySearch({
+          apiKey,
+          coordinates: center,
+          type: "lodging",
+          keyword: `hotel ${destination}`,
+        }),
+        timeoutMs,
+        "Nearby hotel recommendation provider timed out."
+      )
+    );
+  }
+
+  if (missingRestaurants) {
+    nearbyFallbackRequests.push(
+      withTimeout(
+        fetchPlacesByNearbySearch({
+          apiKey,
+          coordinates: center,
+          type: "restaurant",
+          keyword: `restaurant ${destination}`,
+        }),
+        timeoutMs,
+        "Nearby restaurant recommendation provider timed out."
+      )
+    );
+  }
+
+  if (missingAttractions) {
+    nearbyFallbackRequests.push(
+      withTimeout(
+        fetchPlacesByNearbySearch({
+          apiKey,
+          coordinates: center,
+          type: "tourist_attraction",
+          keyword: `attractions ${destination}`,
+        }),
+        timeoutMs,
+        "Nearby attraction provider timed out."
+      )
+    );
+  }
+
+  const fallbackResults = await Promise.all(nearbyFallbackRequests);
+  let cursor = 0;
+
+  const hotelFallbackResults = missingHotels ? fallbackResults[cursor++] ?? [] : [];
+  const restaurantFallbackResults = missingRestaurants
+    ? fallbackResults[cursor++] ?? []
+    : [];
+  const attractionFallbackResults = missingAttractions
+    ? fallbackResults[cursor++] ?? []
+    : [];
+
+  console.info("[recommendations] Nearby fallback completed", {
+    destination,
+    center,
+    addedHotels: hotelFallbackResults.length,
+    addedRestaurants: restaurantFallbackResults.length,
+    addedAttractions: attractionFallbackResults.length,
+  });
+
+  return {
+    hotels: mergeUniqueGooglePlaces(currentHotelResults, hotelFallbackResults),
+    restaurants: mergeUniqueGooglePlaces(
+      currentRestaurantResults,
+      restaurantFallbackResults
+    ),
+    attractions: mergeUniqueGooglePlaces(
+      currentAttractionResults,
+      attractionFallbackResults
+    ),
+  };
+}
+
 async function fetchLiveRecommendations(destination, apiKey) {
   const timeoutMs = resolveProviderTimeoutMs();
   const hotelsQuery = `best hotels in ${destination}`;
@@ -542,14 +1062,23 @@ async function fetchLiveRecommendations(destination, apiKey) {
     ),
   ]);
 
+  const nearbyFilledResults = await backfillMissingCategoriesWithNearbySearch({
+    destination,
+    apiKey,
+    timeoutMs,
+    currentHotelResults: hotelResults,
+    currentRestaurantResults: restaurantResults,
+    includeAttractions: false,
+  });
+
   return normalizeDestinationRecommendations({
     destination,
     provider: "google_places",
     warning: "",
-    hotels: hotelResults
+    hotels: nearbyFilledResults.hotels
       .map((place) => mapGooglePlaceToRecommendation(place, "hotel", destination))
       .slice(0, MAX_ITEMS_PER_CATEGORY),
-    restaurants: restaurantResults
+    restaurants: nearbyFilledResults.restaurants
       .map((place) =>
         mapGooglePlaceToRecommendation(place, "restaurant", destination)
       )
@@ -581,20 +1110,30 @@ async function fetchLiveDestinationDataBundle(destination, apiKey) {
     ),
   ]);
 
-  const hotels = hotelResults
+  const nearbyFilledResults = await backfillMissingCategoriesWithNearbySearch({
+    destination,
+    apiKey,
+    timeoutMs,
+    currentHotelResults: hotelResults,
+    currentRestaurantResults: restaurantResults,
+    currentAttractionResults: attractionResults,
+    includeAttractions: true,
+  });
+
+  const hotels = nearbyFilledResults.hotels
     .map((place) => mapGooglePlaceToRecommendation(place, "hotel", destination))
     .slice(0, MAX_ITEMS_PER_CATEGORY);
-  const restaurants = restaurantResults
+  const restaurants = nearbyFilledResults.restaurants
     .map((place) => mapGooglePlaceToRecommendation(place, "restaurant", destination))
     .slice(0, MAX_ITEMS_PER_CATEGORY);
-  const attractions = attractionResults
+  const attractions = nearbyFilledResults.attractions
     .map((place) => mapGooglePlaceToStructuredPlace(place, "attraction", destination))
     .slice(0, MAX_ITEMS_PER_CATEGORY);
 
-  const hotelPlaces = hotelResults
+  const hotelPlaces = nearbyFilledResults.hotels
     .map((place) => mapGooglePlaceToStructuredPlace(place, "hotel", destination))
     .slice(0, MAX_ITEMS_PER_CATEGORY);
-  const restaurantPlaces = restaurantResults
+  const restaurantPlaces = nearbyFilledResults.restaurants
     .map((place) => mapGooglePlaceToStructuredPlace(place, "restaurant", destination))
     .slice(0, MAX_ITEMS_PER_CATEGORY);
 
@@ -690,15 +1229,23 @@ function buildMockDestinationDataBundle(destination, warning) {
 }
 
 function combineLiveWithMockIfRequired(liveRecommendations) {
-  const destination = liveRecommendations.destination;
-  const fallback = buildMockRecommendations(destination, "");
-
   const missingHotels = liveRecommendations.hotels.length === 0;
   const missingRestaurants = liveRecommendations.restaurants.length === 0;
 
   if (!missingHotels && !missingRestaurants) {
     return liveRecommendations;
   }
+
+  if (!resolveAllowMockPlaceData()) {
+    return normalizeDestinationRecommendations({
+      ...liveRecommendations,
+      warning:
+        "Some live recommendations were unavailable. Only verified results are shown.",
+    });
+  }
+
+  const destination = liveRecommendations.destination;
+  const fallback = buildMockRecommendations(destination, "");
 
   return normalizeDestinationRecommendations({
     ...liveRecommendations,
@@ -712,8 +1259,6 @@ function combineLiveWithMockIfRequired(liveRecommendations) {
 }
 
 function combineLiveDestinationDataBundleWithMockIfRequired(liveBundle) {
-  const destination = liveBundle.destination;
-  const fallbackBundle = buildMockDestinationDataBundle(destination, "");
   const missingHotels = liveBundle.recommendations.hotels.length === 0;
   const missingRestaurants = liveBundle.recommendations.restaurants.length === 0;
   const missingAttractions = liveBundle.places.attractions.length === 0;
@@ -722,6 +1267,27 @@ function combineLiveDestinationDataBundleWithMockIfRequired(liveBundle) {
     return liveBundle;
   }
 
+  if (!resolveAllowMockPlaceData()) {
+    const warning =
+      "Some live destination data was unavailable. Only verified results are shown.";
+
+    return {
+      ...liveBundle,
+      warning,
+      recommendations: normalizeDestinationRecommendations({
+        ...liveBundle.recommendations,
+        warning,
+      }),
+      places: {
+        hotels: liveBundle.places.hotels,
+        restaurants: liveBundle.places.restaurants,
+        attractions: liveBundle.places.attractions,
+      },
+    };
+  }
+
+  const destination = liveBundle.destination;
+  const fallbackBundle = buildMockDestinationDataBundle(destination, "");
   const warning =
     "Some live destination data was unavailable. Missing sections were filled with curated samples.";
 
@@ -843,23 +1409,55 @@ export async function getDestinationDataBundle({
   if (!forceRefresh) {
     const cached = readCachedDestinationDataBundle(cacheKey);
     if (cached) {
-      console.info("[recommendations] Returning cached destination data bundle", {
-        destination: resolvedDestination,
-        provider: cached.provider,
-      });
-      return cached;
+      if (shouldBypassCachedDestinationDataBundle(cached)) {
+        console.info(
+          "[recommendations] Bypassing cached destination data bundle for live refresh",
+          {
+            destination: resolvedDestination,
+            provider: cached.provider,
+          }
+        );
+      } else {
+        console.info("[recommendations] Returning cached destination data bundle", {
+          destination: resolvedDestination,
+          provider: cached.provider,
+        });
+        return cached;
+      }
     }
   }
 
   const apiKey = resolveGooglePlacesApiKey();
   if (!apiKey) {
-    const mockBundle = buildMockDestinationDataBundle(
-      resolvedDestination,
-      "Live provider is unavailable. Showing curated sample recommendations."
+    const indiaDatasetBundle = buildIndiaDatasetDestinationDataBundle(
+      resolvedDestination
     );
-    writeCachedDestinationDataBundle(cacheKey, mockBundle);
-    writeCachedRecommendations(cacheKey, mockBundle.recommendations);
-    return mockBundle;
+    if (indiaDatasetBundle) {
+      writeCachedDestinationDataBundle(cacheKey, indiaDatasetBundle);
+      writeCachedRecommendations(cacheKey, indiaDatasetBundle.recommendations);
+      return indiaDatasetBundle;
+    }
+
+    if (resolveAllowMockPlaceData()) {
+      const mockBundle = buildMockDestinationDataBundle(
+        resolvedDestination,
+        "Live provider is unavailable. Showing curated sample recommendations."
+      );
+      writeCachedDestinationDataBundle(cacheKey, mockBundle);
+      writeCachedRecommendations(cacheKey, mockBundle.recommendations);
+      return mockBundle;
+    }
+
+    const verifiedUnavailableBundle = buildVerifiedUnavailableDestinationDataBundle(
+      resolvedDestination,
+      "Google Places API key is missing (`GOOGLE_PLACES_API_KEY`). Verified destination data could not be loaded."
+    );
+    writeCachedDestinationDataBundle(cacheKey, verifiedUnavailableBundle);
+    writeCachedRecommendations(
+      cacheKey,
+      verifiedUnavailableBundle.recommendations
+    );
+    return verifiedUnavailableBundle;
   }
 
   try {
@@ -877,17 +1475,40 @@ export async function getDestinationDataBundle({
     writeCachedRecommendations(cacheKey, mergedBundle.recommendations);
     return mergedBundle;
   } catch (error) {
-    console.warn("[recommendations] Destination data bundle failed, falling back to mock", {
+    console.warn("[recommendations] Destination data bundle live fetch failed", {
       destination: resolvedDestination,
       message: error instanceof Error ? error.message : String(error),
     });
-    const mockBundle = buildMockDestinationDataBundle(
-      resolvedDestination,
-      "Live recommendations are temporarily unavailable. Showing curated sample recommendations."
+
+    const indiaDatasetBundle = buildIndiaDatasetDestinationDataBundle(
+      resolvedDestination
     );
-    writeCachedDestinationDataBundle(cacheKey, mockBundle);
-    writeCachedRecommendations(cacheKey, mockBundle.recommendations);
-    return mockBundle;
+    if (indiaDatasetBundle) {
+      writeCachedDestinationDataBundle(cacheKey, indiaDatasetBundle);
+      writeCachedRecommendations(cacheKey, indiaDatasetBundle.recommendations);
+      return indiaDatasetBundle;
+    }
+
+    if (resolveAllowMockPlaceData()) {
+      const mockBundle = buildMockDestinationDataBundle(
+        resolvedDestination,
+        "Live recommendations are temporarily unavailable. Showing curated sample recommendations."
+      );
+      writeCachedDestinationDataBundle(cacheKey, mockBundle);
+      writeCachedRecommendations(cacheKey, mockBundle.recommendations);
+      return mockBundle;
+    }
+
+    const verifiedUnavailableBundle = buildVerifiedUnavailableDestinationDataBundle(
+      resolvedDestination,
+      "Google Places data is temporarily unavailable. Verified place data could not be loaded."
+    );
+    writeCachedDestinationDataBundle(cacheKey, verifiedUnavailableBundle);
+    writeCachedRecommendations(
+      cacheKey,
+      verifiedUnavailableBundle.recommendations
+    );
+    return verifiedUnavailableBundle;
   }
 }
 
@@ -901,23 +1522,52 @@ export async function getDestinationRecommendations({
   if (!forceRefresh) {
     const cached = readCachedRecommendations(cacheKey);
     if (cached) {
-      console.info("[recommendations] Returning cached destination recommendations", {
-        destination: resolvedDestination,
-        provider: cached.provider,
-      });
-      return cached;
+      if (shouldBypassCachedRecommendations(cached)) {
+        console.info(
+          "[recommendations] Bypassing cached recommendations for live refresh",
+          {
+            destination: resolvedDestination,
+            provider: cached.provider,
+          }
+        );
+      } else {
+        console.info("[recommendations] Returning cached destination recommendations", {
+          destination: resolvedDestination,
+          provider: cached.provider,
+        });
+        return cached;
+      }
     }
   }
 
   const apiKey = resolveGooglePlacesApiKey();
 
   if (!apiKey) {
-    const mockRecommendations = buildMockRecommendations(
-      resolvedDestination,
-      "Live provider is unavailable. Showing curated sample recommendations."
+    const indiaDatasetBundle = buildIndiaDatasetDestinationDataBundle(
+      resolvedDestination
     );
-    writeCachedRecommendations(cacheKey, mockRecommendations);
-    return mockRecommendations;
+    if (indiaDatasetBundle) {
+      writeCachedRecommendations(cacheKey, indiaDatasetBundle.recommendations);
+      writeCachedDestinationDataBundle(cacheKey, indiaDatasetBundle);
+      return indiaDatasetBundle.recommendations;
+    }
+
+    if (resolveAllowMockPlaceData()) {
+      const mockRecommendations = buildMockRecommendations(
+        resolvedDestination,
+        "Live provider is unavailable. Showing curated sample recommendations."
+      );
+      writeCachedRecommendations(cacheKey, mockRecommendations);
+      return mockRecommendations;
+    }
+
+    const verifiedUnavailableRecommendations =
+      buildVerifiedUnavailableRecommendations(
+        resolvedDestination,
+        "Google Places API key is missing (`GOOGLE_PLACES_API_KEY`). Verified recommendations could not be loaded."
+      );
+    writeCachedRecommendations(cacheKey, verifiedUnavailableRecommendations);
+    return verifiedUnavailableRecommendations;
   }
 
   try {
@@ -932,16 +1582,35 @@ export async function getDestinationRecommendations({
     writeCachedRecommendations(cacheKey, mergedRecommendations);
     return mergedRecommendations;
   } catch (error) {
-    console.warn("[recommendations] Live provider failed, falling back to mock", {
+    console.warn("[recommendations] Live recommendations failed", {
       destination: resolvedDestination,
       message: error instanceof Error ? error.message : String(error),
     });
 
-    const mockRecommendations = buildMockRecommendations(
-      resolvedDestination,
-      "Live recommendations are temporarily unavailable. Showing curated sample recommendations."
+    const indiaDatasetBundle = buildIndiaDatasetDestinationDataBundle(
+      resolvedDestination
     );
-    writeCachedRecommendations(cacheKey, mockRecommendations);
-    return mockRecommendations;
+    if (indiaDatasetBundle) {
+      writeCachedRecommendations(cacheKey, indiaDatasetBundle.recommendations);
+      writeCachedDestinationDataBundle(cacheKey, indiaDatasetBundle);
+      return indiaDatasetBundle.recommendations;
+    }
+
+    if (resolveAllowMockPlaceData()) {
+      const mockRecommendations = buildMockRecommendations(
+        resolvedDestination,
+        "Live recommendations are temporarily unavailable. Showing curated sample recommendations."
+      );
+      writeCachedRecommendations(cacheKey, mockRecommendations);
+      return mockRecommendations;
+    }
+
+    const verifiedUnavailableRecommendations =
+      buildVerifiedUnavailableRecommendations(
+        resolvedDestination,
+        "Google Places recommendations are temporarily unavailable. Verified recommendations could not be loaded."
+      );
+    writeCachedRecommendations(cacheKey, verifiedUnavailableRecommendations);
+    return verifiedUnavailableRecommendations;
   }
 }

@@ -4,6 +4,7 @@ import { buildCreateTripQuery } from "@/lib/tripPrefill";
 import HeroSection from "./HeroSection";
 import DestinationsSection from "./DestinationsSection";
 import RecommendationsSection from "./RecommendationsSection";
+import { resolveGoogleMapsUrl } from "../../../shared/maps.js";
 
 const MapSection = lazy(() => import("./MapSection"));
 
@@ -39,14 +40,26 @@ export default function VoyagrHome() {
   };
 
   const openDestinationInGoogleMaps = (destination = "") => {
-    const destinationLabel = String(destination ?? "").trim();
+    const destinationLabel =
+      typeof destination === "string"
+        ? String(destination ?? "").trim()
+        : [destination?.name, destination?.state ?? destination?.country]
+            .filter(Boolean)
+            .join(", ");
     if (!destinationLabel) {
       return;
     }
 
-    const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-      destinationLabel
-    )}`;
+    const coordinates = {
+      latitude: destination?.latitude,
+      longitude: destination?.longitude,
+    };
+    const mapsUrl = resolveGoogleMapsUrl({
+      coordinates,
+      name: destination?.name ?? destinationLabel,
+      address: [destination?.state, destination?.country].filter(Boolean).join(", "),
+      destination: destinationLabel,
+    });
     console.info("[voyagr-home] opening destination in google maps", {
       destination: destinationLabel,
       mapsUrl,

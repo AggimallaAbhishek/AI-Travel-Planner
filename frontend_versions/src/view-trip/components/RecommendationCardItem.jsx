@@ -10,28 +10,7 @@ import {
 import AppImage from "@/components/ui/AppImage";
 import { getHotelImage, getRestaurantImage } from "@/lib/destinationImages";
 import { IMAGE_FALLBACKS } from "@/lib/imageManifest";
-
-function hasCoordinates(coordinates = {}) {
-  const latitude = Number.parseFloat(coordinates?.latitude);
-  const longitude = Number.parseFloat(coordinates?.longitude);
-
-  return Number.isFinite(latitude) && Number.isFinite(longitude);
-}
-
-function resolveMapsUrl(item = {}) {
-  if (typeof item.mapsUrl === "string" && /^https?:\/\//i.test(item.mapsUrl)) {
-    return item.mapsUrl;
-  }
-
-  if (hasCoordinates(item.geoCoordinates)) {
-    const latitude = Number.parseFloat(item.geoCoordinates.latitude);
-    const longitude = Number.parseFloat(item.geoCoordinates.longitude);
-    return `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
-  }
-
-  const query = [item.name, item.location].filter(Boolean).join(", ");
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
-}
+import { resolveGoogleMapsUrl } from "../../../shared/maps.js";
 
 function RecommendationCardItem({ item, type = "hotel", index = 0 }) {
   const isHotel = type === "hotel";
@@ -39,7 +18,13 @@ function RecommendationCardItem({ item, type = "hotel", index = 0 }) {
   const fallbackSrc = isHotel ? IMAGE_FALLBACKS.hotel : IMAGE_FALLBACKS.restaurant;
   const labelIcon = isHotel ? <FaHotel /> : <FaUtensils />;
   const labelText = isHotel ? "Stay" : "Dining";
-  const mapsUrl = resolveMapsUrl(item);
+  const mapsUrl = resolveGoogleMapsUrl({
+    mapsUrl: item.mapsUrl,
+    externalPlaceId: item.externalPlaceId,
+    coordinates: item.geoCoordinates,
+    name: item.name,
+    address: item.location,
+  });
   const ratingText =
     typeof item.rating === "number" ? item.rating.toFixed(1) : String(item.rating || "");
   const shouldEagerLoad = index < 3;

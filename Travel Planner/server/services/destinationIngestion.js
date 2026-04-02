@@ -13,10 +13,14 @@ import {
   replaceStructuredTransportEdges,
   upsertStructuredDestination,
 } from "../data/hybridStore.js";
-import { getDestinationDataBundle } from "./recommendations.js";
+import {
+  getDestinationDataBundle,
+  resolveGooglePlacesApiKey,
+} from "./recommendations.js";
 import { buildCompleteTransportEdges, hasCoordinates } from "./geo.js";
 
 const DEFAULT_DESTINATION_FRESHNESS_TTL_MS = 24 * 60 * 60 * 1_000;
+const DEFAULT_ALLOW_MOCK_PLACE_DATA = false;
 
 function parsePositiveInteger(value, fallback) {
   const parsed = Number.parseInt(value ?? "", 10);
@@ -25,6 +29,21 @@ function parsePositiveInteger(value, fallback) {
   }
 
   return fallback;
+}
+
+function parseBoolean(value, fallback = false) {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  const normalized = String(value ?? "")
+    .trim()
+    .toLowerCase();
+  if (!normalized) {
+    return fallback;
+  }
+
+  return normalized === "1" || normalized === "true" || normalized === "yes";
 }
 
 function normalizeText(value, fallback = "") {
@@ -54,6 +73,69 @@ function resolveDestinationFreshnessTtlMs() {
     process.env.DESTINATION_FRESHNESS_TTL_MS,
     DEFAULT_DESTINATION_FRESHNESS_TTL_MS
   );
+}
+
+function resolveAllowMockPlaceData() {
+  return parseBoolean(
+    process.env.ALLOW_MOCK_PLACE_DATA,
+    DEFAULT_ALLOW_MOCK_PLACE_DATA
+  );
+}
+
+function isPlaceholderPlaceName(name = "") {
+  const normalized = normalizeText(name).toLowerCase();
+  if (!normalized) {
+    return true;
+  }
+
+  if (normalized === "explore") {
+    return true;
+  }
+
+  if (/^top\s+\d+/i.test(normalized)) {
+    return true;
+  }
+
+  return /(must-try|discover .*|savour .*|where the world is)/i.test(
+    normalized
+  );
+}
+
+function isMockSource(place = {}) {
+  const source = normalizeText(place.source).toLowerCase();
+  return source === "mock" || source.includes("mock");
+}
+
+function filterVerifiedPlaces(places = [], { destination = "", phase = "" } = {}) {
+  const allowMock = resolveAllowMockPlaceData();
+  let droppedMockCount = 0;
+  let droppedPlaceholderCount = 0;
+
+  const filtered = places.filter((place) => {
+    if (!allowMock && isMockSource(place)) {
+      droppedMockCount += 1;
+      return false;
+    }
+
+    if (isPlaceholderPlaceName(place?.name)) {
+      droppedPlaceholderCount += 1;
+      return false;
+    }
+
+    return true;
+  });
+
+  if (droppedMockCount > 0 || droppedPlaceholderCount > 0) {
+    console.info("[ingestion] Filtered unverified destination places", {
+      destination: normalizeText(destination),
+      phase: normalizeText(phase),
+      droppedMockCount,
+      droppedPlaceholderCount,
+      retainedCount: filtered.length,
+    });
+  }
+
+  return filtered;
 }
 
 function estimateDestinationCenterFromPlaces(places = []) {
@@ -132,6 +214,17 @@ function groupPlacesByCategory(places = []) {
   return groups;
 }
 
+function hasLiveCategoryCoverage(placesByCategory = {}) {
+  const hotels = Array.isArray(placesByCategory.hotels)
+    ? placesByCategory.hotels
+    : [];
+  const restaurants = Array.isArray(placesByCategory.restaurants)
+    ? placesByCategory.restaurants
+    : [];
+
+  return hotels.length > 0 && restaurants.length > 0;
+}
+
 function mapStoredPlaceToRecommendation(place = {}) {
   return normalizeRecommendationItem(
     {
@@ -143,6 +236,8 @@ function mapStoredPlaceToRecommendation(place = {}) {
       mapsUrl: place?.metadata?.mapsUrl,
       imageUrl: place?.metadata?.imageUrl,
       geoCoordinates: place.coordinates,
+      externalPlaceId: place.externalPlaceId,
+      source: place.source,
     },
     place.category
   );
@@ -200,8 +295,16 @@ export async function ensureStructuredDestinationData({
     const storedPlaces = await listStructuredDestinationPlaces({
       destinationId: destinationRecord.id,
     });
+    const filteredStoredPlaces = filterVerifiedPlaces(storedPlaces, {
+      destination: normalizedDestination,
+      phase: "cache_read",
+    });
+    const storedPlacesByCategory = groupPlacesByCategory(filteredStoredPlaces);
+    const requiresLiveRefresh =
+      Boolean(normalizeText(resolveGooglePlacesApiKey())) &&
+      !hasLiveCategoryCoverage(storedPlacesByCategory);
 
-    if (storedPlaces.length > 0) {
+    if (filteredStoredPlaces.length > 0 && !requiresLiveRefresh) {
       const storedEdges = await listStructuredTransportEdges({
         destinationId: destinationRecord.id,
         mode: "drive",
@@ -209,15 +312,15 @@ export async function ensureStructuredDestinationData({
 
       console.info("[ingestion] Using fresh structured destination data", {
         destination: normalizedDestination,
-        placeCount: storedPlaces.length,
+        placeCount: filteredStoredPlaces.length,
         edgeCount: storedEdges.length,
         traceId: traceId || null,
       });
 
       return {
         destination: destinationRecord,
-        places: storedPlaces,
-        placesByCategory: groupPlacesByCategory(storedPlaces),
+        places: filteredStoredPlaces,
+        placesByCategory: storedPlacesByCategory,
         edges: storedEdges,
         provider: "structured_store",
         warning: "",
@@ -228,13 +331,28 @@ export async function ensureStructuredDestinationData({
         },
       };
     }
+
+    if (requiresLiveRefresh) {
+      console.info(
+        "[ingestion] Structured cache bypassed due to incomplete live category coverage",
+        {
+          destination: normalizedDestination,
+          hotels: storedPlacesByCategory.hotels.length,
+          restaurants: storedPlacesByCategory.restaurants.length,
+          traceId: traceId || null,
+        }
+      );
+    }
   }
 
   const bundle = await getDestinationDataBundle({
     destination: normalizedDestination,
     forceRefresh,
   });
-  const flattenedPlaces = flattenPlaceBundle(bundle.places);
+  const flattenedPlaces = filterVerifiedPlaces(flattenPlaceBundle(bundle.places), {
+    destination: normalizedDestination,
+    phase: "bundle_refresh",
+  });
   const destinationCenter = estimateDestinationCenterFromPlaces(flattenedPlaces);
 
   destinationRecord = await upsertStructuredDestination({
@@ -297,4 +415,3 @@ export async function ensureStructuredDestinationData({
     },
   };
 }
-

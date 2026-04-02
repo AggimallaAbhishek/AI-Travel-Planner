@@ -42,7 +42,8 @@ test("derivePlanningConstraints computes per-day budget and pace limits", () => 
   });
 
   assert.equal(constraints.perDayBudget, 400);
-  assert.equal(constraints.maxStopsPerDay, 3);
+  assert.equal(constraints.minStopsPerDay, 3);
+  assert.equal(constraints.maxStopsPerDay, 4);
   assert.equal(constraints.maxDailyMinutes, 390);
   assert.deepEqual(constraints.preferredCategoryMix, {
     attraction: 0.8,

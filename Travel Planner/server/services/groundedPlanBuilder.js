@@ -211,6 +211,7 @@ function createHotelRecord(place = {}, centroid) {
 
   return {
     id: place.id,
+    externalPlaceId: place.externalPlaceId ?? "",
     name: place.name,
     category: "hotel",
     address: place.address,
@@ -233,6 +234,7 @@ function createRestaurantRecord(place = {}, centroid, _foodPreferences = [], tra
 
   return {
     id: place.id,
+    externalPlaceId: place.externalPlaceId ?? "",
     name: place.name,
     category: "restaurant",
     address: place.address,
@@ -251,6 +253,7 @@ function createRestaurantRecord(place = {}, centroid, _foodPreferences = [], tra
 function createPlaceRecord(place = {}, travelTimeFromPreviousMinutes = 0) {
   return {
     id: place.id,
+    externalPlaceId: place.externalPlaceId ?? "",
     name: place.name,
     category: place.category || "attraction",
     address: place.address,
@@ -260,6 +263,12 @@ function createPlaceRecord(place = {}, travelTimeFromPreviousMinutes = 0) {
     description: place.description,
     source: place.source ?? "",
     travelTimeFromPreviousMinutes,
+    travelDistanceFromPreviousMeters:
+      Number.isFinite(Number.parseFloat(place.travelDistanceFromPreviousMeters))
+        ? Math.max(0, Math.round(Number.parseFloat(place.travelDistanceFromPreviousMeters)))
+        : null,
+    transportModeFromPrevious: normalizeText(place.transportModeFromPrevious, "drive"),
+    transportSourceFromPrevious: normalizeText(place.transportSourceFromPrevious),
     metadata: place.metadata ?? {},
   };
 }
@@ -349,6 +358,12 @@ function computeRouteStats(routeIds = [], edgeLookup) {
       fromPlaceId,
       toPlaceId,
       durationMinutes,
+      distanceMeters:
+        Number.isFinite(Number.parseFloat(edge.distanceMeters)) &&
+        Number.parseFloat(edge.distanceMeters) > 0
+          ? Math.round(Number.parseFloat(edge.distanceMeters))
+          : null,
+      mode: normalizeText(edge.mode, "drive"),
       source: edge.source ?? "",
     });
   }
@@ -362,23 +377,37 @@ function computeRouteStats(routeIds = [], edgeLookup) {
 }
 
 function enrichRecordsWithTravelTimes({ hotelRecord, placeRecords, restaurantRecord, routeLegs }) {
-  const durationByToPlaceId = new Map(
+  const legByToPlaceId = new Map(
     routeLegs
-      .filter((leg) => Number.isFinite(leg.durationMinutes))
-      .map((leg) => [leg.toPlaceId, leg.durationMinutes])
+      .filter((leg) => normalizeText(leg.toPlaceId))
+      .map((leg) => [leg.toPlaceId, leg])
   );
 
-  const enrichedPlaces = placeRecords.map((place) => ({
-    ...place,
-    travelTimeFromPreviousMinutes:
-      durationByToPlaceId.get(place.id) ?? place.travelTimeFromPreviousMinutes ?? 0,
-  }));
+  const enrichedPlaces = placeRecords.map((place) => {
+    const routeLeg = legByToPlaceId.get(place.id);
+    return {
+      ...place,
+      travelTimeFromPreviousMinutes:
+        routeLeg?.durationMinutes ?? place.travelTimeFromPreviousMinutes ?? 0,
+      travelDistanceFromPreviousMeters:
+        Number.isFinite(Number.parseFloat(routeLeg?.distanceMeters))
+          ? Math.round(Number.parseFloat(routeLeg.distanceMeters))
+          : place.travelDistanceFromPreviousMeters ?? null,
+      transportModeFromPrevious:
+        normalizeText(routeLeg?.mode, place.transportModeFromPrevious || "drive"),
+      transportSourceFromPrevious:
+        normalizeText(routeLeg?.source, place.transportSourceFromPrevious),
+    };
+  });
 
   return {
     hotelRecord: hotelRecord
       ? {
           ...hotelRecord,
           travelTimeFromPreviousMinutes: 0,
+          travelDistanceFromPreviousMeters: 0,
+          transportModeFromPrevious: "start",
+          transportSourceFromPrevious: "",
         }
       : null,
     placeRecords: enrichedPlaces,
@@ -386,9 +415,27 @@ function enrichRecordsWithTravelTimes({ hotelRecord, placeRecords, restaurantRec
       ? {
           ...restaurantRecord,
           travelTimeFromPreviousMinutes:
-            durationByToPlaceId.get(restaurantRecord.id) ??
+            legByToPlaceId.get(restaurantRecord.id)?.durationMinutes ??
             restaurantRecord.travelTimeFromPreviousMinutes ??
             0,
+          travelDistanceFromPreviousMeters:
+            Number.isFinite(
+              Number.parseFloat(legByToPlaceId.get(restaurantRecord.id)?.distanceMeters)
+            )
+              ? Math.round(
+                  Number.parseFloat(
+                    legByToPlaceId.get(restaurantRecord.id)?.distanceMeters
+                  )
+                )
+              : restaurantRecord.travelDistanceFromPreviousMeters ?? null,
+          transportModeFromPrevious: normalizeText(
+            legByToPlaceId.get(restaurantRecord.id)?.mode,
+            restaurantRecord.transportModeFromPrevious || "drive"
+          ),
+          transportSourceFromPrevious: normalizeText(
+            legByToPlaceId.get(restaurantRecord.id)?.source,
+            restaurantRecord.transportSourceFromPrevious
+          ),
         }
       : null,
   };

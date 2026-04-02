@@ -151,6 +151,8 @@ GOOGLE_PLACES_API_KEY=
 RECOMMENDATIONS_PROVIDER_TIMEOUT_MS=8000
 RECOMMENDATIONS_CACHE_TTL_MS=300000
 RECOMMENDATIONS_MOCK_CACHE_TTL_MS=30000
+RECOMMENDATIONS_UNAVAILABLE_CACHE_TTL_MS=30000
+RECOMMENDATIONS_NEARBY_RADIUS_METERS=12000
 RECOMMENDATIONS_CACHE_MAX_ENTRIES=200
 DESTINATION_DATA_BUNDLE_CACHE_MAX_ENTRIES=100
 DESTINATION_AUTOCOMPLETE_CACHE_MAX_ENTRIES=500
@@ -275,6 +277,8 @@ npm test
 
 - `GET /api/places/autocomplete` stays public for guest trip planning, but it is rate-limited with `PLACES_AUTOCOMPLETE_RATE_LIMIT_WINDOW_MS` and `PLACES_AUTOCOMPLETE_RATE_LIMIT_MAX`.
 - Server-side destination caches are bounded with LRU-style TTL eviction. Tune capacity with `RECOMMENDATIONS_CACHE_MAX_ENTRIES`, `DESTINATION_DATA_BUNDLE_CACHE_MAX_ENTRIES`, and `DESTINATION_AUTOCOMPLETE_CACHE_MAX_ENTRIES`.
+- Hotel and restaurant recommendations use Google Places Text Search first, then Nearby Search fallback for missing categories. Tune this fallback radius with `RECOMMENDATIONS_NEARBY_RADIUS_METERS`.
+- `verified_unavailable` recommendation payloads use a short cache TTL (`RECOMMENDATIONS_UNAVAILABLE_CACHE_TTL_MS`) so live recommendations recover quickly after configuration or provider outages.
 
 ## Troubleshooting
 

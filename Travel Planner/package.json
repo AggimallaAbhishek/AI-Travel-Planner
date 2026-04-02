@@ -12,6 +12,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "node --test",
+    "build:india-data": "python3 ./scripts/buildIndiaTravelData.py",
     "sync:frontend": "node ./scripts/frontendBackupSync.mjs --full",
     "sync:frontend:watch": "node ./scripts/frontendBackupSync.mjs --watch",
     "verify:trip-pdf-ui": "node ./scripts/verifyTripPdfUi.mjs",

@@ -1,0 +1,26 @@
+[
+  {
+    "destination_id": "rajasthan--jaipur",
+    "city_id": "city--jaipur",
+    "hub_rank": 1,
+    "access_distance_km": 4,
+    "access_duration_minutes": 18,
+    "matching_method": "exact_city"
+  },
+  {
+    "destination_id": "uttar-pradesh--agra",
+    "city_id": "city--agra",
+    "hub_rank": 1,
+    "access_distance_km": 3,
+    "access_duration_minutes": 15,
+    "matching_method": "exact_city"
+  },
+  {
+    "destination_id": "uttar-pradesh--varanasi",
+    "city_id": "city--varanasi",
+    "hub_rank": 1,
+    "access_distance_km": 5,
+    "access_duration_minutes": 20,
+    "matching_method": "exact_city"
+  }
+]

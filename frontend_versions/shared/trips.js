@@ -1,4 +1,5 @@
 import { normalizeDestinationRecommendations } from "./recommendations.js";
+import { resolveGoogleMapsUrl } from "./maps.js";
 
 function normalizeText(value, fallback = "") {
   if (typeof value !== "string") {
@@ -856,18 +857,66 @@ export function normalizeHotel(hotel = {}) {
 }
 
 export function normalizePlace(place = {}) {
+  const placeName = normalizeText(place.placeName ?? place.name, "Recommended Stop");
+  const placeDetails = normalizeText(
+    place.placeDetails ?? place.description ?? place.details
+  );
+  const placeSummary = normalizeText(
+    place.placeSummary ?? place.summary ?? placeDetails ?? place.description
+  );
+  const geoCoordinates = normalizeCoordinates(
+    place.geoCoordinates ?? place.coordinates ?? place.location
+  );
+  const externalPlaceId = normalizeText(place.externalPlaceId ?? place.placeId);
+
+  const parsedTravelMinutes = Number.parseFloat(
+    place.travelTimeMinutes ?? place.travel_time_minutes
+  );
+  const travelTimeMinutes = Number.isFinite(parsedTravelMinutes)
+    ? Math.max(0, Math.round(parsedTravelMinutes))
+    : null;
+  const parsedDistanceKm = Number.parseFloat(
+    place.travelDistanceFromPreviousKm ?? place.travel_distance_km
+  );
+  const travelDistanceFromPreviousKm = Number.isFinite(parsedDistanceKm)
+    ? Number(parsedDistanceKm.toFixed(1))
+    : null;
+  const parsedDistanceMeters = Number.parseFloat(
+    place.travelDistanceFromPreviousMeters ?? place.travel_distance_meters
+  );
+  const travelDistanceFromPreviousMeters = Number.isFinite(parsedDistanceMeters)
+    ? Math.max(0, Math.round(parsedDistanceMeters))
+    : null;
+
   return {
-    placeName: normalizeText(place.placeName ?? place.name, "Recommended Stop"),
-    placeDetails: normalizeText(
-      place.placeDetails ?? place.description ?? place.details
-    ),
+    placeName,
+    placeDetails,
+    placeSummary,
     placeImageUrl: isRemoteImageUrl(place.placeImageUrl) ? place.placeImageUrl : "",
-    geoCoordinates: normalizeCoordinates(
-      place.geoCoordinates ?? place.coordinates ?? place.location
-    ),
+    geoCoordinates,
+    mapsUrl: resolveGoogleMapsUrl({
+      mapsUrl: normalizeText(place.mapsUrl),
+      externalPlaceId,
+      coordinates: geoCoordinates,
+      name: placeName,
+      address: normalizeText(place.address ?? place.location ?? placeDetails),
+    }),
+    externalPlaceId,
+    source: normalizeText(place.source),
     ticketPricing: normalizeText(place.ticketPricing ?? place.ticketPrice, "N/A"),
     rating: normalizeRating(place.rating),
     travelTime: normalizeText(place.travelTime, "N/A"),
+    travelTimeMinutes,
+    travelDistance: normalizeText(
+      place.travelDistance,
+      travelDistanceFromPreviousKm !== null
+        ? `${travelDistanceFromPreviousKm} km`
+        : "N/A"
+    ),
+    travelDistanceFromPreviousKm,
+    travelDistanceFromPreviousMeters,
+    transportMode: normalizeText(place.transportMode, "drive"),
+    transportSource: normalizeText(place.transportSource),
     bestTimeToVisit: normalizeText(place.bestTimeToVisit, "Flexible"),
     category: normalizeText(place.category),
   };

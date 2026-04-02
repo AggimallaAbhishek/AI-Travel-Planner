@@ -4,8 +4,13 @@ import { normalizeDestinationRecommendations } from "../../shared/recommendation
 const RECOMMENDATION_CACHE = new Map();
 const LIVE_CACHE_TTL_MS = 5 * 60 * 1_000;
 const MOCK_CACHE_TTL_MS = 30 * 1_000;
+const UNAVAILABLE_CACHE_TTL_MS = 30 * 1_000;
 
 function resolveCacheTtlMs(recommendations = {}) {
+  if (recommendations.provider === "verified_unavailable") {
+    return UNAVAILABLE_CACHE_TTL_MS;
+  }
+
   return recommendations.provider === "mock" ? MOCK_CACHE_TTL_MS : LIVE_CACHE_TTL_MS;
 }
 

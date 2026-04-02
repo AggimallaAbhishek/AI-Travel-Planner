@@ -23,6 +23,7 @@ const manifestPath = path.join(backupRoot, "duplicated_files_manifest.txt");
 const TRACKED_DIRECTORIES = Object.freeze(["src", "public"]);
 const TRACKED_FILES = Object.freeze([
   "shared/destinationAutocomplete.js",
+  "shared/indiaDestinationIndex.generated.js",
   "shared/recommendations.js",
   "shared/trips.js",
   "shared/tripPrefill.js",

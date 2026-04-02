@@ -1,19 +1,65 @@
 import React from "react";
-import { Link } from "react-router-dom";
-import { FaMapMarkerAlt, FaClock, FaExternalLinkAlt } from "react-icons/fa";
+import {
+  FaMapMarkerAlt,
+  FaClock,
+  FaExternalLinkAlt,
+  FaRoute,
+} from "react-icons/fa";
 import { getPlaceImage } from "@/lib/destinationImages";
 import AppImage from "@/components/ui/AppImage";
 import { IMAGE_FALLBACKS } from "@/lib/imageManifest";
+import { resolveGoogleMapsUrl } from "../../../shared/maps.js";
+
+function formatTransportMode(mode = "") {
+  const normalized = String(mode ?? "").trim().toLowerCase();
+  if (!normalized) {
+    return "Drive";
+  }
+
+  if (normalized === "transit") {
+    return "Transit";
+  }
+
+  if (normalized === "walk" || normalized === "walking") {
+    return "Walk";
+  }
+
+  if (normalized === "flight") {
+    return "Flight";
+  }
+
+  if (normalized === "train") {
+    return "Train";
+  }
+
+  if (normalized === "road" || normalized === "bus") {
+    return "Road";
+  }
+
+  if (normalized === "start") {
+    return "Start";
+  }
+
+  return "Drive";
+}
 
 function PlaceCardItem({ place }) {
   const photoUrl = getPlaceImage(place);
+  const placeSummary = place.placeSummary || place.placeDetails;
+  const travelDistance = place.travelDistance || "Distance not available";
+  const transportMode = formatTransportMode(place.transportMode);
+  const mapsUrl = resolveGoogleMapsUrl({
+    mapsUrl: place?.mapsUrl,
+    externalPlaceId: place?.externalPlaceId,
+    coordinates: place?.geoCoordinates,
+    name: place?.placeName,
+    address: place?.placeDetails ?? place?.placeSummary,
+  });
 
   return (
     <div className="group cursor-pointer transform transition-all duration-300 hover:-translate-y-1">
-      <Link
-        to={`https://www.google.com/maps/search/?q=${encodeURIComponent(
-          place.placeName
-        )}`}
+      <a
+        href={mapsUrl}
         target="_blank"
         rel="noopener noreferrer"
         className="no-underline text-inherit"
@@ -43,23 +89,24 @@ function PlaceCardItem({ place }) {
                   {place.placeName}
                 </h2>
                 
-                {place.placeDetails && (
+                {placeSummary && (
                   <p className="text-sm text-[var(--voy-text-muted)] mb-3 line-clamp-2">
-                    {place.placeDetails}
+                    {placeSummary}
                   </p>
                 )}
                 
-                <div className="flex items-center justify-between mt-4">
-                  {place.travelTime && (
-                    <div className="flex items-center gap-2 text-sm text-[var(--voy-text-muted)]">
-                      <FaClock className="text-[var(--voy-gold)]" />
-                      <span>{place.travelTime}</span>
-                    </div>
-                  )}
-                  
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-4">
+                  <div className="flex items-center gap-2 text-sm text-[var(--voy-text-muted)]">
+                    <FaRoute className="text-[var(--voy-gold)]" />
+                    <span>{transportMode}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-[var(--voy-text-muted)]">
+                    <FaClock className="text-[var(--voy-gold)]" />
+                    <span>{place.travelTime || "Not specified"}</span>
+                  </div>
                   <div className="flex items-center gap-1 text-xs text-[var(--voy-text-faint)]">
                     <FaMapMarkerAlt className="text-[var(--voy-gold)]" />
-                    <span>Explore</span>
+                    <span>{travelDistance}</span>
                   </div>
                 </div>
               </div>
@@ -79,7 +126,7 @@ function PlaceCardItem({ place }) {
             )}
           </div>
         </div>
-      </Link>
+      </a>
     </div>
   );
 }

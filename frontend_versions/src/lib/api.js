@@ -263,3 +263,37 @@ export async function apiFetch(path, options = {}) {
 
   return data;
 }
+
+export function fetchIndiaDestinations(query = "", options = {}) {
+  const searchParams = new URLSearchParams();
+
+  if (String(query ?? "").trim()) {
+    searchParams.set("q", String(query ?? "").trim());
+  }
+
+  if (options.limit !== undefined) {
+    searchParams.set("limit", String(options.limit));
+  }
+
+  const suffix = searchParams.toString();
+  return apiFetch(`/api/india/destinations${suffix ? `?${suffix}` : ""}`, options);
+}
+
+export function fetchIndiaDestinationDetail(destinationId, options = {}) {
+  return apiFetch(
+    `/api/india/destinations/${encodeURIComponent(String(destinationId ?? "").trim())}`,
+    options
+  );
+}
+
+export function fetchIndiaTransportOptions(
+  { origin = "", destination = "" } = {},
+  options = {}
+) {
+  const searchParams = new URLSearchParams({
+    origin: String(origin ?? "").trim(),
+    destination: String(destination ?? "").trim(),
+  });
+
+  return apiFetch(`/api/india/transport/options?${searchParams}`, options);
+}

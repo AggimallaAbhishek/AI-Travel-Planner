@@ -8,6 +8,8 @@ test("getDestinationSuggestions prioritizes prefix matches", () => {
   assert.ok(suggestions.length > 0);
   assert.equal(suggestions[0].name, "Jaipur");
   assert.equal(suggestions[0].country, "India");
+  assert.equal(suggestions[0].placeId, "rajasthan--jaipur");
+  assert.equal(suggestions[0].source, "india_dataset");
 });
 
 test("getDestinationSuggestions matches by country names", () => {
@@ -25,4 +27,3 @@ test("getDestinationSuggestions returns default list for empty query", () => {
   assert.equal(suggestions.length, 4);
   assert.equal(typeof suggestions[0].label, "string");
 });
-

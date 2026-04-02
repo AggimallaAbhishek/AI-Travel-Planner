@@ -8,6 +8,7 @@ import {
 function createGooglePlacesResult({ name, rating = 4.5, priceLevel = 2 }) {
   return {
     name,
+    place_id: `test-${name.replace(/\s+/g, "-").toLowerCase()}`,
     formatted_address: "City Center",
     rating,
     price_level: priceLevel,
@@ -20,27 +21,34 @@ function createGooglePlacesResult({ name, rating = 4.5, priceLevel = 2 }) {
   };
 }
 
-test("getDestinationRecommendations falls back to mock data when API key is missing", async () => {
+test("getDestinationRecommendations returns only verified data when API key is missing", async () => {
   const originalApiKey = process.env.GOOGLE_PLACES_API_KEY;
   const originalFetch = globalThis.fetch;
+  const originalAllowMock = process.env.ALLOW_MOCK_PLACE_DATA;
 
   try {
     delete process.env.GOOGLE_PLACES_API_KEY;
+    delete process.env.ALLOW_MOCK_PLACE_DATA;
     clearDestinationRecommendationsCache();
 
     const recommendations = await getDestinationRecommendations({
       destination: "Rome, Italy",
     });
 
-    assert.equal(recommendations.provider, "mock");
-    assert.equal(recommendations.hotels.length > 0, true);
-    assert.equal(recommendations.restaurants.length > 0, true);
-    assert.match(recommendations.warning, /curated sample/i);
+    assert.equal(recommendations.provider, "verified_unavailable");
+    assert.equal(recommendations.hotels.length, 0);
+    assert.equal(recommendations.restaurants.length, 0);
+    assert.match(recommendations.warning, /verified/i);
   } finally {
     if (originalApiKey === undefined) {
       delete process.env.GOOGLE_PLACES_API_KEY;
     } else {
       process.env.GOOGLE_PLACES_API_KEY = originalApiKey;
+    }
+    if (originalAllowMock === undefined) {
+      delete process.env.ALLOW_MOCK_PLACE_DATA;
+    } else {
+      process.env.ALLOW_MOCK_PLACE_DATA = originalAllowMock;
     }
 
     globalThis.fetch = originalFetch;
@@ -123,4 +131,187 @@ test("getDestinationRecommendations rejects invalid destination input", async ()
       return true;
     }
   );
+});
+
+test("getDestinationRecommendations backfills missing hotels with nearby search", async () => {
+  const originalApiKey = process.env.GOOGLE_PLACES_API_KEY;
+  const originalFetch = globalThis.fetch;
+  const originalAllowMock = process.env.ALLOW_MOCK_PLACE_DATA;
+
+  try {
+    process.env.GOOGLE_PLACES_API_KEY = "test-key";
+    delete process.env.ALLOW_MOCK_PLACE_DATA;
+    clearDestinationRecommendationsCache();
+
+    globalThis.fetch = async (input) => {
+      const url =
+        input instanceof URL
+          ? input
+          : new URL(typeof input === "string" ? input : input.url);
+
+      if (url.pathname.endsWith("/textsearch/json")) {
+        const query = String(url.searchParams.get("query") ?? "").toLowerCase();
+        if (query.includes("best hotels")) {
+          return {
+            ok: true,
+            async json() {
+              return {
+                status: "ZERO_RESULTS",
+                results: [],
+              };
+            },
+          };
+        }
+
+        if (query.includes("best restaurants")) {
+          return {
+            ok: true,
+            async json() {
+              return {
+                status: "OK",
+                results: [createGooglePlacesResult({ name: "Park Street Bistro" })],
+              };
+            },
+          };
+        }
+
+        return {
+          ok: true,
+          async json() {
+            return {
+              status: "ZERO_RESULTS",
+              results: [],
+            };
+          },
+        };
+      }
+
+      if (url.pathname.endsWith("/nearbysearch/json")) {
+        return {
+          ok: true,
+          async json() {
+            return {
+              status: "OK",
+              results: [createGooglePlacesResult({ name: "The Imperial Kolkata", priceLevel: 3 })],
+            };
+          },
+        };
+      }
+
+      throw new Error(`Unexpected URL: ${url.toString()}`);
+    };
+
+    const recommendations = await getDestinationRecommendations({
+      destination: "Kolkata, West Bengal, India",
+    });
+
+    assert.equal(recommendations.provider, "google_places");
+    assert.equal(recommendations.hotels.length > 0, true);
+    assert.equal(
+      recommendations.hotels.some((hotel) =>
+        String(hotel.name).toLowerCase().includes("imperial")
+      ),
+      true
+    );
+    assert.equal(recommendations.restaurants.length > 0, true);
+  } finally {
+    if (originalApiKey === undefined) {
+      delete process.env.GOOGLE_PLACES_API_KEY;
+    } else {
+      process.env.GOOGLE_PLACES_API_KEY = originalApiKey;
+    }
+
+    if (originalAllowMock === undefined) {
+      delete process.env.ALLOW_MOCK_PLACE_DATA;
+    } else {
+      process.env.ALLOW_MOCK_PLACE_DATA = originalAllowMock;
+    }
+
+    globalThis.fetch = originalFetch;
+    clearDestinationRecommendationsCache();
+  }
+});
+
+test("getDestinationRecommendations bypasses cached unavailable data when API key becomes available", async () => {
+  const originalApiKey = process.env.GOOGLE_PLACES_API_KEY;
+  const originalFetch = globalThis.fetch;
+  const originalAllowMock = process.env.ALLOW_MOCK_PLACE_DATA;
+  let fetchCallCount = 0;
+
+  try {
+    delete process.env.GOOGLE_PLACES_API_KEY;
+    delete process.env.ALLOW_MOCK_PLACE_DATA;
+    clearDestinationRecommendationsCache();
+
+    const unavailable = await getDestinationRecommendations({
+      destination: "Paris, France",
+    });
+    assert.equal(unavailable.provider, "verified_unavailable");
+
+    process.env.GOOGLE_PLACES_API_KEY = "test-key";
+    globalThis.fetch = async (input) => {
+      fetchCallCount += 1;
+      const url =
+        input instanceof URL
+          ? input
+          : new URL(typeof input === "string" ? input : input.url);
+
+      if (url.pathname.endsWith("/textsearch/json")) {
+        const query = String(url.searchParams.get("query") ?? "").toLowerCase();
+        const isHotelQuery = query.includes("best hotels");
+        return {
+          ok: true,
+          async json() {
+            return {
+              status: "OK",
+              results: [
+                createGooglePlacesResult({
+                  name: isHotelQuery ? "Paris Central Hotel" : "Cafe de Paris",
+                  priceLevel: isHotelQuery ? 3 : 2,
+                }),
+              ],
+            };
+          },
+        };
+      }
+
+      if (url.pathname.endsWith("/nearbysearch/json")) {
+        return {
+          ok: true,
+          async json() {
+            return {
+              status: "ZERO_RESULTS",
+              results: [],
+            };
+          },
+        };
+      }
+
+      throw new Error(`Unexpected URL: ${url.toString()}`);
+    };
+
+    const refreshed = await getDestinationRecommendations({
+      destination: "Paris, France",
+    });
+
+    assert.equal(refreshed.provider, "google_places");
+    assert.equal(refreshed.hotels.length > 0, true);
+    assert.equal(refreshed.restaurants.length > 0, true);
+    assert.equal(fetchCallCount >= 2, true);
+  } finally {
+    if (originalApiKey === undefined) {
+      delete process.env.GOOGLE_PLACES_API_KEY;
+    } else {
+      process.env.GOOGLE_PLACES_API_KEY = originalApiKey;
+    }
+
+    if (originalAllowMock === undefined) {
+      delete process.env.ALLOW_MOCK_PLACE_DATA;
+    } else {
+      process.env.ALLOW_MOCK_PLACE_DATA = originalAllowMock;
+    }
+
+    globalThis.fetch = originalFetch;
+    clearDestinationRecommendationsCache();
+  }
 });

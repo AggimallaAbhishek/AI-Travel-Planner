@@ -76,6 +76,8 @@ const TRANSPORT_EDGES = [
   {
     fromPlaceId: "ht_1",
     toPlaceId: "pl_1",
+    mode: "drive",
+    distanceMeters: 6400,
     durationSeconds: 1200,
     weight: 1200,
     source: "distance_matrix",
@@ -83,6 +85,8 @@ const TRANSPORT_EDGES = [
   {
     fromPlaceId: "pl_1",
     toPlaceId: "pl_2",
+    mode: "walk",
+    distanceMeters: 2100,
     durationSeconds: 1500,
     weight: 1500,
     source: "distance_matrix",
@@ -90,6 +94,8 @@ const TRANSPORT_EDGES = [
   {
     fromPlaceId: "pl_2",
     toPlaceId: "rs_1",
+    mode: "transit",
+    distanceMeters: 3200,
     durationSeconds: 900,
     weight: 900,
     source: "haversine_fallback",
@@ -115,6 +121,12 @@ test("buildGroundedPlan returns grounded route, budget, and validation metadata"
   assert.equal(groundedPlan.days.length, 1);
   assert.deepEqual(groundedPlan.days[0].route, ["ht_1", "pl_1", "pl_2", "rs_1"]);
   assert.equal(groundedPlan.days[0].restaurants[0].foodTags.includes("Vegetarian"), true);
+  assert.equal(groundedPlan.days[0].places[0].travelTimeFromPreviousMinutes, 20);
+  assert.equal(groundedPlan.days[0].places[0].travelDistanceFromPreviousMeters, 6400);
+  assert.equal(groundedPlan.days[0].places[0].transportModeFromPrevious, "drive");
+  assert.equal(groundedPlan.days[0].places[1].travelTimeFromPreviousMinutes, 25);
+  assert.equal(groundedPlan.days[0].places[1].travelDistanceFromPreviousMeters, 2100);
+  assert.equal(groundedPlan.days[0].places[1].transportModeFromPrevious, "walk");
   assert.equal(groundedPlan.days[0].estimatedCostAmount > 0, true);
   assert.equal(groundedPlan.validation.usedFallbackEdges, true);
   assert.equal(groundedPlan.validation.fallbackEdgeCount, 1);

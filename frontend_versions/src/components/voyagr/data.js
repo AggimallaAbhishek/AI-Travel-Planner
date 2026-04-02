@@ -1,4 +1,9 @@
-export const VOYAGR_DESTINATIONS = [
+import {
+  INDIA_FEATURED_DESTINATIONS,
+  INDIA_MAP_DESTINATIONS,
+} from "../../data/indiaFeatured.generated.js";
+
+const STATIC_VOYAGR_DESTINATIONS = [
   {
     id: 1,
     name: "Bali",
@@ -439,7 +444,7 @@ export const BUILDER_ACTIVITY_POOL = [
   { id: "a8", icon: "🛍️", name: "Market Shopping", duration: "2h" },
 ];
 
-export const MAP_DESTINATIONS = [
+const STATIC_MAP_DESTINATIONS = [
   {
     id: "new-york",
     name: "New York",
@@ -914,4 +919,88 @@ export const MAP_DESTINATIONS = [
     image:
       "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1400&q=80",
   },
+];
+
+function inferIndiaDestinationCategories(destination = {}) {
+  const haystack = `${destination?.tagline ?? ""} ${destination?.description ?? ""}`.toLowerCase();
+  const categories = new Set();
+
+  if (
+    haystack.includes("beach") ||
+    haystack.includes("coast") ||
+    haystack.includes("island")
+  ) {
+    categories.add("beach");
+  }
+
+  if (
+    haystack.includes("mountain") ||
+    haystack.includes("hill") ||
+    haystack.includes("trek") ||
+    haystack.includes("wildlife") ||
+    haystack.includes("desert")
+  ) {
+    categories.add("mountains");
+    categories.add("adventure");
+  }
+
+  if (
+    haystack.includes("food") ||
+    haystack.includes("cuisine") ||
+    haystack.includes("market") ||
+    haystack.includes("street")
+  ) {
+    categories.add("food");
+  }
+
+  if (
+    haystack.includes("fort") ||
+    haystack.includes("palace") ||
+    haystack.includes("temple") ||
+    haystack.includes("heritage") ||
+    haystack.includes("city") ||
+    haystack.includes("history")
+  ) {
+    categories.add("culture");
+  }
+
+  if (categories.size === 0) {
+    categories.add("culture");
+  }
+
+  return [...categories];
+}
+
+function toFeaturedDestinationCard(destination = {}, index = 0) {
+  const latitude = Number.parseFloat(destination.latitude);
+  const longitude = Number.parseFloat(destination.longitude);
+
+  return {
+    id: destination.id,
+    name: destination.name,
+    country: destination.country ?? "India",
+    category: inferIndiaDestinationCategories(destination),
+    description: destination.description,
+    image: destination.image,
+    rating: Number((4.7 + Math.min(index, 4) * 0.03).toFixed(1)),
+    reviews: 3200 + index * 380,
+    price: "India spotlight",
+    badge: destination.state ?? "India",
+    latitude: Number.isFinite(latitude) ? latitude : null,
+    longitude: Number.isFinite(longitude) ? longitude : null,
+  };
+}
+
+export const VOYAGR_DESTINATIONS = [
+  ...STATIC_VOYAGR_DESTINATIONS,
+  ...INDIA_FEATURED_DESTINATIONS.map((destination, index) =>
+    toFeaturedDestinationCard(destination, index)
+  ),
+];
+
+export const MAP_DESTINATIONS = [
+  ...STATIC_MAP_DESTINATIONS.filter(
+    (destination) => String(destination?.country ?? "").trim() !== "India"
+  ),
+  ...INDIA_MAP_DESTINATIONS,
 ];

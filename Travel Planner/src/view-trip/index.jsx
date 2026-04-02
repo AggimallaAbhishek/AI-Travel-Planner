@@ -13,6 +13,7 @@ import { downloadTripPdf, printTripPdf } from "@/lib/trip-pdf";
 import { Button } from "@/components/ui/button";
 import { buildLoginPath } from "@/lib/authRedirect";
 import RouteOptimizationSection from "./components/RouteOptimizationSection";
+import { resolveGoogleMapsUrl } from "../../shared/maps.js";
 
 const INITIAL_RECOMMENDATION_STATE = {
   hotels: [],
@@ -44,6 +45,17 @@ function toTripHotelRecommendationItem(hotel = {}) {
   const name = hotel.hotelName || "Recommended Hotel";
   const location = hotel.hotelAddress || "Location details unavailable";
   const rating = Number.parseFloat(hotel.rating);
+  const geoCoordinates = {
+    latitude: hotel?.geoCoordinates?.latitude ?? null,
+    longitude: hotel?.geoCoordinates?.longitude ?? null,
+  };
+  const mapsUrl = resolveGoogleMapsUrl({
+    mapsUrl: hotel.mapsUrl,
+    externalPlaceId: hotel.externalPlaceId,
+    coordinates: geoCoordinates,
+    name,
+    address: location,
+  });
 
   return {
     name,
@@ -54,13 +66,10 @@ function toTripHotelRecommendationItem(hotel = {}) {
       hotel.description ||
       "Hotel recommendation generated from your itinerary preferences.",
     priceLabel: hotel.price || "",
-    mapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-      `${name}, ${location}`
-    )}`,
-    geoCoordinates: {
-      latitude: hotel?.geoCoordinates?.latitude ?? null,
-      longitude: hotel?.geoCoordinates?.longitude ?? null,
-    },
+    mapsUrl,
+    geoCoordinates,
+    externalPlaceId: hotel.externalPlaceId || "",
+    source: hotel.source || "",
   };
 }
 

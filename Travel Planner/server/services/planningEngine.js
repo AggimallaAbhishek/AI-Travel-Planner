@@ -1,4 +1,5 @@
 import { formatBudgetAmount } from "../../shared/trips.js";
+import { resolveGoogleMapsUrl } from "../../shared/maps.js";
 import {
   getHybridStoreMode,
   getLatestStructuredRouteRun,
@@ -32,10 +33,21 @@ const routeOptimizationCache = createMultiLayerCache({
   namespace: "trip-route-optimization",
   defaultTtlMs: 5 * 60 * 1_000,
 });
+const TARGET_MIN_STOPS_PER_DAY = 3;
+const TARGET_MAX_STOPS_PER_DAY = 4;
 
 function parsePositiveInteger(value, fallback) {
   const parsed = Number.parseInt(value ?? "", 10);
   if (Number.isInteger(parsed) && parsed > 0) {
+    return parsed;
+  }
+
+  return fallback;
+}
+
+function parsePositiveFloat(value, fallback = null) {
+  const parsed = Number.parseFloat(value ?? "");
+  if (Number.isFinite(parsed) && parsed > 0) {
     return parsed;
   }
 
@@ -69,9 +81,9 @@ function normalizeText(value, fallback = "") {
 function resolveCandidateLimit(dayCount) {
   const configured = parsePositiveInteger(
     process.env.ROUTE_CANDIDATE_LIMIT,
-    dayCount * 6
+    dayCount * TARGET_MAX_STOPS_PER_DAY
   );
-  return Math.min(48, Math.max(6, configured));
+  return Math.min(32, Math.max(TARGET_MAX_STOPS_PER_DAY, configured));
 }
 
 function resolveNarrativeEnabled() {
@@ -84,6 +96,12 @@ function resolveNarrativeEnabled() {
 }
 
 function toHotelCard(place = {}) {
+  const geoCoordinates = {
+    latitude: place?.coordinates?.latitude ?? null,
+    longitude: place?.coordinates?.longitude ?? null,
+  };
+  const externalPlaceId = normalizeText(place?.externalPlaceId);
+
   return {
     hotelName: place.name,
     hotelAddress: place.address,
@@ -91,30 +109,70 @@ function toHotelCard(place = {}) {
     hotelImageUrl: place?.metadata?.imageUrl ?? "",
     rating: place.rating,
     description: place.description,
-    geoCoordinates: {
-      latitude: place?.coordinates?.latitude ?? null,
-      longitude: place?.coordinates?.longitude ?? null,
-    },
+    geoCoordinates,
+    mapsUrl: resolveGoogleMapsUrl({
+      mapsUrl: place?.metadata?.mapsUrl,
+      externalPlaceId,
+      coordinates: geoCoordinates,
+      name: place.name,
+      address: place.address,
+    }),
+    externalPlaceId,
+    source: normalizeText(place.source),
   };
 }
 
 function toItineraryPlace(place = {}, order) {
+  const travelTimeMinutes = Number.isFinite(place?.travelTimeFromPreviousMinutes)
+    ? Math.max(0, Math.round(place.travelTimeFromPreviousMinutes))
+    : null;
+  const travelDistanceMeters = Number.isFinite(place?.travelDistanceFromPreviousMeters)
+    ? Math.max(0, Math.round(place.travelDistanceFromPreviousMeters))
+    : null;
+  const travelDistanceFromPreviousKm =
+    travelDistanceMeters !== null
+      ? Number((travelDistanceMeters / 1000).toFixed(1))
+      : null;
+  const transportMode = normalizeText(place.transportModeFromPrevious, "drive");
+  const placeSummary = normalizeText(
+    place.description,
+    "Recommended stop generated from structured place data."
+  );
+  const geoCoordinates = {
+    latitude: place?.coordinates?.latitude ?? null,
+    longitude: place?.coordinates?.longitude ?? null,
+  };
+  const externalPlaceId = normalizeText(place?.externalPlaceId);
+
   return {
     placeName: place.name,
-    placeDetails:
-      place.description || "Recommended stop generated from structured place data.",
+    placeDetails: placeSummary,
+    placeSummary,
     placeImageUrl: place?.metadata?.imageUrl ?? "",
-    geoCoordinates: {
-      latitude: place?.coordinates?.latitude ?? null,
-      longitude: place?.coordinates?.longitude ?? null,
-    },
+    geoCoordinates,
+    mapsUrl: resolveGoogleMapsUrl({
+      mapsUrl: place?.metadata?.mapsUrl,
+      externalPlaceId,
+      coordinates: geoCoordinates,
+      name: place.name,
+      address: place.address,
+    }),
+    externalPlaceId,
+    source: normalizeText(place.source),
     ticketPricing: place.priceLevel || "Included in trip budget",
     rating: place.rating ?? null,
-    travelTime:
-      Number.isFinite(place?.travelTimeFromPreviousMinutes) &&
-      place.travelTimeFromPreviousMinutes > 0
-        ? `${place.travelTimeFromPreviousMinutes} min`
-        : "Optimized by route planner",
+    travelTime: travelTimeMinutes && travelTimeMinutes > 0
+      ? `${travelTimeMinutes} min`
+      : "Start point",
+    travelTimeMinutes,
+    travelDistanceFromPreviousMeters: travelDistanceMeters,
+    travelDistanceFromPreviousKm,
+    travelDistance:
+      parsePositiveFloat(travelDistanceFromPreviousKm) !== null
+        ? `${travelDistanceFromPreviousKm} km`
+        : "Distance not available",
+    transportMode,
+    transportSource: normalizeText(place.transportSourceFromPrevious),
     bestTimeToVisit: "Flexible",
     category: place.category || "Attraction",
     visitOrder: order,
@@ -154,19 +212,138 @@ function splitVisitOrderByDays(visitOrder = [], dayCount = 1) {
   return chunks;
 }
 
-function createDayPlansFromOptimization(result = {}, dayCount) {
-  if (Array.isArray(result.dayPlans) && result.dayPlans.length > 0) {
-    return result.dayPlans.map((dayPlan, index) => ({
-      day: Number.parseInt(dayPlan.day, 10) || index + 1,
-      clusterId: Number.parseInt(dayPlan.clusterId, 10) || index,
-      visitOrder: Array.isArray(dayPlan.visitOrder)
-        ? dayPlan.visitOrder.filter((value) => Number.isInteger(value))
-        : [],
-      stopCount: Number.parseInt(dayPlan.stopCount, 10) || 0,
-    }));
+function normalizeVisitOrder(visitOrder = []) {
+  const seen = new Set();
+  const normalized = [];
+  for (const value of visitOrder) {
+    if (!Number.isInteger(value) || seen.has(value)) {
+      continue;
+    }
+    seen.add(value);
+    normalized.push(value);
+  }
+  return normalized;
+}
+
+export function rebalanceDayPlansForTargetStops({
+  dayCount = 1,
+  visitOrder = [],
+  existingDayPlans = [],
+  minStopsPerDay = TARGET_MIN_STOPS_PER_DAY,
+  maxStopsPerDay = TARGET_MAX_STOPS_PER_DAY,
+} = {}) {
+  const safeDayCount = Math.max(1, Number.parseInt(dayCount, 10) || 1);
+  const normalizedVisitOrder = normalizeVisitOrder(visitOrder);
+  const existingClusterIds = Array.isArray(existingDayPlans)
+    ? existingDayPlans.map((plan, index) => {
+        const clusterId = Number.parseInt(plan?.clusterId, 10);
+        return Number.isInteger(clusterId) ? clusterId : index;
+      })
+    : [];
+
+  const dayVisitOrders = Array.from({ length: safeDayCount }, () => []);
+  let cursor = 0;
+  let droppedStops = 0;
+
+  if (normalizedVisitOrder.length >= safeDayCount * minStopsPerDay) {
+    for (let dayIndex = 0; dayIndex < safeDayCount; dayIndex += 1) {
+      while (
+        dayVisitOrders[dayIndex].length < minStopsPerDay &&
+        cursor < normalizedVisitOrder.length
+      ) {
+        dayVisitOrders[dayIndex].push(normalizedVisitOrder[cursor]);
+        cursor += 1;
+      }
+    }
+
+    while (cursor < normalizedVisitOrder.length) {
+      let assignedInCycle = false;
+      for (let dayIndex = 0; dayIndex < safeDayCount; dayIndex += 1) {
+        if (cursor >= normalizedVisitOrder.length) {
+          break;
+        }
+        if (dayVisitOrders[dayIndex].length >= maxStopsPerDay) {
+          continue;
+        }
+        dayVisitOrders[dayIndex].push(normalizedVisitOrder[cursor]);
+        cursor += 1;
+        assignedInCycle = true;
+      }
+
+      if (!assignedInCycle) {
+        droppedStops = normalizedVisitOrder.length - cursor;
+        break;
+      }
+    }
+  } else {
+    console.info("[planning] Candidate pool below minimum 3-stop/day target", {
+      dayCount: safeDayCount,
+      availableStops: normalizedVisitOrder.length,
+      requiredStops: safeDayCount * minStopsPerDay,
+    });
+
+    const base = Math.floor(normalizedVisitOrder.length / safeDayCount);
+    const remainder = normalizedVisitOrder.length % safeDayCount;
+    for (let dayIndex = 0; dayIndex < safeDayCount; dayIndex += 1) {
+      const dayTarget = Math.min(
+        maxStopsPerDay,
+        base + (dayIndex < remainder ? 1 : 0)
+      );
+      for (
+        let stopIndex = 0;
+        stopIndex < dayTarget && cursor < normalizedVisitOrder.length;
+        stopIndex += 1
+      ) {
+        dayVisitOrders[dayIndex].push(normalizedVisitOrder[cursor]);
+        cursor += 1;
+      }
+    }
   }
 
-  return splitVisitOrderByDays(result.visitOrder ?? [], dayCount);
+  const dayPlans = dayVisitOrders.map((dayStops, index) => ({
+    day: index + 1,
+    clusterId: existingClusterIds[index] ?? index,
+    visitOrder: dayStops,
+    stopCount: dayStops.length,
+  }));
+
+  console.info("[planning] Rebalanced day plans for target stop range", {
+    dayCount: safeDayCount,
+    totalStops: normalizedVisitOrder.length,
+    assignedStops: dayPlans.reduce((total, day) => total + day.stopCount, 0),
+    minStopsPerDay,
+    maxStopsPerDay,
+    droppedStops,
+    dayStopCounts: dayPlans.map((day) => day.stopCount),
+  });
+
+  return dayPlans;
+}
+
+function createDayPlansFromOptimization(result = {}, dayCount) {
+  const rawDayPlans =
+    Array.isArray(result.dayPlans) && result.dayPlans.length > 0
+      ? result.dayPlans.map((dayPlan, index) => ({
+          day: Number.parseInt(dayPlan.day, 10) || index + 1,
+          clusterId: Number.parseInt(dayPlan.clusterId, 10) || index,
+          visitOrder: Array.isArray(dayPlan.visitOrder)
+            ? dayPlan.visitOrder.filter((value) => Number.isInteger(value))
+            : [],
+          stopCount: Number.parseInt(dayPlan.stopCount, 10) || 0,
+        }))
+      : splitVisitOrderByDays(result.visitOrder ?? [], dayCount);
+
+  const visitOrder = Array.isArray(result.visitOrder)
+    ? result.visitOrder.filter((value) => Number.isInteger(value))
+    : rawDayPlans.flatMap((dayPlan) => dayPlan.visitOrder);
+
+  return rebalanceDayPlansForTargetStops({
+    dayCount,
+    visitOrder,
+    existingDayPlans: rawDayPlans,
+    minStopsPerDay: TARGET_MIN_STOPS_PER_DAY,
+    maxStopsPerDay: TARGET_MAX_STOPS_PER_DAY,
+  });
 }
 
 function buildCandidateRecords({ tripId, candidatePlaces, dayPlans, clusterAssignments }) {
@@ -634,10 +811,13 @@ export async function buildDataDrivenTripPlan({
     groundedPlan = buildGroundedPlan({
       destination: ingestion.destination.canonicalName,
       selection,
-      dayPlans: splitVisitOrderByDays(
-        reducedCandidatePlaces.map((_place, index) => index),
-        Math.max(1, selection.days)
-      ),
+      dayPlans: rebalanceDayPlansForTargetStops({
+        dayCount: Math.max(1, selection.days),
+        visitOrder: reducedCandidatePlaces.map((_place, index) => index),
+        existingDayPlans: [],
+        minStopsPerDay: TARGET_MIN_STOPS_PER_DAY,
+        maxStopsPerDay: TARGET_MAX_STOPS_PER_DAY,
+      }),
       candidatePlaces: reducedCandidatePlaces,
       placesByCategory: ingestion.placesByCategory,
       transportEdges: transportContext.edges,

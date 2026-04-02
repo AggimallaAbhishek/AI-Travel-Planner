@@ -65,6 +65,7 @@ frontend_versions/public/vibha.jpg
 frontend_versions/public/white.jpg
 frontend_versions/public/world-map.svg
 frontend_versions/shared/destinationAutocomplete.js
+frontend_versions/shared/indiaDestinationIndex.generated.js
 frontend_versions/shared/recommendations.js
 frontend_versions/shared/tripPrefill.js
 frontend_versions/shared/trips.js
@@ -99,6 +100,7 @@ frontend_versions/src/context/ThemeContext.jsx
 frontend_versions/src/create-trip/config.js
 frontend_versions/src/create-trip/index.jsx
 frontend_versions/src/create-trip/intelligence.js
+frontend_versions/src/data/indiaFeatured.generated.js
 frontend_versions/src/index.css
 frontend_versions/src/lib/api.js
 frontend_versions/src/lib/authRedirect.js

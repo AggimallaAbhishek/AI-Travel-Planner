@@ -1,0 +1,91 @@
+[
+  {
+    "destination_id": "rajasthan--jaipur",
+    "state_ut_name": "Rajasthan",
+    "state_ut_slug": "rajasthan",
+    "destination_name": "Jaipur",
+    "destination_slug": "jaipur",
+    "destination_type": "city",
+    "country_code": "IN",
+    "latitude": 26.9124,
+    "longitude": 75.7873,
+    "description": "Jaipur is a heritage-rich capital city in Rajasthan.",
+    "tags": [
+      "heritage",
+      "fort",
+      "markets"
+    ],
+    "image_url": "https://example.com/jaipur.jpg",
+    "official_url": "https://example.com/jaipur",
+    "content_source": "fixture",
+    "geo_source": "fixture",
+    "source_confidence": "high",
+    "last_synced_at": "2026-04-02T00:00:00Z"
+  },
+  {
+    "destination_id": "uttar-pradesh--agra",
+    "state_ut_name": "Uttar Pradesh",
+    "state_ut_slug": "uttar-pradesh",
+    "destination_name": "Agra",
+    "destination_slug": "agra",
+    "destination_type": "city",
+    "country_code": "IN",
+    "latitude": 27.1767,
+    "longitude": 78.0081,
+    "description": "Agra anchors the Taj Mahal circuit.",
+    "tags": [
+      "heritage",
+      "taj mahal"
+    ],
+    "image_url": "https://example.com/agra.jpg",
+    "official_url": "https://example.com/agra",
+    "content_source": "fixture",
+    "geo_source": "fixture",
+    "source_confidence": "high",
+    "last_synced_at": "2026-04-02T00:00:00Z"
+  },
+  {
+    "destination_id": "uttar-pradesh--varanasi",
+    "state_ut_name": "Uttar Pradesh",
+    "state_ut_slug": "uttar-pradesh",
+    "destination_name": "Varanasi",
+    "destination_slug": "varanasi",
+    "destination_type": "city",
+    "country_code": "IN",
+    "latitude": 25.3176,
+    "longitude": 82.9739,
+    "description": "Varanasi is one of India’s strongest spiritual destinations.",
+    "tags": [
+      "spiritual",
+      "ghats"
+    ],
+    "image_url": "https://example.com/varanasi.jpg",
+    "official_url": "https://example.com/varanasi",
+    "content_source": "fixture",
+    "geo_source": "fixture",
+    "source_confidence": "high",
+    "last_synced_at": "2026-04-02T00:00:00Z"
+  },
+  {
+    "destination_id": "karnataka--somnathpura",
+    "state_ut_name": "Karnataka",
+    "state_ut_slug": "karnataka",
+    "destination_name": "Somnathpura",
+    "destination_slug": "somnathpura",
+    "destination_type": "city",
+    "country_code": "IN",
+    "latitude": 12.2769,
+    "longitude": 76.8619,
+    "description": "Somnathpura is known for the Chennakesava Temple complex.",
+    "tags": [
+      "heritage",
+      "temple"
+    ],
+    "image_url": "https://example.com/somnathpura.jpg",
+    "official_url": "https://example.com/somnathpura",
+    "content_source": "fixture",
+    "geo_source": "fixture",
+    "source_confidence": "high",
+    "last_synced_at": "2026-04-02T00:00:00Z"
+  }
+]

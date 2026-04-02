@@ -141,6 +141,31 @@ test("normalizeGeneratedTrip maps strict Gemini JSON shape to aiPlan and itinera
   assert.equal(normalized.itinerary.days[0].places[0].placeName, "Hotel check-in");
 });
 
+test("normalizeGeneratedTrip resolves itinerary maps links from place ids when available", () => {
+  const normalized = normalizeGeneratedTrip({
+    itinerary: {
+      days: [
+        {
+          dayNumber: 1,
+          title: "Day 1",
+          places: [
+            {
+              name: "Gateway of India",
+              placeId: "ChIJ0TOKA9fP5zsRj4SEfR7A6iI",
+              coordinates: {
+                latitude: 18.922,
+                longitude: 72.8347,
+              },
+            },
+          ],
+        },
+      ],
+    },
+  });
+
+  assert.match(normalized.itinerary.days[0].places[0].mapsUrl, /query_place_id=ChIJ0TOKA9fP5zsRj4SEfR7A6iI/);
+});
+
 test("buildFallbackGeneratedTrip responds to travel style, pace, and food preferences", () => {
   const fallback = buildFallbackGeneratedTrip({
     location: { label: "Tokyo" },

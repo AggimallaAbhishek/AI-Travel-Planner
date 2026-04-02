@@ -10,19 +10,22 @@ const BUDGET_TOLERANCE_RATIO = 1.12;
 
 const PACE_CONSTRAINTS = Object.freeze({
   "Fast-paced": {
-    maxStopsPerDay: 5,
+    minStopsPerDay: 3,
+    maxStopsPerDay: 4,
     maxTransitMinutes: 210,
     maxVisitMinutes: 360,
     maxDailyMinutes: 570,
   },
   Balanced: {
+    minStopsPerDay: 3,
     maxStopsPerDay: 4,
     maxTransitMinutes: 165,
     maxVisitMinutes: 300,
     maxDailyMinutes: 480,
   },
   Relaxed: {
-    maxStopsPerDay: 3,
+    minStopsPerDay: 3,
+    maxStopsPerDay: 4,
     maxTransitMinutes: 120,
     maxVisitMinutes: 240,
     maxDailyMinutes: 390,
@@ -82,6 +85,7 @@ export function derivePlanningConstraints(selectionInput = {}) {
   return {
     pace,
     perDayBudget,
+    minStopsPerDay: paceConstraints.minStopsPerDay,
     maxStopsPerDay: paceConstraints.maxStopsPerDay,
     maxTransitMinutes: paceConstraints.maxTransitMinutes,
     maxVisitMinutes: paceConstraints.maxVisitMinutes,

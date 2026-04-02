@@ -1,3 +1,4 @@
+import { INDIA_DESTINATION_INDEX } from "./indiaDestinationIndex.generated.js";
 import { MAP_DESTINATIONS, VOYAGR_DESTINATIONS } from "../src/components/voyagr/data.js";
 
 const EXTRA_DESTINATIONS = [
@@ -64,7 +65,7 @@ function scoreSuggestion(suggestion, normalizedQuery) {
 function toSuggestion(item, priority) {
   const name = String(item?.name ?? "").trim();
   const country = String(item?.country ?? "").trim();
-  const label = buildLabel(name, country);
+  const label = String(item?.label ?? "").trim() || buildLabel(name, country);
 
   if (!name) {
     return null;
@@ -74,6 +75,8 @@ function toSuggestion(item, priority) {
     name,
     country,
     label,
+    placeId: String(item?.placeId ?? "").trim(),
+    source: String(item?.source ?? "local_index").trim() || "local_index",
     priority,
     normalizedName: normalizeValue(name),
     normalizedCountry: normalizeValue(country),
@@ -83,6 +86,7 @@ function toSuggestion(item, priority) {
 
 function buildDestinationIndex() {
   const merged = [
+    ...INDIA_DESTINATION_INDEX.map((item) => toSuggestion(item, 140)),
     ...VOYAGR_DESTINATIONS.map((item) => toSuggestion(item, 90)),
     ...MAP_DESTINATIONS.map((item) => toSuggestion(item, 70)),
     ...EXTRA_DESTINATIONS.map((item) => toSuggestion(item, 60)),
@@ -133,8 +137,8 @@ export function getDestinationSuggestions(query, options = {}) {
       country: suggestion.country,
       primaryText: suggestion.name,
       secondaryText: suggestion.country,
-      placeId: "",
-      source: "local_index",
+      placeId: suggestion.placeId,
+      source: suggestion.source,
     }));
 
   console.debug("[destination-autocomplete] suggestions resolved", {

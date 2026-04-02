@@ -1,0 +1,41 @@
+[
+  {
+    "attraction_id": "rajasthan--jaipur--hawa-mahal",
+    "destination_id": "rajasthan--jaipur",
+    "attraction_name": "Hawa Mahal",
+    "category": "palace",
+    "latitude": 26.9239,
+    "longitude": 75.8267,
+    "summary": "Iconic Jaipur facade and palace complex.",
+    "source_url": "https://example.com/hawa-mahal",
+    "source_type": "fixture",
+    "rank_within_destination": 1,
+    "source_confidence": "high"
+  },
+  {
+    "attraction_id": "rajasthan--jaipur--amer-fort",
+    "destination_id": "rajasthan--jaipur",
+    "attraction_name": "Amer Fort",
+    "category": "fort",
+    "latitude": 26.9855,
+    "longitude": 75.8513,
+    "summary": "Hilltop fort complex near Jaipur.",
+    "source_url": "https://example.com/amer-fort",
+    "source_type": "fixture",
+    "rank_within_destination": 2,
+    "source_confidence": "high"
+  },
+  {
+    "attraction_id": "uttar-pradesh--agra--taj-mahal",
+    "destination_id": "uttar-pradesh--agra",
+    "attraction_name": "Taj Mahal",
+    "category": "heritage",
+    "latitude": 27.1751,
+    "longitude": 78.0421,
+    "summary": "UNESCO World Heritage mausoleum.",
+    "source_url": "https://example.com/taj-mahal",
+    "source_type": "fixture",
+    "rank_within_destination": 1,
+    "source_confidence": "high"
+  }
+]
