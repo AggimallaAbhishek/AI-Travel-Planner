@@ -42,6 +42,15 @@ test("normalizeTripTransportData maps snake_case transport payloads", () => {
   assert.equal(normalized.transportSummary.algorithm, "python-multimodal-dijkstra-v2");
 });
 
+test("normalizeTripTransportData handles null trip payload safely", () => {
+  const normalized = normalizeTripTransportData(null);
+
+  assert.deepEqual(normalized.options, []);
+  assert.equal(normalized.routeVerification.status, "not_requested");
+  assert.equal(normalized.transportSummary.algorithm, "");
+  assert.equal(normalized.message, "");
+});
+
 test("getDayPlaceCountMeta resolves explicit and derived target compliance", () => {
   const explicit = getDayPlaceCountMeta({
     placeCount: 2,

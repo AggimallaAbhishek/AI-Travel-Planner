@@ -110,22 +110,23 @@ function normalizeTransportSummary(summary = {}) {
 }
 
 export function normalizeTripTransportData(trip = {}) {
-  const optionsSource = Array.isArray(trip.transportOptions)
-    ? trip.transportOptions
-    : Array.isArray(trip.transport_options)
-    ? trip.transport_options
+  const safeTrip = trip && typeof trip === "object" ? trip : {};
+  const optionsSource = Array.isArray(safeTrip.transportOptions)
+    ? safeTrip.transportOptions
+    : Array.isArray(safeTrip.transport_options)
+    ? safeTrip.transport_options
     : [];
   const routeVerificationSource =
-    trip.routeVerification && typeof trip.routeVerification === "object"
-      ? trip.routeVerification
-      : trip.route_verification && typeof trip.route_verification === "object"
-      ? trip.route_verification
+    safeTrip.routeVerification && typeof safeTrip.routeVerification === "object"
+      ? safeTrip.routeVerification
+      : safeTrip.route_verification && typeof safeTrip.route_verification === "object"
+      ? safeTrip.route_verification
       : {};
   const summarySource =
-    trip.transportSummary && typeof trip.transportSummary === "object"
-      ? trip.transportSummary
-      : trip.transport_summary && typeof trip.transport_summary === "object"
-      ? trip.transport_summary
+    safeTrip.transportSummary && typeof safeTrip.transportSummary === "object"
+      ? safeTrip.transportSummary
+      : safeTrip.transport_summary && typeof safeTrip.transport_summary === "object"
+      ? safeTrip.transport_summary
       : {};
 
   return {
@@ -134,7 +135,7 @@ export function normalizeTripTransportData(trip = {}) {
     ),
     routeVerification: normalizeRouteVerification(routeVerificationSource),
     transportSummary: normalizeTransportSummary(summarySource),
-    message: normalizeText(trip.transportMessage ?? trip.transport_message),
+    message: normalizeText(safeTrip.transportMessage ?? safeTrip.transport_message),
   };
 }
 
