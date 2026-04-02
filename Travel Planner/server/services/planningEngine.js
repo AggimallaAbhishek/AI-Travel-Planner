@@ -132,17 +132,23 @@ function splitVisitOrderByDays(visitOrder = [], dayCount = 1) {
   }
 
   const chunks = [];
-  const chunkSize = Math.ceil(visitOrder.length / safeDayCount);
+  const baseSize = Math.floor(visitOrder.length / safeDayCount);
+  const remainder = visitOrder.length % safeDayCount;
+
+  let currentIndex = 0;
   for (let dayIndex = 0; dayIndex < safeDayCount; dayIndex += 1) {
-    const startIndex = dayIndex * chunkSize;
-    const endIndex = startIndex + chunkSize;
-    const dayOrder = visitOrder.slice(startIndex, endIndex);
+    // Distribute remainder evenly across the first 'remainder' days
+    const chunkSize = baseSize + (dayIndex < remainder ? 1 : 0);
+    const dayOrder = visitOrder.slice(currentIndex, currentIndex + chunkSize);
+    
     chunks.push({
       day: dayIndex + 1,
       clusterId: dayIndex,
       visitOrder: dayOrder,
       stopCount: dayOrder.length,
     });
+    
+    currentIndex += chunkSize;
   }
 
   return chunks;
