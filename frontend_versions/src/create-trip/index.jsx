@@ -1073,7 +1073,7 @@ function CreateTrip() {
                   <div className="voy-create-subsection voy-create-subsection-full mb-6">
                     <div className="voy-create-subsection-head voy-create-subsection-head-tight">
                       <h4>Logistics & Stay</h4>
-                      <p>Optional: Where are you staying and when do you arrive/depart? Gemini will optimize the route around your accommodation and logistics.</p>
+                      <p>Optional: Share your stay and arrival or departure details. Gemini uses them to personalize daily summaries and tips, while route planning still follows your selected stops and trip structure.</p>
                     </div>
                     <div className="grid gap-4 md:grid-cols-2">
                       <label className="voy-create-budget-input-wrap text-left">

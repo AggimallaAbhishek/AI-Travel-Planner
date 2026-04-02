@@ -64,6 +64,8 @@ frontend_versions/public/varanasi.jpg
 frontend_versions/public/vibha.jpg
 frontend_versions/public/white.jpg
 frontend_versions/public/world-map.svg
+frontend_versions/shared/destinationAutocomplete.js
+frontend_versions/shared/recommendations.js
 frontend_versions/shared/tripPrefill.js
 frontend_versions/shared/trips.js
 frontend_versions/src/App.jsx

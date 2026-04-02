@@ -3,6 +3,7 @@ import {
   cpSync,
   existsSync,
   mkdirSync,
+  readFileSync,
   readdirSync,
   rmSync,
   statSync,
@@ -21,6 +22,8 @@ const manifestPath = path.join(backupRoot, "duplicated_files_manifest.txt");
 
 const TRACKED_DIRECTORIES = Object.freeze(["src", "public"]);
 const TRACKED_FILES = Object.freeze([
+  "shared/destinationAutocomplete.js",
+  "shared/recommendations.js",
   "shared/trips.js",
   "shared/tripPrefill.js",
   "index.html",
@@ -154,14 +157,22 @@ function resetTrackedRoots() {
 }
 
 function collectSourceDirectoryFiles(relativeDirectoryPath) {
-  const sourceDirectoryPath = resolveSourcePath(relativeDirectoryPath);
+  return collectDirectoryFiles(resolveSourcePath(relativeDirectoryPath), relativeDirectoryPath);
+}
 
-  if (!existsSync(sourceDirectoryPath)) {
+function collectBackupDirectoryFiles(relativeDirectoryPath) {
+  return collectDirectoryFiles(resolveBackupPath(relativeDirectoryPath), relativeDirectoryPath);
+}
+
+function collectDirectoryFiles(directoryPath, relativeDirectoryPath) {
+  const normalizedDirectoryPath = normalizeRelativePath(relativeDirectoryPath);
+
+  if (!existsSync(directoryPath)) {
     return [];
   }
 
-  return walkFiles(sourceDirectoryPath).map((relativePathWithinDirectory) =>
-    normalizeRelativePath(path.join(relativeDirectoryPath, relativePathWithinDirectory))
+  return walkFiles(directoryPath).map((relativePathWithinDirectory) =>
+    normalizeRelativePath(path.join(normalizedDirectoryPath, relativePathWithinDirectory))
   );
 }
 
@@ -191,6 +202,75 @@ function buildSourceSnapshot() {
   }
 
   return snapshot;
+}
+
+function buildBackupSnapshot() {
+  const snapshot = new Map();
+
+  for (const trackedDirectory of TRACKED_DIRECTORIES) {
+    for (const relativeFilePath of collectBackupDirectoryFiles(trackedDirectory)) {
+      const backupFilePath = resolveBackupPath(relativeFilePath);
+      snapshot.set(relativeFilePath, getFileFingerprint(backupFilePath));
+    }
+  }
+
+  for (const trackedFile of TRACKED_FILES) {
+    const backupFilePath = resolveBackupPath(trackedFile);
+
+    if (!existsSync(backupFilePath)) {
+      continue;
+    }
+
+    snapshot.set(trackedFile, getFileFingerprint(backupFilePath));
+  }
+
+  return snapshot;
+}
+
+function areFileContentsEqual(sourcePath, backupPath) {
+  if (!existsSync(sourcePath) || !existsSync(backupPath)) {
+    return false;
+  }
+
+  const sourceStats = statSync(sourcePath);
+  const backupStats = statSync(backupPath);
+
+  if (!sourceStats.isFile() || !backupStats.isFile()) {
+    return false;
+  }
+
+  if (sourceStats.size !== backupStats.size) {
+    return false;
+  }
+
+  return readFileSync(sourcePath).equals(readFileSync(backupPath));
+}
+
+function collectOutOfSyncPaths() {
+  const sourceSnapshot = buildSourceSnapshot();
+  const backupSnapshot = buildBackupSnapshot();
+  const candidatePaths = new Set([...sourceSnapshot.keys(), ...backupSnapshot.keys()]);
+  const outOfSyncPaths = [];
+
+  for (const relativePath of candidatePaths) {
+    const sourcePath = resolveSourcePath(relativePath);
+    const backupPath = resolveBackupPath(relativePath);
+    const sourceExists = existsSync(sourcePath);
+    const backupExists = existsSync(backupPath);
+
+    if (!sourceExists || !backupExists) {
+      outOfSyncPaths.push(relativePath);
+      continue;
+    }
+
+    if (!areFileContentsEqual(sourcePath, backupPath)) {
+      outOfSyncPaths.push(relativePath);
+    }
+  }
+
+  return outOfSyncPaths.sort((firstPath, secondPath) =>
+    firstPath.localeCompare(secondPath)
+  );
 }
 
 function getChangedSnapshotPaths(previousSnapshot, currentSnapshot) {
@@ -274,14 +354,20 @@ function appendChangeLog({ phaseTitle, description, files }) {
 }
 
 function runFullSync({ shouldLogEntry = true, phaseTitle = "Phase Update - Frontend Snapshot" } = {}) {
+  const changedPaths = collectOutOfSyncPaths();
   resetTrackedRoots();
   refreshBackupManifest();
 
   if (shouldLogEntry) {
+    if (changedPaths.length === 0) {
+      logDebug("Skipped no-op frontend backup change-log entry.");
+      return;
+    }
+
     appendChangeLog({
       phaseTitle,
       description: "Synchronized frontend backup with current tracked frontend files.",
-      files: [...TRACKED_DIRECTORIES, ...TRACKED_FILES],
+      files: changedPaths,
     });
   }
 }

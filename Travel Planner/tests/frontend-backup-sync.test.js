@@ -15,6 +15,8 @@ test("normalizeRelativePath normalizes windows and dot-prefixed paths", () => {
 test("isTrackedFrontendPath returns true for tracked frontend directories and files", () => {
   assert.equal(isTrackedFrontendPath("src/pages/Home.jsx"), true);
   assert.equal(isTrackedFrontendPath("public/world-map.svg"), true);
+  assert.equal(isTrackedFrontendPath("shared/destinationAutocomplete.js"), true);
+  assert.equal(isTrackedFrontendPath("shared/recommendations.js"), true);
   assert.equal(isTrackedFrontendPath("shared/trips.js"), true);
   assert.equal(isTrackedFrontendPath("index.html"), true);
 });
