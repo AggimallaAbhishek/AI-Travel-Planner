@@ -4,6 +4,8 @@ import authRouter from "./routes/auth.js";
 import indiaRouter from "./routes/india.js";
 import tripsRouter from "./routes/trips.js";
 import { attachRequestTrace } from "./lib/trace.js";
+import { getIndiaDataDiagnostics } from "./services/indiaData.js";
+import { getPythonOptimizerReadiness } from "./services/pythonOptimizer.js";
 
 const DEFAULT_ALLOWED_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"];
 
@@ -80,9 +82,25 @@ app.use((req, _res, next) => {
   next();
 });
 
+function resolveIndiaHealthDiagnostics() {
+  try {
+    return getIndiaDataDiagnostics();
+  } catch (error) {
+    return {
+      status: "unavailable",
+      message:
+        error instanceof Error ? error.message : "Unable to load India data diagnostics.",
+    };
+  }
+}
+
 app.get("/api/health", (_req, res) => {
   res.json({
     status: "ok",
+    diagnostics: {
+      indiaData: resolveIndiaHealthDiagnostics(),
+      routeOptimizer: getPythonOptimizerReadiness(),
+    },
   });
 });
 

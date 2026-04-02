@@ -83,7 +83,10 @@ test("GET /api/health returns ok", async () => {
   });
 
   assert.equal(response.statusCode, 200);
-  assert.deepEqual(response.body, { status: "ok" });
+  assert.equal(response.body.status, "ok");
+  assert.equal(typeof response.body.diagnostics, "object");
+  assert.equal(typeof response.body.diagnostics.indiaData, "object");
+  assert.equal(typeof response.body.diagnostics.routeOptimizer, "object");
 });
 
 test("GET /api/my-trips requires authentication", async () => {

@@ -17,6 +17,10 @@ function isFalseLike(value) {
   return normalized === "0" || normalized === "false" || normalized === "no";
 }
 
+function resolveSqlDriverPackage() {
+  return String(process.env.SQL_DRIVER_PACKAGE ?? "pg").trim() || "pg";
+}
+
 export function isSqlConfigured() {
   return Boolean(String(process.env.SQL_DATABASE_URL ?? "").trim());
 }
@@ -58,12 +62,13 @@ async function createPool() {
     throw buildDisabledSqlError();
   }
 
+  const driverPackage = resolveSqlDriverPackage();
   let pg;
   try {
-    pg = await import("pg");
+    pg = await import(driverPackage);
   } catch (error) {
     const wrappedError = new Error(
-      "SQL mode is enabled but the `pg` package is unavailable. Install `pg` to use PostgreSQL mode."
+      `SQL mode is enabled but the \`${driverPackage}\` package is unavailable. Install \`pg\` (or the configured driver) to use PostgreSQL mode.`
     );
     wrappedError.code = "sql/missing-driver";
     wrappedError.cause = error;
@@ -138,12 +143,16 @@ export async function closeSqlPool() {
     return;
   }
 
-  const pool = await poolPromise;
-  await pool.end();
-  poolPromise = null;
+  try {
+    const pool = await poolPromise;
+    await pool.end();
+  } catch (_error) {
+    // Pool initialization can fail (for example, missing SQL driver). Reset state anyway.
+  } finally {
+    poolPromise = null;
+  }
 }
 
 export function isSqlDisabledError(error) {
   return String(error?.code ?? "").toLowerCase() === SQL_DISABLED_ERROR_CODE;
 }
-

@@ -637,6 +637,25 @@ def read_csv_dict_rows(path: Path) -> list[dict[str, str]]:
     return list(csv.DictReader(file_handle))
 
 
+def parse_json_array(value: object) -> list[str]:
+  if isinstance(value, list):
+    return [normalize_text(item) for item in value if normalize_text(item)]
+
+  raw = normalize_text(value)
+  if not raw:
+    return []
+
+  try:
+    parsed = json.loads(raw)
+  except json.JSONDecodeError:
+    parsed = None
+
+  if isinstance(parsed, list):
+    return [normalize_text(item) for item in parsed if normalize_text(item)]
+
+  return []
+
+
 def normalize_transport_city_name(value: object) -> str:
   raw_name = normalize_text(value)
   if not raw_name or raw_name == INVALID_TRANSPORT_CITY_LABEL:
@@ -750,9 +769,11 @@ def build_transport_city_catalog(
   flight_overlay_rows: list[dict[str, object]],
   road_rows: list[dict[str, object]],
   train_rows: list[dict[str, object]],
+  existing_city_seed: dict[str, dict[str, object]] | None = None,
 ) -> tuple[dict[str, dict[str, object]], dict[str, str], list[dict[str, object]]]:
   aliases_by_canonical: dict[str, set[str]] = defaultdict(set)
   mode_support: dict[str, dict[str, bool]] = defaultdict(lambda: {"has_flight": False, "has_train": False, "has_road": False})
+  city_seed_lookup = existing_city_seed or {}
 
   def register_city(raw_name: str, mode_flag: str) -> None:
     canonical_name = normalize_transport_city_name(raw_name)
@@ -780,7 +801,15 @@ def build_transport_city_catalog(
   city_alias_records: list[dict[str, object]] = []
 
   for canonical_name in sorted(aliases_by_canonical.keys()):
-    location = resolve_location(client, canonical_name, "", "transport_city")
+    seeded_location = city_seed_lookup.get(normalize_lookup_key(canonical_name))
+    if seeded_location:
+      location = {
+        "latitude": safe_float(seeded_location.get("latitude")),
+        "longitude": safe_float(seeded_location.get("longitude")),
+        "state_ut_name": normalize_text(seeded_location.get("state_ut_name")),
+      }
+    else:
+      location = resolve_location(client, canonical_name, "", "transport_city")
     city_id = f"city-{slugify(canonical_name)}"
     state_name = normalize_text(location.get("state_ut_name"))
     aliases = sorted(unique_preserving_order(aliases_by_canonical[canonical_name]))
@@ -1328,17 +1357,105 @@ def build_tourism_datasets(
   )
 
 
+def load_existing_transport_city_seed(output_root: Path) -> dict[str, dict[str, object]]:
+  data_dir = output_root / "server" / "data" / "india"
+  csv_path = data_dir / "india_transport_cities.csv"
+  json_path = data_dir / "india_transport_cities.json"
+
+  rows: list[dict[str, object]] = []
+  if csv_path.exists():
+    rows = read_csv_dict_rows(csv_path)
+  elif json_path.exists():
+    parsed = json.loads(json_path.read_text(encoding="utf-8"))
+    rows = parsed if isinstance(parsed, list) else []
+
+  seed_by_city_key: dict[str, dict[str, object]] = {}
+  for row in rows:
+    canonical_name = normalize_transport_city_name(row.get("canonical_name"))
+    if not canonical_name:
+      continue
+    seed_by_city_key[normalize_lookup_key(canonical_name)] = {
+      "canonical_name": canonical_name,
+      "state_ut_name": normalize_text(row.get("state_ut_name")),
+      "latitude": safe_float(row.get("latitude")),
+      "longitude": safe_float(row.get("longitude")),
+    }
+
+  return seed_by_city_key
+
+
 def load_existing_tourism_seed(output_root: Path) -> tuple[list[dict[str, object]], list[dict[str, object]]] | None:
-  destinations_path = output_root / "server" / "data" / "india" / "india_destinations.json"
-  attractions_path = output_root / "server" / "data" / "india" / "india_attractions.json"
+  data_dir = output_root / "server" / "data" / "india"
+  json_destinations_path = data_dir / "india_destinations.json"
+  json_attractions_path = data_dir / "india_attractions.json"
+  csv_destinations_path = data_dir / "india_destinations.csv"
+  csv_attractions_path = data_dir / "india_attractions.csv"
 
-  if not destinations_path.exists() or not attractions_path.exists():
-    return None
+  json_seed: tuple[list[dict[str, object]], list[dict[str, object]]] | None = None
+  if json_destinations_path.exists() and json_attractions_path.exists():
+    parsed_destinations = json.loads(json_destinations_path.read_text(encoding="utf-8"))
+    parsed_attractions = json.loads(json_attractions_path.read_text(encoding="utf-8"))
+    if isinstance(parsed_destinations, list) and isinstance(parsed_attractions, list):
+      json_seed = (parsed_destinations, parsed_attractions)
 
-  return (
-    json.loads(destinations_path.read_text(encoding="utf-8")),
-    json.loads(attractions_path.read_text(encoding="utf-8")),
-  )
+  csv_seed: tuple[list[dict[str, object]], list[dict[str, object]]] | None = None
+  if csv_destinations_path.exists() and csv_attractions_path.exists():
+    csv_destinations = [
+      {
+        "destination_id": normalize_text(row.get("destination_id")),
+        "state_ut_name": normalize_text(row.get("state_ut_name")),
+        "state_ut_slug": normalize_text(row.get("state_ut_slug")),
+        "destination_name": normalize_text(row.get("destination_name")),
+        "destination_slug": normalize_text(row.get("destination_slug")),
+        "destination_type": normalize_text(row.get("destination_type")),
+        "country_code": normalize_text(row.get("country_code"), DEFAULT_COUNTRY_CODE),
+        "latitude": safe_float(row.get("latitude")),
+        "longitude": safe_float(row.get("longitude")),
+        "description": normalize_text(row.get("description")),
+        "tags": parse_json_array(row.get("tags")),
+        "image_url": normalize_text(row.get("image_url")),
+        "official_url": normalize_text(row.get("official_url")),
+        "content_source": normalize_text(row.get("content_source")),
+        "geo_source": normalize_text(row.get("geo_source")),
+        "source_confidence": safe_float(row.get("source_confidence")),
+        "last_synced_at": normalize_text(row.get("last_synced_at")),
+      }
+      for row in read_csv_dict_rows(csv_destinations_path)
+      if normalize_text(row.get("destination_id"))
+    ]
+    csv_attractions = [
+      {
+        "attraction_id": normalize_text(row.get("attraction_id")),
+        "destination_id": normalize_text(row.get("destination_id")),
+        "attraction_name": normalize_text(row.get("attraction_name")),
+        "category": normalize_text(row.get("category"), "attraction"),
+        "latitude": safe_float(row.get("latitude")),
+        "longitude": safe_float(row.get("longitude")),
+        "summary": normalize_text(row.get("summary")),
+        "source_url": normalize_text(row.get("source_url")),
+        "source_type": normalize_text(row.get("source_type"), "official_link"),
+        "rank_within_destination": safe_int(row.get("rank_within_destination")) or 1,
+        "source_confidence": safe_float(row.get("source_confidence")) or 0.5,
+      }
+      for row in read_csv_dict_rows(csv_attractions_path)
+      if normalize_text(row.get("destination_id"))
+    ]
+    csv_seed = (csv_destinations, csv_attractions)
+
+  if csv_seed and json_seed:
+    if len(csv_seed[0]) >= len(json_seed[0]):
+      log(
+        "Selected CSV tourism seed over JSON due larger/equal coverage",
+        csv_destinations=len(csv_seed[0]),
+        json_destinations=len(json_seed[0]),
+      )
+      return csv_seed
+    return json_seed
+
+  if csv_seed:
+    return csv_seed
+
+  return json_seed
 
 
 def build_tourism_datasets_from_seed(
@@ -1387,7 +1504,13 @@ def build_tourism_datasets_from_seed(
         "source_confidence": seeded_destination.get("source_confidence"),
       }
     else:
-      location = resolve_location(client, destination_name, state_name, "destination")
+      location = {
+        "latitude": None,
+        "longitude": None,
+        "state_ut_name": state_name,
+        "geo_source": normalize_text(seeded_destination.get("geo_source")),
+        "source_confidence": safe_float(seeded_destination.get("source_confidence")) or 0.4,
+      }
 
     hydrated_destinations.append({
       "destination_id": destination_id,
@@ -1644,12 +1767,17 @@ def main() -> int:
     train_rows=len(train_rows),
   )
 
+  transport_city_seed = load_existing_transport_city_seed(output_root)
+  if transport_city_seed:
+    log("Loaded existing transport city seed", seed_city_count=len(transport_city_seed))
+
   city_catalog, alias_lookup, city_alias_records = build_transport_city_catalog(
     client,
     flight_rows,
     flight_overlay_rows,
     road_rows,
     train_rows,
+    transport_city_seed,
   )
   transport_cities = sorted(city_catalog.values(), key=lambda city: city["canonical_name"])
 

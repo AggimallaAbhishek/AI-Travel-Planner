@@ -1,0 +1,4 @@
+frontend_versions
+__pycache__
+*.pyc
+*.pyo

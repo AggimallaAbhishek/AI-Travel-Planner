@@ -12,6 +12,7 @@ import {
   FaRoute,
 } from "react-icons/fa";
 import { GiStoneBridge } from "react-icons/gi";
+import { getDayPlaceCountMeta } from "../transportViewModel";
 
 function PlacesToVisit({ trip }) {
   const structuredPlanDays = Array.isArray(trip?.aiPlan?.days) ? trip.aiPlan.days : [];
@@ -108,6 +109,7 @@ function PlacesToVisit({ trip }) {
           <div className="space-y-8">
             {safeItinerary.map((item, index) => {
               const dayPlaces = Array.isArray(item.places) ? item.places : [];
+              const placeCountMeta = getDayPlaceCountMeta(item);
               const narrativeForDay = structuredPlanDays.find(
                 (d) => Number(d.day) === Number(item.dayNumber || index + 1)
               );
@@ -128,7 +130,19 @@ function PlacesToVisit({ trip }) {
 
                     <div className="flex flex-col items-end gap-2 text-sm text-[var(--voy-text-muted)]">
                       <span className="px-3 py-1 bg-[var(--voy-surface2)] rounded-full border border-[var(--voy-border)] whitespace-nowrap">
-                        {dayPlaces.length} {dayPlaces.length === 1 ? "place" : "places"}
+                        {placeCountMeta.placeCount}{" "}
+                        {placeCountMeta.placeCount === 1 ? "place" : "places"}
+                      </span>
+                      <span
+                        className={`px-3 py-1 rounded-full whitespace-nowrap font-medium ${
+                          placeCountMeta.placeCountTargetMet
+                            ? "bg-[var(--voy-gold-dim)] text-[var(--voy-gold)]"
+                            : "bg-[var(--voy-surface2)] border border-[var(--voy-border)]"
+                        }`}
+                      >
+                        {placeCountMeta.placeCountTargetMet
+                          ? "3-4 target met"
+                          : "target: 3-4/day"}
                       </span>
                       {narrativeForDay?.estimatedCost ? (
                         <span className="px-3 py-1 rounded-full bg-[var(--voy-gold-dim)] text-[var(--voy-gold)] whitespace-nowrap font-medium">

@@ -83,16 +83,18 @@ function getTransportCacheKey({
 
 const currentFilePath = fileURLToPath(import.meta.url);
 const currentDirPath = path.dirname(currentFilePath);
-const indiaDataDirPath = path.resolve(currentDirPath, "../data/india");
-const indiaDatasetPaths = {
-  destinations: path.join(indiaDataDirPath, "india_destinations.json"),
-  attractions: path.join(indiaDataDirPath, "india_attractions.json"),
-  transportCities: path.join(indiaDataDirPath, "india_transport_cities.json"),
-  transportRoutes: path.join(indiaDataDirPath, "india_transport_routes.json"),
-  destinationHubs: path.join(indiaDataDirPath, "india_destination_hubs.json"),
-};
+const DEFAULT_INDIA_DATA_DIR_PATH = path.resolve(currentDirPath, "../data/india");
+const INDIA_DATASET_FILE_NAMES = Object.freeze({
+  destinations: "india_destinations.json",
+  attractions: "india_attractions.json",
+  transportCities: "india_transport_cities.json",
+  transportRoutes: "india_transport_routes.json",
+  destinationHubs: "india_destination_hubs.json",
+});
 
 let cachedSnapshot = null;
+let cachedDiagnostics = null;
+let hasLoggedDatasetParityWarning = false;
 const DEFAULT_TRANSPORT_OPTIONS_CACHE_TTL_MS = 5 * 60 * 1_000;
 const DEFAULT_TRANSPORT_OPTIONS_CACHE_MAX_ENTRIES = 200;
 const DEFAULT_TRANSPORT_MAX_TRANSFERS = 4;
@@ -104,6 +106,100 @@ const TRANSPORT_OPTIONS_CACHE = createBoundedTtlCache({
 
 function readJsonFile(filePath) {
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
+}
+
+function resolveIndiaDataDirPath() {
+  const configuredDirPath = normalizeText(process.env.INDIA_DATA_DIR);
+  if (!configuredDirPath) {
+    return DEFAULT_INDIA_DATA_DIR_PATH;
+  }
+
+  return path.resolve(configuredDirPath);
+}
+
+function resolveIndiaDatasetPaths() {
+  const indiaDataDirPath = resolveIndiaDataDirPath();
+  return Object.fromEntries(
+    Object.entries(INDIA_DATASET_FILE_NAMES).map(([key, fileName]) => [
+      key,
+      path.join(indiaDataDirPath, fileName),
+    ])
+  );
+}
+
+function resolveIndiaCsvDatasetPaths(datasetPaths = resolveIndiaDatasetPaths()) {
+  return Object.fromEntries(
+    Object.entries(datasetPaths).map(([key, jsonPath]) => [
+      key,
+      jsonPath.replace(/\.json$/i, ".csv"),
+    ])
+  );
+}
+
+function countApproximateCsvRecords(filePath) {
+  if (!fs.existsSync(filePath)) {
+    return null;
+  }
+
+  const payload = fs.readFileSync(filePath, "utf8");
+  const lineCount = payload
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean).length;
+
+  if (lineCount <= 1) {
+    return 0;
+  }
+
+  return Math.max(0, lineCount - 1);
+}
+
+function buildIndiaDataDiagnostics(snapshot, datasetPaths = resolveIndiaDatasetPaths()) {
+  const csvDatasetPaths = resolveIndiaCsvDatasetPaths(datasetPaths);
+  const jsonCounts = {
+    destinations: snapshot.destinations.length,
+    attractions: snapshot.attractions.length,
+    transportCities: snapshot.transportCities.length,
+    transportRoutes: snapshot.transportRoutes.length,
+    destinationHubs: snapshot.destinationHubs.length,
+  };
+  const csvCounts = Object.fromEntries(
+    Object.entries(csvDatasetPaths).map(([key, filePath]) => [
+      key,
+      countApproximateCsvRecords(filePath),
+    ])
+  );
+
+  const parityWarnings = [];
+  for (const [datasetName, jsonCount] of Object.entries(jsonCounts)) {
+    const csvCount = csvCounts[datasetName];
+    if (!Number.isFinite(csvCount) || csvCount <= 0) {
+      continue;
+    }
+
+    if (jsonCount <= 0) {
+      parityWarnings.push(
+        `${datasetName}: JSON count is zero while CSV mirror has ${csvCount} records.`
+      );
+      continue;
+    }
+
+    const ratio = jsonCount / csvCount;
+    if (csvCount >= 50 && ratio < 0.3) {
+      parityWarnings.push(
+        `${datasetName}: JSON count (${jsonCount}) is much lower than CSV mirror (${csvCount}).`
+      );
+    }
+  }
+
+  return {
+    status: parityWarnings.length > 0 ? "warning" : "ok",
+    dataDir: resolveIndiaDataDirPath(),
+    jsonCounts,
+    csvCounts,
+    parityWarnings,
+    generatedAt: new Date().toISOString(),
+  };
 }
 
 function scoreMatch(candidate = {}, normalizedQuery = "") {
@@ -161,8 +257,8 @@ function buildLookupValues(destination = {}) {
     .filter(Boolean);
 }
 
-function ensureIndiaDatasetExists() {
-  const missingPaths = Object.values(indiaDatasetPaths).filter(
+function ensureIndiaDatasetExists(datasetPaths = resolveIndiaDatasetPaths()) {
+  const missingPaths = Object.values(datasetPaths).filter(
     (filePath) => !fs.existsSync(filePath)
   );
   if (missingPaths.length > 0) {
@@ -177,6 +273,8 @@ function ensureIndiaDatasetExists() {
 
 export function clearIndiaDataCache() {
   cachedSnapshot = null;
+  cachedDiagnostics = null;
+  hasLoggedDatasetParityWarning = false;
   TRANSPORT_OPTIONS_CACHE.clear();
 }
 
@@ -185,13 +283,14 @@ export function loadIndiaDataSnapshot() {
     return cachedSnapshot;
   }
 
-  ensureIndiaDatasetExists();
+  const datasetPaths = resolveIndiaDatasetPaths();
+  ensureIndiaDatasetExists(datasetPaths);
 
-  const destinations = readJsonFile(indiaDatasetPaths.destinations);
-  const attractions = readJsonFile(indiaDatasetPaths.attractions);
-  const transportCities = readJsonFile(indiaDatasetPaths.transportCities);
-  const transportRoutes = readJsonFile(indiaDatasetPaths.transportRoutes);
-  const destinationHubs = readJsonFile(indiaDatasetPaths.destinationHubs);
+  const destinations = readJsonFile(datasetPaths.destinations);
+  const attractions = readJsonFile(datasetPaths.attractions);
+  const transportCities = readJsonFile(datasetPaths.transportCities);
+  const transportRoutes = readJsonFile(datasetPaths.transportRoutes);
+  const destinationHubs = readJsonFile(datasetPaths.destinationHubs);
 
   const destinationById = new Map();
   const destinationsByLookupKey = new Map();
@@ -268,7 +367,36 @@ export function loadIndiaDataSnapshot() {
     hubsByDestinationId,
   };
 
+  cachedDiagnostics = buildIndiaDataDiagnostics(cachedSnapshot, datasetPaths);
+  if (
+    cachedDiagnostics.parityWarnings.length > 0 &&
+    !hasLoggedDatasetParityWarning
+  ) {
+    hasLoggedDatasetParityWarning = true;
+    console.warn("[india-data] Dataset parity warning detected", {
+      dataDir: cachedDiagnostics.dataDir,
+      warnings: cachedDiagnostics.parityWarnings,
+      jsonCounts: cachedDiagnostics.jsonCounts,
+      csvCounts: cachedDiagnostics.csvCounts,
+    });
+  }
+
   return cachedSnapshot;
+}
+
+export function getIndiaDataDiagnostics({ refresh = false } = {}) {
+  if (refresh || !cachedSnapshot) {
+    loadIndiaDataSnapshot();
+  }
+
+  if (!cachedDiagnostics) {
+    cachedDiagnostics = buildIndiaDataDiagnostics(
+      cachedSnapshot,
+      resolveIndiaDatasetPaths()
+    );
+  }
+
+  return cachedDiagnostics;
 }
 
 export function searchIndiaDestinations(query = "", options = {}) {

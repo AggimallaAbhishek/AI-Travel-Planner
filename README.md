@@ -253,9 +253,9 @@ Deploy this repository from the repository root, not from `Travel Planner/`.
 
 - `Root Directory`: `.`
 - `Node.js Version`: `22.x`
-- `Install Command`: use [vercel.json](/Users/aggimallaabhishek/Documents/AI-Travel-Planner/vercel.json)
-- `Build Command`: use [vercel.json](/Users/aggimallaabhishek/Documents/AI-Travel-Planner/vercel.json)
-- `Output Directory`: use [vercel.json](/Users/aggimallaabhishek/Documents/AI-Travel-Planner/vercel.json)
+- `Install Command`: use `vercel.json` in repo root
+- `Build Command`: use `vercel.json` in repo root
+- `Output Directory`: use `vercel.json` in repo root
 
 Required deployment notes:
 
@@ -265,7 +265,8 @@ Required deployment notes:
 - Provide frontend env vars in Vercel: `VITE_FIREBASE_*` and `VITE_GOOGLE_MAPS_BROWSER_KEY`.
 - Provide server-side secrets in Vercel project environment variables: `GOOGLE_GEMINI_API_KEY`, `GOOGLE_PLACES_API_KEY`, optional `GOOGLE_MAPS_API_KEY`, `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`, `GOOGLE_CLIENT_ID`, and `GOOGLE_SECRET_KEY`.
 - Keep `PYTHON_ROUTE_OPTIMIZER_ENABLED=false` on Vercel unless the Python optimizer is moved to a separate runtime or service.
-- The serverless API entrypoint is [api/[...all].js](/Users/aggimallaabhishek/Documents/AI-Travel-Planner/api/%5B...all%5D.js).
+- The serverless API entrypoint is `api/[...all].js`.
+- `frontend_versions/` is retained for backup workflows and excluded from deployment upload via `.vercelignore`.
 
 ## Current Constraints
 

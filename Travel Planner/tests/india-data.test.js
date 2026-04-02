@@ -1,20 +1,17 @@
-import test, { after, before, beforeEach } from "node:test";
+import test, { after, afterEach, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import app from "../server/app.js";
 import {
   clearIndiaDataCache,
   getIndiaDestinationDetail,
+  getIndiaDataDiagnostics,
   getIndiaTransportOptions,
   loadIndiaDataSnapshot,
   searchIndiaDestinations,
 } from "../server/services/indiaData.js";
-
-const currentFilePath = fileURLToPath(import.meta.url);
-const currentDirPath = path.dirname(currentFilePath);
-const indiaDataDirPath = path.resolve(currentDirPath, "../server/data/india");
 
 const fixturePayloadByFile = {
   "india_destinations.json": [
@@ -288,39 +285,109 @@ const fixturePayloadByFile = {
   ],
 };
 
-const backupByFile = new Map();
+let fixtureIndiaDataDirPath = "";
+let previousIndiaDataDirPath = process.env.INDIA_DATA_DIR;
 
-function writeFixtureIndiaData() {
-  fs.mkdirSync(indiaDataDirPath, { recursive: true });
+function toCsvCell(value) {
+  if (value === null || value === undefined) {
+    return "";
+  }
+
+  if (typeof value === "object") {
+    return JSON.stringify(value);
+  }
+
+  return String(value);
+}
+
+function escapeCsvCell(value) {
+  const normalized = toCsvCell(value);
+  if (!normalized) {
+    return "";
+  }
+
+  if (!/[",\n]/.test(normalized)) {
+    return normalized;
+  }
+
+  return `"${normalized.replace(/"/g, "\"\"")}"`;
+}
+
+function toCsvPayload(rows = []) {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return "";
+  }
+
+  const headers = Object.keys(rows[0]);
+  const dataRows = rows.map((row) =>
+    headers.map((header) => escapeCsvCell(row?.[header])).join(",")
+  );
+
+  return `${headers.join(",")}\n${dataRows.join("\n")}\n`;
+}
+
+function writeFixtureIndiaData(dataDirPath) {
+  fs.mkdirSync(dataDirPath, { recursive: true });
 
   for (const [fileName, payload] of Object.entries(fixturePayloadByFile)) {
-    const filePath = path.join(indiaDataDirPath, fileName);
-    fs.writeFileSync(filePath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+    const jsonPath = path.join(dataDirPath, fileName);
+    fs.writeFileSync(jsonPath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+
+    const csvPath = path.join(dataDirPath, fileName.replace(/\.json$/i, ".csv"));
+    fs.writeFileSync(csvPath, toCsvPayload(payload), "utf8");
   }
 }
 
-function backupIndiaDataFiles() {
-  for (const fileName of Object.keys(fixturePayloadByFile)) {
-    const filePath = path.join(indiaDataDirPath, fileName);
-    if (fs.existsSync(filePath)) {
-      backupByFile.set(fileName, fs.readFileSync(filePath, "utf8"));
-      continue;
-    }
-
-    backupByFile.set(fileName, null);
+function appendCsvRows(fileName, rows = []) {
+  if (!fixtureIndiaDataDirPath) {
+    return;
   }
+
+  const csvPath = path.join(fixtureIndiaDataDirPath, fileName);
+  if (!fs.existsSync(csvPath)) {
+    fs.writeFileSync(csvPath, toCsvPayload(rows), "utf8");
+    return;
+  }
+
+  const existingPayload = fs.readFileSync(csvPath, "utf8").trimEnd();
+  const headers = (existingPayload.split(/\r?\n/)[0] ?? "").split(",");
+  if (headers.length === 0 || rows.length === 0) {
+    return;
+  }
+
+  const appendedRows = rows
+    .map((row) => headers.map((header) => escapeCsvCell(row?.[header])).join(","))
+    .join("\n");
+
+  if (!appendedRows) {
+    return;
+  }
+
+  fs.writeFileSync(csvPath, `${existingPayload}\n${appendedRows}\n`, "utf8");
 }
 
-function restoreIndiaDataFiles() {
-  for (const [fileName, content] of backupByFile.entries()) {
-    const filePath = path.join(indiaDataDirPath, fileName);
+function setupFixtureIndiaDataDir() {
+  previousIndiaDataDirPath = process.env.INDIA_DATA_DIR;
+  fixtureIndiaDataDirPath = fs.mkdtempSync(
+    path.join(os.tmpdir(), "india-data-test-")
+  );
+  process.env.INDIA_DATA_DIR = fixtureIndiaDataDirPath;
+  writeFixtureIndiaData(fixtureIndiaDataDirPath);
+  clearIndiaDataCache();
+}
 
-    if (content === null) {
-      fs.rmSync(filePath, { force: true });
-      continue;
-    }
+function cleanupFixtureIndiaDataDir() {
+  clearIndiaDataCache();
 
-    fs.writeFileSync(filePath, content, "utf8");
+  if (fixtureIndiaDataDirPath) {
+    fs.rmSync(fixtureIndiaDataDirPath, { recursive: true, force: true });
+    fixtureIndiaDataDirPath = "";
+  }
+
+  if (previousIndiaDataDirPath === undefined) {
+    delete process.env.INDIA_DATA_DIR;
+  } else {
+    process.env.INDIA_DATA_DIR = previousIndiaDataDirPath;
   }
 }
 
@@ -399,20 +466,16 @@ async function invokeApp({ method = "GET", url = "/", headers = {} } = {}) {
   });
 }
 
-before(() => {
-  backupIndiaDataFiles();
-  writeFixtureIndiaData();
-  clearIndiaDataCache();
+beforeEach(() => {
+  setupFixtureIndiaDataDir();
 });
 
-beforeEach(() => {
-  writeFixtureIndiaData();
-  clearIndiaDataCache();
+afterEach(() => {
+  cleanupFixtureIndiaDataDir();
 });
 
 after(() => {
-  clearIndiaDataCache();
-  restoreIndiaDataFiles();
+  cleanupFixtureIndiaDataDir();
 });
 
 test("loadIndiaDataSnapshot loads indexed India data", () => {
@@ -423,6 +486,41 @@ test("loadIndiaDataSnapshot loads indexed India data", () => {
   assert.equal(snapshot.transportRoutes.length, 4);
   assert.equal(snapshot.destinationById.get("rajasthan--jaipur")?.destination_name, "Jaipur");
   assert.equal(snapshot.transportCityByLookupKey.get("new delhi")?.city_id, "city--delhi");
+});
+
+test("getIndiaDataDiagnostics reports warning when CSV parity diverges", () => {
+  appendCsvRows("india_destinations.csv", [
+    ...Array.from({ length: 60 }, (_unused, index) => ({
+      destination_id: `extra-destination-${index + 1}`,
+      state_ut_name: "Rajasthan",
+      state_ut_slug: "rajasthan",
+      destination_name: `Extra Destination ${index + 1}`,
+      destination_slug: `extra-destination-${index + 1}`,
+      destination_type: "city",
+      country_code: "IN",
+      latitude: 26.91,
+      longitude: 75.78,
+      description: "Diagnostics parity test row.",
+      tags: "[]",
+      image_url: "",
+      official_url: "",
+      content_source: "fixture",
+      geo_source: "fixture",
+      source_confidence: "high",
+      last_synced_at: "2026-04-02T00:00:00Z",
+    })),
+  ]);
+  clearIndiaDataCache();
+
+  const diagnostics = getIndiaDataDiagnostics({ refresh: true });
+  assert.equal(diagnostics.status, "warning");
+  assert.equal(diagnostics.csvCounts.destinations > diagnostics.jsonCounts.destinations, true);
+  assert.equal(
+    diagnostics.parityWarnings.some((warning) =>
+      warning.toLowerCase().includes("destinations")
+    ),
+    true
+  );
 });
 
 test("searchIndiaDestinations ranks Jaipur for prefix matches", () => {

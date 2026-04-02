@@ -17,6 +17,12 @@ import { Button } from "@/components/ui/button";
 import { buildLoginPath } from "@/lib/authRedirect";
 import RouteOptimizationSection from "./components/RouteOptimizationSection";
 import { resolveGoogleMapsUrl } from "../../shared/maps.js";
+import {
+  formatDistanceKm,
+  formatDurationMinutes,
+  normalizeTripTransportData,
+  summarizePlaceCountCompliance,
+} from "./transportViewModel";
 
 const INITIAL_RECOMMENDATION_STATE = {
   hotels: [],
@@ -142,10 +148,15 @@ function Viewtrip() {
     fallbackHotelRecommendations.length > 0 && !hasLiveHotels
       ? "Showing hotel suggestions from your generated itinerary while live hotel recommendations are unavailable."
       : "";
-  const hotelNote = [recommendations.warning, fallbackHotelNote]
+  const recommendationProvenanceNote = recommendations.provider
+    ? `Recommendation source: ${recommendations.provider.replaceAll("_", " ")}.`
+    : "";
+  const hotelNote = [recommendations.warning, fallbackHotelNote, recommendationProvenanceNote]
     .filter(Boolean)
     .join(" ");
-  const restaurantNote = recommendations.warning;
+  const restaurantNote = [recommendations.warning, recommendationProvenanceNote]
+    .filter(Boolean)
+    .join(" ");
   const recommendationsForPdf = useMemo(
     () => ({
       ...recommendations,
@@ -153,6 +164,11 @@ function Viewtrip() {
       restaurants: recommendations.restaurants,
     }),
     [recommendations, hotelsToDisplay]
+  );
+  const transportData = useMemo(() => normalizeTripTransportData(trip), [trip]);
+  const placeCountCompliance = useMemo(
+    () => summarizePlaceCountCompliance(trip?.itinerary?.days ?? []),
+    [trip?.itinerary?.days]
   );
 
   useEffect(() => {
@@ -502,6 +518,58 @@ function Viewtrip() {
           onDownloadPdf={handleDownloadPdf}
           onPrintPdf={handlePrintPdf}
         />
+        <section className="voy-admin-panel" aria-live="polite">
+          <div className="voy-admin-panel-head">
+            <h3>Intercity Transport Intelligence</h3>
+            <span className="voy-admin-panel-badge">
+              {transportData.routeVerification.status.replaceAll("_", " ")}
+            </span>
+          </div>
+          <p>
+            {transportData.message ||
+              "Fastest-feasible transport options are computed from verified multimodal edges, then candidate-ranked with verification metadata."}
+          </p>
+          <div className="voy-admin-capabilities">
+            <span>
+              objective:{" "}
+              <strong>{transportData.transportSummary.objective || "fastest_feasible"}</strong>
+            </span>
+            <span>
+              algorithm:{" "}
+              <strong>{transportData.transportSummary.algorithm || "python-multimodal-dijkstra-v2"}</strong>
+            </span>
+            <span>
+              verification provider:{" "}
+              <strong>{transportData.routeVerification.provider || "none"}</strong>
+            </span>
+            <span>
+              place-count compliance:{" "}
+              <strong>
+                {placeCountCompliance.totalDays > 0
+                  ? `${placeCountCompliance.metDays}/${placeCountCompliance.totalDays} days`
+                  : "n/a"}
+              </strong>
+            </span>
+          </div>
+          {transportData.options.length > 0 ? (
+            <div className="voy-admin-capabilities">
+              {transportData.options.slice(0, 4).map((option) => (
+                <span key={option.optionId}>
+                  <strong>{option.mode}</strong>: {option.sourceCity || "origin"}
+                  {" -> "}
+                  {option.destinationCity || "destination"} ({formatDurationMinutes(
+                    option.durationMinutes
+                  )}, {formatDistanceKm(option.distanceKm)}, transfers: {option.transferCount}
+                  )
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-2 text-sm text-[var(--voy-text-muted)]">
+              No intercity transport options were available for this trip payload.
+            </p>
+          )}
+        </section>
         {isAdmin ? (
           <section className="voy-admin-panel" aria-live="polite">
             <div className="voy-admin-panel-head">

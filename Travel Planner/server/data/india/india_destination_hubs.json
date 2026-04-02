@@ -1,26 +1,4434 @@
 [
   {
-    "destination_id": "rajasthan--jaipur",
-    "city_id": "city--jaipur",
+    "destination_id": "andaman-and-nicobar-islands--mayabunder",
+    "city_id": "city-bhubaneswar",
     "hub_rank": 1,
-    "access_distance_km": 4,
-    "access_duration_minutes": 18,
-    "matching_method": "exact_city"
+    "access_distance_km": 1121.08,
+    "access_duration_minutes": 2102,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andaman-and-nicobar-islands--mayabunder",
+    "city_id": "city-kolkata",
+    "hub_rank": 2,
+    "access_distance_km": 1187.23,
+    "access_duration_minutes": 2226,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andaman-and-nicobar-islands--mayabunder",
+    "city_id": "city-howrah",
+    "hub_rank": 3,
+    "access_distance_km": 1189.75,
+    "access_duration_minutes": 2231,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andaman-and-nicobar-islands--rangat",
+    "city_id": "city-bhubaneswar",
+    "hub_rank": 1,
+    "access_distance_km": 1149.45,
+    "access_duration_minutes": 2155,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andaman-and-nicobar-islands--rangat",
+    "city_id": "city-kolkata",
+    "hub_rank": 2,
+    "access_distance_km": 1218.07,
+    "access_duration_minutes": 2284,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andaman-and-nicobar-islands--rangat",
+    "city_id": "city-howrah",
+    "hub_rank": 3,
+    "access_distance_km": 1220.57,
+    "access_duration_minutes": 2289,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andaman-and-nicobar-islands--sri-vijaya-puram",
+    "city_id": "city-bhubaneswar",
+    "hub_rank": 1,
+    "access_distance_km": 1211.26,
+    "access_duration_minutes": 2271,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andaman-and-nicobar-islands--sri-vijaya-puram",
+    "city_id": "city-kolkata",
+    "hub_rank": 2,
+    "access_distance_km": 1298.09,
+    "access_duration_minutes": 2434,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andaman-and-nicobar-islands--sri-vijaya-puram",
+    "city_id": "city-howrah",
+    "hub_rank": 3,
+    "access_distance_km": 1300.43,
+    "access_duration_minutes": 2438,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andhra-pradesh--amaravati",
+    "city_id": "city-vijayawada",
+    "hub_rank": 1,
+    "access_distance_km": 15.88,
+    "access_duration_minutes": 30,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andhra-pradesh--amaravati",
+    "city_id": "city-hyderabad",
+    "hub_rank": 2,
+    "access_distance_km": 231.43,
+    "access_duration_minutes": 434,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andhra-pradesh--amaravati",
+    "city_id": "city-kadapa",
+    "hub_rank": 3,
+    "access_distance_km": 288.78,
+    "access_duration_minutes": 541,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andhra-pradesh--anantapur",
+    "city_id": "city-bellary",
+    "hub_rank": 1,
+    "access_distance_km": 88.67,
+    "access_duration_minutes": 166,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andhra-pradesh--anantapur",
+    "city_id": "city-kadapa",
+    "hub_rank": 2,
+    "access_distance_km": 132.1,
+    "access_duration_minutes": 248,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andhra-pradesh--anantapur",
+    "city_id": "city-bengaluru",
+    "hub_rank": 3,
+    "access_distance_km": 189.13,
+    "access_duration_minutes": 355,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andhra-pradesh--chittoor",
+    "city_id": "city-chennai",
+    "hub_rank": 1,
+    "access_distance_km": 128.13,
+    "access_duration_minutes": 240,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andhra-pradesh--chittoor",
+    "city_id": "city-kadapa",
+    "hub_rank": 2,
+    "access_distance_km": 143.96,
+    "access_duration_minutes": 270,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andhra-pradesh--chittoor",
+    "city_id": "city-bengaluru",
+    "hub_rank": 3,
+    "access_distance_km": 165.48,
+    "access_duration_minutes": 310,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andhra-pradesh--guntur",
+    "city_id": "city-vijayawada",
+    "hub_rank": 1,
+    "access_distance_km": 29.94,
+    "access_duration_minutes": 56,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andhra-pradesh--guntur",
+    "city_id": "city-hyderabad",
+    "hub_rank": 2,
+    "access_distance_km": 241.11,
+    "access_duration_minutes": 452,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andhra-pradesh--guntur",
+    "city_id": "city-kadapa",
+    "hub_rank": 3,
+    "access_distance_km": 268.08,
+    "access_duration_minutes": 503,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andhra-pradesh--kakinada",
+    "city_id": "city-vijayawada",
+    "hub_rank": 1,
+    "access_distance_km": 176.57,
+    "access_duration_minutes": 331,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andhra-pradesh--kakinada",
+    "city_id": "city-hyderabad",
+    "hub_rank": 2,
+    "access_distance_km": 400.43,
+    "access_duration_minutes": 751,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andhra-pradesh--kakinada",
+    "city_id": "city-kadapa",
+    "hub_rank": 3,
+    "access_distance_km": 455.38,
+    "access_duration_minutes": 854,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andhra-pradesh--kurnool",
+    "city_id": "city-bellary",
+    "hub_rank": 1,
+    "access_distance_km": 141.55,
+    "access_duration_minutes": 265,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andhra-pradesh--kurnool",
+    "city_id": "city-kadapa",
+    "hub_rank": 2,
+    "access_distance_km": 170.84,
+    "access_duration_minutes": 320,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andhra-pradesh--kurnool",
+    "city_id": "city-hyderabad",
+    "hub_rank": 3,
+    "access_distance_km": 176.22,
+    "access_duration_minutes": 330,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andhra-pradesh--machilipatnam",
+    "city_id": "city-vijayawada",
+    "hub_rank": 1,
+    "access_distance_km": 67.48,
+    "access_duration_minutes": 127,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andhra-pradesh--machilipatnam",
+    "city_id": "city-kadapa",
+    "hub_rank": 2,
+    "access_distance_km": 311.85,
+    "access_duration_minutes": 585,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andhra-pradesh--machilipatnam",
+    "city_id": "city-hyderabad",
+    "hub_rank": 3,
+    "access_distance_km": 312.69,
+    "access_duration_minutes": 586,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andhra-pradesh--nellore",
+    "city_id": "city-kadapa",
+    "hub_rank": 1,
+    "access_distance_km": 125.03,
+    "access_duration_minutes": 234,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andhra-pradesh--nellore",
+    "city_id": "city-chennai",
+    "hub_rank": 2,
+    "access_distance_km": 153.41,
+    "access_duration_minutes": 288,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andhra-pradesh--nellore",
+    "city_id": "city-vijayawada",
+    "hub_rank": 3,
+    "access_distance_km": 242.15,
+    "access_duration_minutes": 454,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andhra-pradesh--rajahmundry",
+    "city_id": "city-vijayawada",
+    "hub_rank": 1,
+    "access_distance_km": 134.63,
+    "access_duration_minutes": 252,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andhra-pradesh--rajahmundry",
+    "city_id": "city-hyderabad",
+    "hub_rank": 2,
+    "access_distance_km": 354.0,
+    "access_duration_minutes": 664,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andhra-pradesh--rajahmundry",
+    "city_id": "city-kadapa",
+    "hub_rank": 3,
+    "access_distance_km": 422.77,
+    "access_duration_minutes": 793,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andhra-pradesh--srikakulam",
+    "city_id": "city-bhubaneswar",
+    "hub_rank": 1,
+    "access_distance_km": 300.03,
+    "access_duration_minutes": 563,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andhra-pradesh--srikakulam",
+    "city_id": "city-vijayawada",
+    "hub_rank": 2,
+    "access_distance_km": 400.83,
+    "access_duration_minutes": 752,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andhra-pradesh--srikakulam",
+    "city_id": "city-raipur",
+    "hub_rank": 3,
+    "access_distance_km": 403.67,
+    "access_duration_minutes": 757,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andhra-pradesh--tirupati",
+    "city_id": "city-chennai",
+    "hub_rank": 1,
+    "access_distance_km": 111.97,
+    "access_duration_minutes": 210,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andhra-pradesh--tirupati",
+    "city_id": "city-kadapa",
+    "hub_rank": 2,
+    "access_distance_km": 113.34,
+    "access_duration_minutes": 213,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andhra-pradesh--tirupati",
+    "city_id": "city-bengaluru",
+    "hub_rank": 3,
+    "access_distance_km": 211.47,
+    "access_duration_minutes": 397,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andhra-pradesh--visakhapatnam",
+    "city_id": "city-vijayawada",
+    "hub_rank": 1,
+    "access_distance_km": 313.02,
+    "access_duration_minutes": 587,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andhra-pradesh--visakhapatnam",
+    "city_id": "city-bhubaneswar",
+    "hub_rank": 2,
+    "access_distance_km": 393.13,
+    "access_duration_minutes": 737,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "andhra-pradesh--visakhapatnam",
+    "city_id": "city-raipur",
+    "hub_rank": 3,
+    "access_distance_km": 430.72,
+    "access_duration_minutes": 808,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "arunachal-pradesh--bomdila",
+    "city_id": "city-guwahati",
+    "hub_rank": 1,
+    "access_distance_km": 137.55,
+    "access_duration_minutes": 258,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "arunachal-pradesh--bomdila",
+    "city_id": "city-daporijo",
+    "hub_rank": 2,
+    "access_distance_km": 194.77,
+    "access_duration_minutes": 365,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "arunachal-pradesh--bomdila",
+    "city_id": "city-dimapur",
+    "hub_rank": 3,
+    "access_distance_km": 199.46,
+    "access_duration_minutes": 374,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "arunachal-pradesh--dirang",
+    "city_id": "city-guwahati",
+    "hub_rank": 1,
+    "access_distance_km": 139.18,
+    "access_duration_minutes": 261,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "arunachal-pradesh--dirang",
+    "city_id": "city-daporijo",
+    "hub_rank": 2,
+    "access_distance_km": 206.65,
+    "access_duration_minutes": 387,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "arunachal-pradesh--dirang",
+    "city_id": "city-dimapur",
+    "hub_rank": 3,
+    "access_distance_km": 218.02,
+    "access_duration_minutes": 409,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "arunachal-pradesh--itanagar",
+    "city_id": "city-daporijo",
+    "hub_rank": 1,
+    "access_distance_km": 115.01,
+    "access_duration_minutes": 216,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "arunachal-pradesh--itanagar",
+    "city_id": "city-dimapur",
+    "hub_rank": 2,
+    "access_distance_km": 132.6,
+    "access_duration_minutes": 249,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "arunachal-pradesh--itanagar",
+    "city_id": "city-dibrugarh",
+    "hub_rank": 3,
+    "access_distance_km": 134.86,
+    "access_duration_minutes": 253,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "arunachal-pradesh--mechuka",
+    "city_id": "city-daporijo",
+    "hub_rank": 1,
+    "access_distance_km": 68.79,
+    "access_duration_minutes": 129,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "arunachal-pradesh--mechuka",
+    "city_id": "city-dibrugarh",
+    "hub_rank": 2,
+    "access_distance_km": 146.9,
+    "access_duration_minutes": 275,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "arunachal-pradesh--mechuka",
+    "city_id": "city-dimapur",
+    "hub_rank": 3,
+    "access_distance_km": 301.35,
+    "access_duration_minutes": 565,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "arunachal-pradesh--tawang",
+    "city_id": "city-guwahati",
+    "hub_rank": 1,
+    "access_distance_km": 156.89,
+    "access_duration_minutes": 294,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "arunachal-pradesh--tawang",
+    "city_id": "city-daporijo",
+    "hub_rank": 2,
+    "access_distance_km": 236.14,
+    "access_duration_minutes": 443,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "arunachal-pradesh--tawang",
+    "city_id": "city-dimapur",
+    "hub_rank": 3,
+    "access_distance_km": 263.58,
+    "access_duration_minutes": 494,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "arunachal-pradesh--ziro",
+    "city_id": "city-daporijo",
+    "hub_rank": 1,
+    "access_distance_km": 57.55,
+    "access_duration_minutes": 108,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "arunachal-pradesh--ziro",
+    "city_id": "city-dibrugarh",
+    "hub_rank": 2,
+    "access_distance_km": 107.29,
+    "access_duration_minutes": 201,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "arunachal-pradesh--ziro",
+    "city_id": "city-dimapur",
+    "hub_rank": 3,
+    "access_distance_km": 187.33,
+    "access_duration_minutes": 351,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "assam--chirang",
+    "city_id": "city-cooch-behar",
+    "hub_rank": 1,
+    "access_distance_km": 105.21,
+    "access_duration_minutes": 197,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "assam--chirang",
+    "city_id": "city-guwahati",
+    "hub_rank": 2,
+    "access_distance_km": 131.83,
+    "access_duration_minutes": 247,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "assam--chirang",
+    "city_id": "city-siliguri",
+    "hub_rank": 3,
+    "access_distance_km": 206.31,
+    "access_duration_minutes": 387,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "assam--dibrugarh",
+    "city_id": "city-dibrugarh",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "assam--guwahati",
+    "city_id": "city-guwahati",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "assam--jorhat",
+    "city_id": "city-dimapur",
+    "hub_rank": 1,
+    "access_distance_km": 104.61,
+    "access_duration_minutes": 196,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "assam--jorhat",
+    "city_id": "city-dibrugarh",
+    "hub_rank": 2,
+    "access_distance_km": 106.58,
+    "access_duration_minutes": 200,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "assam--jorhat",
+    "city_id": "city-daporijo",
+    "hub_rank": 3,
+    "access_distance_km": 136.63,
+    "access_duration_minutes": 256,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "assam--majuli",
+    "city_id": "city-dibrugarh",
+    "hub_rank": 1,
+    "access_distance_km": 94.44,
+    "access_duration_minutes": 177,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "assam--majuli",
+    "city_id": "city-daporijo",
+    "hub_rank": 2,
+    "access_distance_km": 115.34,
+    "access_duration_minutes": 216,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "assam--majuli",
+    "city_id": "city-dimapur",
+    "hub_rank": 3,
+    "access_distance_km": 122.88,
+    "access_duration_minutes": 230,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "assam--sivasagar",
+    "city_id": "city-dibrugarh",
+    "hub_rank": 1,
+    "access_distance_km": 61.39,
+    "access_duration_minutes": 115,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "assam--sivasagar",
+    "city_id": "city-daporijo",
+    "hub_rank": 2,
+    "access_distance_km": 118.49,
+    "access_duration_minutes": 222,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "assam--sivasagar",
+    "city_id": "city-dimapur",
+    "hub_rank": 3,
+    "access_distance_km": 148.5,
+    "access_duration_minutes": 278,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "assam--tezpur",
+    "city_id": "city-guwahati",
+    "hub_rank": 1,
+    "access_distance_km": 114.51,
+    "access_duration_minutes": 215,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "assam--tezpur",
+    "city_id": "city-dimapur",
+    "hub_rank": 2,
+    "access_distance_km": 123.26,
+    "access_duration_minutes": 231,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "assam--tezpur",
+    "city_id": "city-daporijo",
+    "hub_rank": 3,
+    "access_distance_km": 207.57,
+    "access_duration_minutes": 389,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "assam--tinsukia",
+    "city_id": "city-dibrugarh",
+    "hub_rank": 1,
+    "access_distance_km": 43.64,
+    "access_duration_minutes": 82,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "assam--tinsukia",
+    "city_id": "city-daporijo",
+    "hub_rank": 2,
+    "access_distance_km": 124.92,
+    "access_duration_minutes": 234,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "assam--tinsukia",
+    "city_id": "city-dimapur",
+    "hub_rank": 3,
+    "access_distance_km": 237.89,
+    "access_duration_minutes": 446,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "assam--umrangso",
+    "city_id": "city-dimapur",
+    "hub_rank": 1,
+    "access_distance_km": 99.55,
+    "access_duration_minutes": 187,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "assam--umrangso",
+    "city_id": "city-guwahati",
+    "hub_rank": 2,
+    "access_distance_km": 126.66,
+    "access_duration_minutes": 237,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "assam--umrangso",
+    "city_id": "city-aizawl",
+    "hub_rank": 3,
+    "access_distance_km": 204.91,
+    "access_duration_minutes": 384,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "bihar--arrah",
+    "city_id": "city-patna",
+    "hub_rank": 1,
+    "access_distance_km": 47.45,
+    "access_duration_minutes": 89,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "bihar--arrah",
+    "city_id": "city-aurangabad",
+    "hub_rank": 2,
+    "access_distance_km": 95.46,
+    "access_duration_minutes": 179,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "bihar--arrah",
+    "city_id": "city-varanasi",
+    "hub_rank": 3,
+    "access_distance_km": 168.71,
+    "access_duration_minutes": 316,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "bihar--gaya",
+    "city_id": "city-gaya",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "bihar--nalanda",
+    "city_id": "city-patna",
+    "hub_rank": 1,
+    "access_distance_km": 59.37,
+    "access_duration_minutes": 111,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "bihar--nalanda",
+    "city_id": "city-aurangabad",
+    "hub_rank": 2,
+    "access_distance_km": 126.56,
+    "access_duration_minutes": 237,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "bihar--nalanda",
+    "city_id": "city-dhanbad",
+    "hub_rank": 3,
+    "access_distance_km": 181.82,
+    "access_duration_minutes": 341,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "bihar--patna",
+    "city_id": "city-patna",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "chandigarh--chandigarh",
+    "city_id": "city-chandigarh",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "chhattisgarh--bilaspur",
+    "city_id": "city-raipur",
+    "hub_rank": 1,
+    "access_distance_km": 108.86,
+    "access_duration_minutes": 204,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "chhattisgarh--bilaspur",
+    "city_id": "city-jabalpur",
+    "hub_rank": 2,
+    "access_distance_km": 241.82,
+    "access_duration_minutes": 453,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "chhattisgarh--bilaspur",
+    "city_id": "city-nagpur",
+    "hub_rank": 3,
+    "access_distance_km": 323.18,
+    "access_duration_minutes": 606,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "chhattisgarh--jagdalpur",
+    "city_id": "city-raipur",
+    "hub_rank": 1,
+    "access_distance_km": 244.22,
+    "access_duration_minutes": 458,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "chhattisgarh--jagdalpur",
+    "city_id": "city-vijayawada",
+    "hub_rank": 2,
+    "access_distance_km": 321.71,
+    "access_duration_minutes": 603,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "chhattisgarh--jagdalpur",
+    "city_id": "city-nagpur",
+    "hub_rank": 3,
+    "access_distance_km": 385.39,
+    "access_duration_minutes": 723,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "chhattisgarh--raipur",
+    "city_id": "city-raipur",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "chhattisgarh--rajnandgaon",
+    "city_id": "city-raipur",
+    "hub_rank": 1,
+    "access_distance_km": 64.11,
+    "access_duration_minutes": 120,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "chhattisgarh--rajnandgaon",
+    "city_id": "city-nagpur",
+    "hub_rank": 2,
+    "access_distance_km": 202.62,
+    "access_duration_minutes": 380,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "chhattisgarh--rajnandgaon",
+    "city_id": "city-jabalpur",
+    "hub_rank": 3,
+    "access_distance_km": 256.21,
+    "access_duration_minutes": 480,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "dadra-and-nagar-haveli-and-daman-and-diu--daman",
+    "city_id": "city-vasai",
+    "hub_rank": 1,
+    "access_distance_km": 105.35,
+    "access_duration_minutes": 198,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "dadra-and-nagar-haveli-and-daman-and-diu--daman",
+    "city_id": "city-nashik",
+    "hub_rank": 2,
+    "access_distance_km": 110.96,
+    "access_duration_minutes": 208,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "dadra-and-nagar-haveli-and-daman-and-diu--daman",
+    "city_id": "city-kalyan",
+    "hub_rank": 3,
+    "access_distance_km": 133.9,
+    "access_duration_minutes": 251,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "dadra-and-nagar-haveli-and-daman-and-diu--diu",
+    "city_id": "city-diu",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "dadra-and-nagar-haveli-and-daman-and-diu--silvassa",
+    "city_id": "city-nashik",
+    "hub_rank": 1,
+    "access_distance_km": 86.94,
+    "access_duration_minutes": 163,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "dadra-and-nagar-haveli-and-daman-and-diu--silvassa",
+    "city_id": "city-vasai",
+    "hub_rank": 2,
+    "access_distance_km": 91.44,
+    "access_duration_minutes": 171,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "dadra-and-nagar-haveli-and-daman-and-diu--silvassa",
+    "city_id": "city-kalyan",
+    "hub_rank": 3,
+    "access_distance_km": 113.91,
+    "access_duration_minutes": 214,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "delhi--delhi",
+    "city_id": "city-delhi",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "goa--goa",
+    "city_id": "city-dabolim-vasco-da-gama",
+    "hub_rank": 1,
+    "access_distance_km": 22.12,
+    "access_duration_minutes": 41,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "goa--goa",
+    "city_id": "city-belagavi-belgaum",
+    "hub_rank": 2,
+    "access_distance_km": 69.76,
+    "access_duration_minutes": 131,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "goa--goa",
+    "city_id": "city-hubli",
+    "hub_rank": 3,
+    "access_distance_km": 103.57,
+    "access_duration_minutes": 194,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "gujarat--ahmedabad",
+    "city_id": "city-ahmedabad",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "gujarat--balasinor",
+    "city_id": "city-vadodara",
+    "hub_rank": 1,
+    "access_distance_km": 74.27,
+    "access_duration_minutes": 139,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "gujarat--balasinor",
+    "city_id": "city-ahmedabad",
+    "hub_rank": 2,
+    "access_distance_km": 77.81,
+    "access_duration_minutes": 146,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "gujarat--balasinor",
+    "city_id": "city-bhavnagar",
+    "hub_rank": 3,
+    "access_distance_km": 180.11,
+    "access_duration_minutes": 338,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "gujarat--bhuj",
+    "city_id": "city-bhuj",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "gujarat--champaner",
+    "city_id": "city-vadodara",
+    "hub_rank": 1,
+    "access_distance_km": 40.35,
+    "access_duration_minutes": 76,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "gujarat--champaner",
+    "city_id": "city-ahmedabad",
+    "hub_rank": 2,
+    "access_distance_km": 114.85,
+    "access_duration_minutes": 215,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "gujarat--champaner",
+    "city_id": "city-bhavnagar",
+    "hub_rank": 3,
+    "access_distance_km": 164.17,
+    "access_duration_minutes": 308,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "gujarat--dwarka",
+    "city_id": "city-bhuj",
+    "hub_rank": 1,
+    "access_distance_km": 133.34,
+    "access_duration_minutes": 250,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "gujarat--dwarka",
+    "city_id": "city-rajkot",
+    "hub_rank": 2,
+    "access_distance_km": 186.51,
+    "access_duration_minutes": 350,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "gujarat--dwarka",
+    "city_id": "city-bhavnagar",
+    "hub_rank": 3,
+    "access_distance_km": 331.41,
+    "access_duration_minutes": 621,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "gujarat--gandhinagar",
+    "city_id": "city-ahmedabad",
+    "hub_rank": 1,
+    "access_distance_km": 23.48,
+    "access_duration_minutes": 44,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "gujarat--gandhinagar",
+    "city_id": "city-vadodara",
+    "hub_rank": 2,
+    "access_distance_km": 117.11,
+    "access_duration_minutes": 220,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "gujarat--gandhinagar",
+    "city_id": "city-bhavnagar",
+    "hub_rank": 3,
+    "access_distance_km": 169.72,
+    "access_duration_minutes": 318,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "gujarat--jamnagar",
+    "city_id": "city-rajkot",
+    "hub_rank": 1,
+    "access_distance_km": 80.45,
+    "access_duration_minutes": 151,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "gujarat--jamnagar",
+    "city_id": "city-bhuj",
+    "hub_rank": 2,
+    "access_distance_km": 116.23,
+    "access_duration_minutes": 218,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "gujarat--jamnagar",
+    "city_id": "city-bhavnagar",
+    "hub_rank": 3,
+    "access_distance_km": 227.28,
+    "access_duration_minutes": 426,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "gujarat--junagadh",
+    "city_id": "city-rajkot",
+    "hub_rank": 1,
+    "access_distance_km": 93.52,
+    "access_duration_minutes": 175,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "gujarat--junagadh",
+    "city_id": "city-bhavnagar",
+    "hub_rank": 2,
+    "access_distance_km": 177.24,
+    "access_duration_minutes": 332,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "gujarat--junagadh",
+    "city_id": "city-bhuj",
+    "hub_rank": 3,
+    "access_distance_km": 208.76,
+    "access_duration_minutes": 391,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "gujarat--kutch",
+    "city_id": "city-bhuj",
+    "hub_rank": 1,
+    "access_distance_km": 102.53,
+    "access_duration_minutes": 192,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "gujarat--kutch",
+    "city_id": "city-rajkot",
+    "hub_rank": 2,
+    "access_distance_km": 184.48,
+    "access_duration_minutes": 346,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "gujarat--kutch",
+    "city_id": "city-ahmedabad",
+    "hub_rank": 3,
+    "access_distance_km": 246.57,
+    "access_duration_minutes": 462,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "gujarat--porbandar",
+    "city_id": "city-rajkot",
+    "hub_rank": 1,
+    "access_distance_km": 141.54,
+    "access_duration_minutes": 265,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "gujarat--porbandar",
+    "city_id": "city-bhuj",
+    "hub_rank": 2,
+    "access_distance_km": 178.87,
+    "access_duration_minutes": 335,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "gujarat--porbandar",
+    "city_id": "city-bhavnagar",
+    "hub_rank": 3,
+    "access_distance_km": 262.62,
+    "access_duration_minutes": 492,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "gujarat--rajkot",
+    "city_id": "city-rajkot",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "gujarat--surat",
+    "city_id": "city-bhavnagar",
+    "hub_rank": 1,
+    "access_distance_km": 95.66,
+    "access_duration_minutes": 179,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "gujarat--surat",
+    "city_id": "city-vadodara",
+    "hub_rank": 2,
+    "access_distance_km": 127.31,
+    "access_duration_minutes": 239,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "gujarat--surat",
+    "city_id": "city-nashik",
+    "hub_rank": 3,
+    "access_distance_km": 167.49,
+    "access_duration_minutes": 314,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "gujarat--vadnagar",
+    "city_id": "city-ahmedabad",
+    "hub_rank": 1,
+    "access_distance_km": 85.07,
+    "access_duration_minutes": 160,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "gujarat--vadnagar",
+    "city_id": "city-vadodara",
+    "hub_rank": 2,
+    "access_distance_km": 174.78,
+    "access_duration_minutes": 328,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "gujarat--vadnagar",
+    "city_id": "city-bhavnagar",
+    "hub_rank": 3,
+    "access_distance_km": 229.75,
+    "access_duration_minutes": 431,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "gujarat--vadodara",
+    "city_id": "city-vadodara",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "haryana--faridabad",
+    "city_id": "city-faridabad",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "haryana--gurugram",
+    "city_id": "city-faridabad",
+    "hub_rank": 1,
+    "access_distance_km": 26.66,
+    "access_duration_minutes": 50,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "haryana--gurugram",
+    "city_id": "city-delhi",
+    "hub_rank": 2,
+    "access_distance_km": 28.55,
+    "access_duration_minutes": 54,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "haryana--gurugram",
+    "city_id": "city-meerut",
+    "hub_rank": 3,
+    "access_distance_km": 86.98,
+    "access_duration_minutes": 163,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "haryana--hisar",
+    "city_id": "city-hisar",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "haryana--kurukshetra",
+    "city_id": "city-chandigarh",
+    "hub_rank": 1,
+    "access_distance_km": 85.42,
+    "access_duration_minutes": 160,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "haryana--kurukshetra",
+    "city_id": "city-dehradun",
+    "hub_rank": 2,
+    "access_distance_km": 119.79,
+    "access_duration_minutes": 225,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "haryana--kurukshetra",
+    "city_id": "city-meerut",
+    "hub_rank": 3,
+    "access_distance_km": 137.81,
+    "access_duration_minutes": 258,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "haryana--panipat",
+    "city_id": "city-delhi",
+    "hub_rank": 1,
+    "access_distance_km": 83.87,
+    "access_duration_minutes": 157,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "haryana--panipat",
+    "city_id": "city-meerut",
+    "hub_rank": 2,
+    "access_distance_km": 84.88,
+    "access_duration_minutes": 159,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "haryana--panipat",
+    "city_id": "city-faridabad",
+    "hub_rank": 3,
+    "access_distance_km": 112.83,
+    "access_duration_minutes": 212,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "himachal-pradesh--chamba",
+    "city_id": "city-dharamshala-kangra",
+    "hub_rank": 1,
+    "access_distance_km": 43.77,
+    "access_duration_minutes": 82,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "himachal-pradesh--chamba",
+    "city_id": "city-amritsar",
+    "hub_rank": 2,
+    "access_distance_km": 156.31,
+    "access_duration_minutes": 293,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "himachal-pradesh--chamba",
+    "city_id": "city-ludhiana",
+    "hub_rank": 3,
+    "access_distance_km": 184.88,
+    "access_duration_minutes": 347,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "himachal-pradesh--dalhousie",
+    "city_id": "city-dharamshala-kangra",
+    "hub_rank": 1,
+    "access_distance_km": 48.9,
+    "access_duration_minutes": 92,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "himachal-pradesh--dalhousie",
+    "city_id": "city-amritsar",
+    "hub_rank": 2,
+    "access_distance_km": 144.51,
+    "access_duration_minutes": 271,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "himachal-pradesh--dalhousie",
+    "city_id": "city-ludhiana",
+    "hub_rank": 3,
+    "access_distance_km": 180.75,
+    "access_duration_minutes": 339,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "himachal-pradesh--dharamshala",
+    "city_id": "city-dharamshala-kangra",
+    "hub_rank": 1,
+    "access_distance_km": 1.96,
+    "access_duration_minutes": 4,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "himachal-pradesh--dharamshala",
+    "city_id": "city-amritsar",
+    "hub_rank": 2,
+    "access_distance_km": 150.97,
+    "access_duration_minutes": 283,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "himachal-pradesh--dharamshala",
+    "city_id": "city-ludhiana",
+    "hub_rank": 3,
+    "access_distance_km": 151.99,
+    "access_duration_minutes": 285,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "himachal-pradesh--kangra",
+    "city_id": "city-dharamshala-kangra",
+    "hub_rank": 1,
+    "access_distance_km": 2.14,
+    "access_duration_minutes": 4,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "himachal-pradesh--kangra",
+    "city_id": "city-amritsar",
+    "hub_rank": 2,
+    "access_distance_km": 150.87,
+    "access_duration_minutes": 283,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "himachal-pradesh--kangra",
+    "city_id": "city-ludhiana",
+    "hub_rank": 3,
+    "access_distance_km": 152.09,
+    "access_duration_minutes": 285,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "himachal-pradesh--kasauli",
+    "city_id": "city-chandigarh",
+    "hub_rank": 1,
+    "access_distance_km": 24.49,
+    "access_duration_minutes": 46,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "himachal-pradesh--kasauli",
+    "city_id": "city-ludhiana",
+    "hub_rank": 2,
+    "access_distance_km": 106.04,
+    "access_duration_minutes": 199,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "himachal-pradesh--kasauli",
+    "city_id": "city-dehradun",
+    "hub_rank": 3,
+    "access_distance_km": 121.05,
+    "access_duration_minutes": 227,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "himachal-pradesh--keylong",
+    "city_id": "city-dharamshala-kangra",
+    "hub_rank": 1,
+    "access_distance_km": 78.82,
+    "access_duration_minutes": 148,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "himachal-pradesh--keylong",
+    "city_id": "city-chandigarh",
+    "hub_rank": 2,
+    "access_distance_km": 205.36,
+    "access_duration_minutes": 385,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "himachal-pradesh--keylong",
+    "city_id": "city-ludhiana",
+    "hub_rank": 3,
+    "access_distance_km": 216.26,
+    "access_duration_minutes": 405,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "himachal-pradesh--kullu",
+    "city_id": "city-dharamshala-kangra",
+    "hub_rank": 1,
+    "access_distance_km": 79.02,
+    "access_duration_minutes": 148,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "himachal-pradesh--kullu",
+    "city_id": "city-chandigarh",
+    "hub_rank": 2,
+    "access_distance_km": 139.09,
+    "access_duration_minutes": 261,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "himachal-pradesh--kullu",
+    "city_id": "city-ludhiana",
+    "hub_rank": 3,
+    "access_distance_km": 167.07,
+    "access_duration_minutes": 313,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "himachal-pradesh--manali",
+    "city_id": "city-dharamshala-kangra",
+    "hub_rank": 1,
+    "access_distance_km": 81.73,
+    "access_duration_minutes": 153,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "himachal-pradesh--manali",
+    "city_id": "city-chandigarh",
+    "hub_rank": 2,
+    "access_distance_km": 171.98,
+    "access_duration_minutes": 322,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "himachal-pradesh--manali",
+    "city_id": "city-ludhiana",
+    "hub_rank": 3,
+    "access_distance_km": 195.43,
+    "access_duration_minutes": 366,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "himachal-pradesh--paonta-sahib",
+    "city_id": "city-dehradun",
+    "hub_rank": 1,
+    "access_distance_km": 41.89,
+    "access_duration_minutes": 79,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "himachal-pradesh--paonta-sahib",
+    "city_id": "city-chandigarh",
+    "hub_rank": 2,
+    "access_distance_km": 85.74,
+    "access_duration_minutes": 161,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "himachal-pradesh--paonta-sahib",
+    "city_id": "city-meerut",
+    "hub_rank": 3,
+    "access_distance_km": 163.67,
+    "access_duration_minutes": 307,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "himachal-pradesh--reckong-peo",
+    "city_id": "city-dehradun",
+    "hub_rank": 1,
+    "access_distance_km": 138.06,
+    "access_duration_minutes": 259,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "himachal-pradesh--reckong-peo",
+    "city_id": "city-chandigarh",
+    "hub_rank": 2,
+    "access_distance_km": 167.13,
+    "access_duration_minutes": 313,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "himachal-pradesh--reckong-peo",
+    "city_id": "city-dharamshala-kangra",
+    "hub_rank": 3,
+    "access_distance_km": 198.02,
+    "access_duration_minutes": 371,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "himachal-pradesh--shimla",
+    "city_id": "city-chandigarh",
+    "hub_rank": 1,
+    "access_distance_km": 54.83,
+    "access_duration_minutes": 103,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "himachal-pradesh--shimla",
+    "city_id": "city-dehradun",
+    "hub_rank": 2,
+    "access_distance_km": 119.73,
+    "access_duration_minutes": 224,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "himachal-pradesh--shimla",
+    "city_id": "city-ludhiana",
+    "hub_rank": 3,
+    "access_distance_km": 128.0,
+    "access_duration_minutes": 240,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "himachal-pradesh--spiti-valley",
+    "city_id": "city-dharamshala-kangra",
+    "hub_rank": 1,
+    "access_distance_km": 162.93,
+    "access_duration_minutes": 305,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "himachal-pradesh--spiti-valley",
+    "city_id": "city-chandigarh",
+    "hub_rank": 2,
+    "access_distance_km": 206.33,
+    "access_duration_minutes": 387,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "himachal-pradesh--spiti-valley",
+    "city_id": "city-dehradun",
+    "hub_rank": 3,
+    "access_distance_km": 214.5,
+    "access_duration_minutes": 402,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "jammu-and-kashmir--anantnag",
+    "city_id": "city-srinagar",
+    "hub_rank": 1,
+    "access_distance_km": 54.19,
+    "access_duration_minutes": 102,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "jammu-and-kashmir--anantnag",
+    "city_id": "city-dharamshala-kangra",
+    "hub_rank": 2,
+    "access_distance_km": 200.42,
+    "access_duration_minutes": 376,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "jammu-and-kashmir--anantnag",
+    "city_id": "city-amritsar",
+    "hub_rank": 3,
+    "access_distance_km": 237.78,
+    "access_duration_minutes": 446,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "jammu-and-kashmir--gulmarg",
+    "city_id": "city-srinagar",
+    "hub_rank": 1,
+    "access_distance_km": 39.11,
+    "access_duration_minutes": 73,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "jammu-and-kashmir--gulmarg",
+    "city_id": "city-amritsar",
+    "hub_rank": 2,
+    "access_distance_km": 273.09,
+    "access_duration_minutes": 512,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "jammu-and-kashmir--gulmarg",
+    "city_id": "city-dharamshala-kangra",
+    "hub_rank": 3,
+    "access_distance_km": 273.55,
+    "access_duration_minutes": 513,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "jammu-and-kashmir--jammu",
+    "city_id": "city-amritsar",
+    "hub_rank": 1,
+    "access_distance_km": 123.05,
+    "access_duration_minutes": 231,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "jammu-and-kashmir--jammu",
+    "city_id": "city-dharamshala-kangra",
+    "hub_rank": 2,
+    "access_distance_km": 150.31,
+    "access_duration_minutes": 282,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "jammu-and-kashmir--jammu",
+    "city_id": "city-srinagar",
+    "hub_rank": 3,
+    "access_distance_km": 151.03,
+    "access_duration_minutes": 283,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "jammu-and-kashmir--pahalgam",
+    "city_id": "city-srinagar",
+    "hub_rank": 1,
+    "access_distance_km": 47.99,
+    "access_duration_minutes": 90,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "jammu-and-kashmir--pahalgam",
+    "city_id": "city-dharamshala-kangra",
+    "hub_rank": 2,
+    "access_distance_km": 224.19,
+    "access_duration_minutes": 420,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "jammu-and-kashmir--pahalgam",
+    "city_id": "city-amritsar",
+    "hub_rank": 3,
+    "access_distance_km": 270.67,
+    "access_duration_minutes": 508,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "jammu-and-kashmir--patnitop",
+    "city_id": "city-srinagar",
+    "hub_rank": 1,
+    "access_distance_km": 121.27,
+    "access_duration_minutes": 227,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "jammu-and-kashmir--patnitop",
+    "city_id": "city-dharamshala-kangra",
+    "hub_rank": 2,
+    "access_distance_km": 136.1,
+    "access_duration_minutes": 255,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "jammu-and-kashmir--patnitop",
+    "city_id": "city-amritsar",
+    "hub_rank": 3,
+    "access_distance_km": 168.1,
+    "access_duration_minutes": 315,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "jammu-and-kashmir--srinagar",
+    "city_id": "city-srinagar",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "jharkhand--deoghar",
+    "city_id": "city-dhanbad",
+    "hub_rank": 1,
+    "access_distance_km": 82.52,
+    "access_duration_minutes": 155,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "jharkhand--deoghar",
+    "city_id": "city-ranchi",
+    "hub_rank": 2,
+    "access_distance_km": 187.53,
+    "access_duration_minutes": 352,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "jharkhand--deoghar",
+    "city_id": "city-patna",
+    "hub_rank": 3,
+    "access_distance_km": 200.4,
+    "access_duration_minutes": 376,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "jharkhand--jamshedpur",
+    "city_id": "city-ranchi",
+    "hub_rank": 1,
+    "access_distance_km": 106.55,
+    "access_duration_minutes": 200,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "jharkhand--jamshedpur",
+    "city_id": "city-dhanbad",
+    "hub_rank": 2,
+    "access_distance_km": 112.93,
+    "access_duration_minutes": 212,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "jharkhand--jamshedpur",
+    "city_id": "city-howrah",
+    "hub_rank": 3,
+    "access_distance_km": 221.16,
+    "access_duration_minutes": 415,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "jharkhand--ranchi",
+    "city_id": "city-ranchi",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "karnataka--badami",
+    "city_id": "city-hubballi-hubli",
+    "hub_rank": 1,
+    "access_distance_km": 84.36,
+    "access_duration_minutes": 158,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "karnataka--badami",
+    "city_id": "city-hubli",
+    "hub_rank": 2,
+    "access_distance_km": 88.4,
+    "access_duration_minutes": 166,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "karnataka--badami",
+    "city_id": "city-belagavi-belgaum",
+    "hub_rank": 3,
+    "access_distance_km": 125.54,
+    "access_duration_minutes": 235,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "karnataka--bagalkote",
+    "city_id": "city-hubballi-hubli",
+    "hub_rank": 1,
+    "access_distance_km": 109.36,
+    "access_duration_minutes": 205,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "karnataka--bagalkote",
+    "city_id": "city-hubli",
+    "hub_rank": 2,
+    "access_distance_km": 109.41,
+    "access_duration_minutes": 205,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "karnataka--bagalkote",
+    "city_id": "city-belagavi-belgaum",
+    "hub_rank": 3,
+    "access_distance_km": 132.85,
+    "access_duration_minutes": 249,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "karnataka--belagavi",
+    "city_id": "city-belagavi-belgaum",
+    "hub_rank": 1,
+    "access_distance_km": 4.48,
+    "access_duration_minutes": 8,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "karnataka--belagavi",
+    "city_id": "city-hubli",
+    "hub_rank": 2,
+    "access_distance_km": 65.52,
+    "access_duration_minutes": 123,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "karnataka--belagavi",
+    "city_id": "city-hubballi-hubli",
+    "hub_rank": 3,
+    "access_distance_km": 87.08,
+    "access_duration_minutes": 163,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "karnataka--bengaluru",
+    "city_id": "city-bengaluru",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "karnataka--bidar",
+    "city_id": "city-hyderabad",
+    "hub_rank": 1,
+    "access_distance_km": 118.72,
+    "access_duration_minutes": 223,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "karnataka--bidar",
+    "city_id": "city-solapur",
+    "hub_rank": 2,
+    "access_distance_km": 257.96,
+    "access_duration_minutes": 484,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "karnataka--bidar",
+    "city_id": "city-akola",
+    "hub_rank": 3,
+    "access_distance_km": 289.27,
+    "access_duration_minutes": 542,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "karnataka--dharwad",
+    "city_id": "city-hubli",
+    "hub_rank": 1,
+    "access_distance_km": 0.25,
+    "access_duration_minutes": 0,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "karnataka--dharwad",
+    "city_id": "city-hubballi-hubli",
+    "hub_rank": 2,
+    "access_distance_km": 21.67,
+    "access_duration_minutes": 41,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "karnataka--dharwad",
+    "city_id": "city-belagavi-belgaum",
+    "hub_rank": 3,
+    "access_distance_km": 68.12,
+    "access_duration_minutes": 128,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "karnataka--gokarna",
+    "city_id": "city-dabolim-vasco-da-gama",
+    "hub_rank": 1,
+    "access_distance_km": 106.15,
+    "access_duration_minutes": 199,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "karnataka--gokarna",
+    "city_id": "city-hubli",
+    "hub_rank": 2,
+    "access_distance_km": 125.4,
+    "access_duration_minutes": 235,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "karnataka--gokarna",
+    "city_id": "city-hubballi-hubli",
+    "hub_rank": 3,
+    "access_distance_km": 127.14,
+    "access_duration_minutes": 238,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "karnataka--hampi",
+    "city_id": "city-bellary",
+    "hub_rank": 1,
+    "access_distance_km": 54.55,
+    "access_duration_minutes": 102,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "karnataka--hampi",
+    "city_id": "city-hubballi-hubli",
+    "hub_rank": 2,
+    "access_distance_km": 138.63,
+    "access_duration_minutes": 260,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "karnataka--hampi",
+    "city_id": "city-hubli",
+    "hub_rank": 3,
+    "access_distance_km": 156.53,
+    "access_duration_minutes": 293,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "karnataka--kalaburagi",
+    "city_id": "city-hyderabad",
+    "hub_rank": 1,
+    "access_distance_km": 174.6,
+    "access_duration_minutes": 327,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "karnataka--kalaburagi",
+    "city_id": "city-solapur",
+    "hub_rank": 2,
+    "access_distance_km": 177.27,
+    "access_duration_minutes": 332,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "karnataka--kalaburagi",
+    "city_id": "city-bellary",
+    "hub_rank": 3,
+    "access_distance_km": 242.66,
+    "access_duration_minutes": 455,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "karnataka--lakkundi",
+    "city_id": "city-hubballi-hubli",
+    "hub_rank": 1,
+    "access_distance_km": 59.08,
+    "access_duration_minutes": 111,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "karnataka--lakkundi",
+    "city_id": "city-hubli",
+    "hub_rank": 2,
+    "access_distance_km": 76.55,
+    "access_duration_minutes": 144,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "karnataka--lakkundi",
+    "city_id": "city-bellary",
+    "hub_rank": 3,
+    "access_distance_km": 133.03,
+    "access_duration_minutes": 249,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "karnataka--mangalore",
+    "city_id": "city-mangaluru-mangalore",
+    "hub_rank": 1,
+    "access_distance_km": 12.19,
+    "access_duration_minutes": 23,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "karnataka--mangalore",
+    "city_id": "city-mysore",
+    "hub_rank": 2,
+    "access_distance_km": 206.22,
+    "access_duration_minutes": 387,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "karnataka--mangalore",
+    "city_id": "city-kozhikode-calicut",
+    "hub_rank": 3,
+    "access_distance_km": 207.38,
+    "access_duration_minutes": 389,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "karnataka--mysuru",
+    "city_id": "city-mysore",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": null,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "karnataka--mysuru",
+    "city_id": "city-bengaluru",
+    "hub_rank": 2,
+    "access_distance_km": 126.18,
+    "access_duration_minutes": 237,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "karnataka--mysuru",
+    "city_id": "city-coimbatore",
+    "hub_rank": 3,
+    "access_distance_km": 149.29,
+    "access_duration_minutes": 280,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "karnataka--vijayapura",
+    "city_id": "city-solapur",
+    "hub_rank": 1,
+    "access_distance_km": 83.76,
+    "access_duration_minutes": 157,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "karnataka--vijayapura",
+    "city_id": "city-belagavi-belgaum",
+    "hub_rank": 2,
+    "access_distance_km": 168.99,
+    "access_duration_minutes": 317,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "karnataka--vijayapura",
+    "city_id": "city-hubli",
+    "hub_rank": 3,
+    "access_distance_km": 169.38,
+    "access_duration_minutes": 318,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "kerala--alappuzha",
+    "city_id": "city-coimbatore",
+    "hub_rank": 1,
+    "access_distance_km": 181.53,
+    "access_duration_minutes": 340,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "kerala--alappuzha",
+    "city_id": "city-madurai",
+    "hub_rank": 2,
+    "access_distance_km": 201.89,
+    "access_duration_minutes": 379,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "kerala--alappuzha",
+    "city_id": "city-kozhikode-calicut",
+    "hub_rank": 3,
+    "access_distance_km": 204.09,
+    "access_duration_minutes": 383,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "kerala--bekal",
+    "city_id": "city-mangaluru-mangalore",
+    "hub_rank": 1,
+    "access_distance_km": 68.65,
+    "access_duration_minutes": 129,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "kerala--bekal",
+    "city_id": "city-kozhikode-calicut",
+    "hub_rank": 2,
+    "access_distance_km": 151.45,
+    "access_duration_minutes": 284,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "kerala--bekal",
+    "city_id": "city-mysore",
+    "hub_rank": 3,
+    "access_distance_km": 176.28,
+    "access_duration_minutes": 331,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "kerala--kasargod",
+    "city_id": "city-mangaluru-mangalore",
+    "hub_rank": 1,
+    "access_distance_km": 56.65,
+    "access_duration_minutes": 106,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "kerala--kasargod",
+    "city_id": "city-kozhikode-calicut",
+    "hub_rank": 2,
+    "access_distance_km": 163.07,
+    "access_duration_minutes": 306,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "kerala--kasargod",
+    "city_id": "city-mysore",
+    "hub_rank": 3,
+    "access_distance_km": 180.78,
+    "access_duration_minutes": 339,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "kerala--kochi",
+    "city_id": "city-kochi",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "kerala--kollam",
+    "city_id": "city-madurai",
+    "hub_rank": 1,
+    "access_distance_km": 208.06,
+    "access_duration_minutes": 390,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "kerala--kollam",
+    "city_id": "city-coimbatore",
+    "hub_rank": 2,
+    "access_distance_km": 247.94,
+    "access_duration_minutes": 465,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "kerala--kollam",
+    "city_id": "city-kozhikode-calicut",
+    "hub_rank": 3,
+    "access_distance_km": 286.47,
+    "access_duration_minutes": 537,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "kerala--kottayam",
+    "city_id": "city-coimbatore",
+    "hub_rank": 1,
+    "access_distance_km": 163.32,
+    "access_duration_minutes": 306,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "kerala--kottayam",
+    "city_id": "city-madurai",
+    "hub_rank": 2,
+    "access_distance_km": 177.77,
+    "access_duration_minutes": 333,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "kerala--kottayam",
+    "city_id": "city-kozhikode-calicut",
+    "hub_rank": 3,
+    "access_distance_km": 201.22,
+    "access_duration_minutes": 377,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "kerala--kovalam",
+    "city_id": "city-chennai",
+    "hub_rank": 1,
+    "access_distance_km": 32.93,
+    "access_duration_minutes": 62,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "kerala--kovalam",
+    "city_id": "city-kadapa",
+    "hub_rank": 2,
+    "access_distance_km": 244.27,
+    "access_duration_minutes": 458,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "kerala--kovalam",
+    "city_id": "city-tiruchirappalli",
+    "hub_rank": 3,
+    "access_distance_km": 276.18,
+    "access_duration_minutes": 518,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "kerala--kumarakom",
+    "city_id": "city-coimbatore",
+    "hub_rank": 1,
+    "access_distance_km": 166.85,
+    "access_duration_minutes": 313,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "kerala--kumarakom",
+    "city_id": "city-madurai",
+    "hub_rank": 2,
+    "access_distance_km": 188.59,
+    "access_duration_minutes": 354,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "kerala--kumarakom",
+    "city_id": "city-kozhikode-calicut",
+    "hub_rank": 3,
+    "access_distance_km": 196.96,
+    "access_duration_minutes": 369,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "kerala--munnar",
+    "city_id": "city-coimbatore",
+    "hub_rank": 1,
+    "access_distance_km": 101.92,
+    "access_duration_minutes": 191,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "kerala--munnar",
+    "city_id": "city-madurai",
+    "hub_rank": 2,
+    "access_distance_km": 117.56,
+    "access_duration_minutes": 220,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "kerala--munnar",
+    "city_id": "city-kozhikode-calicut",
+    "hub_rank": 3,
+    "access_distance_km": 190.3,
+    "access_duration_minutes": 357,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "kerala--palakkad",
+    "city_id": "city-coimbatore",
+    "hub_rank": 1,
+    "access_distance_km": 42.35,
+    "access_duration_minutes": 79,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "kerala--palakkad",
+    "city_id": "city-kozhikode-calicut",
+    "hub_rank": 2,
+    "access_distance_km": 108.92,
+    "access_duration_minutes": 204,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "kerala--palakkad",
+    "city_id": "city-mysore",
+    "hub_rank": 3,
+    "access_distance_km": 170.53,
+    "access_duration_minutes": 320,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "kerala--thiruvananthapuram",
+    "city_id": "city-madurai",
+    "hub_rank": 1,
+    "access_distance_km": 205.87,
+    "access_duration_minutes": 386,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "kerala--thiruvananthapuram",
+    "city_id": "city-coimbatore",
+    "hub_rank": 2,
+    "access_distance_km": 280.32,
+    "access_duration_minutes": 526,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "kerala--thiruvananthapuram",
+    "city_id": "city-tiruchirappalli",
+    "hub_rank": 3,
+    "access_distance_km": 324.06,
+    "access_duration_minutes": 608,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "kerala--thrissur",
+    "city_id": "city-kozhikode-calicut",
+    "hub_rank": 1,
+    "access_distance_km": 94.11,
+    "access_duration_minutes": 176,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "kerala--thrissur",
+    "city_id": "city-coimbatore",
+    "hub_rank": 2,
+    "access_distance_km": 97.17,
+    "access_duration_minutes": 182,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "kerala--thrissur",
+    "city_id": "city-mysore",
+    "hub_rank": 3,
+    "access_distance_km": 204.37,
+    "access_duration_minutes": 383,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "kerala--varkala",
+    "city_id": "city-madurai",
+    "hub_rank": 1,
+    "access_distance_km": 202.7,
+    "access_duration_minutes": 380,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "kerala--varkala",
+    "city_id": "city-coimbatore",
+    "hub_rank": 2,
+    "access_distance_km": 253.61,
+    "access_duration_minutes": 476,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "kerala--varkala",
+    "city_id": "city-kozhikode-calicut",
+    "hub_rank": 3,
+    "access_distance_km": 297.74,
+    "access_duration_minutes": 558,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "ladakh--kargil",
+    "city_id": "city-srinagar",
+    "hub_rank": 1,
+    "access_distance_km": 131.88,
+    "access_duration_minutes": 247,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "ladakh--kargil",
+    "city_id": "city-dharamshala-kangra",
+    "hub_rank": 2,
+    "access_distance_km": 263.22,
+    "access_duration_minutes": 494,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "ladakh--kargil",
+    "city_id": "city-amritsar",
+    "hub_rank": 3,
+    "access_distance_km": 346.19,
+    "access_duration_minutes": 649,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "ladakh--leh",
+    "city_id": "city-dharamshala-kangra",
+    "hub_rank": 1,
+    "access_distance_km": 248.26,
+    "access_duration_minutes": 465,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "ladakh--leh",
+    "city_id": "city-srinagar",
+    "hub_rank": 2,
+    "access_distance_km": 255.88,
+    "access_duration_minutes": 480,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "ladakh--leh",
+    "city_id": "city-amritsar",
+    "hub_rank": 3,
+    "access_distance_km": 378.79,
+    "access_duration_minutes": 710,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "lakshadweep--kavaratti",
+    "city_id": "city-agatti-island-lakshadweep",
+    "hub_rank": 1,
+    "access_distance_km": 58.26,
+    "access_duration_minutes": 109,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "lakshadweep--kavaratti",
+    "city_id": "city-kozhikode-calicut",
+    "hub_rank": 2,
+    "access_distance_km": 350.68,
+    "access_duration_minutes": 658,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "lakshadweep--kavaratti",
+    "city_id": "city-mangaluru-mangalore",
+    "hub_rank": 3,
+    "access_distance_km": 358.62,
+    "access_duration_minutes": 672,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "madhya-pradesh--anuppur",
+    "city_id": "city-jabalpur",
+    "hub_rank": 1,
+    "access_distance_km": 180.71,
+    "access_duration_minutes": 339,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "madhya-pradesh--anuppur",
+    "city_id": "city-raipur",
+    "hub_rank": 2,
+    "access_distance_km": 209.39,
+    "access_duration_minutes": 393,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "madhya-pradesh--anuppur",
+    "city_id": "city-allahabad",
+    "hub_rank": 3,
+    "access_distance_km": 259.53,
+    "access_duration_minutes": 487,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "madhya-pradesh--bhopal",
+    "city_id": "city-bhopal",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "madhya-pradesh--gwalior",
+    "city_id": "city-gwalior",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "madhya-pradesh--indore",
+    "city_id": "city-indore",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "madhya-pradesh--khajuraho",
+    "city_id": "city-khajuraho",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "madhya-pradesh--orchha",
+    "city_id": "city-gwalior",
+    "hub_rank": 1,
+    "access_distance_km": 106.5,
+    "access_duration_minutes": 200,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "madhya-pradesh--orchha",
+    "city_id": "city-khajuraho",
+    "hub_rank": 2,
+    "access_distance_km": 141.6,
+    "access_duration_minutes": 266,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "madhya-pradesh--orchha",
+    "city_id": "city-guna",
+    "hub_rank": 3,
+    "access_distance_km": 154.41,
+    "access_duration_minutes": 290,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "madhya-pradesh--sanchi",
+    "city_id": "city-bhopal",
+    "hub_rank": 1,
+    "access_distance_km": 41.69,
+    "access_duration_minutes": 78,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "madhya-pradesh--sanchi",
+    "city_id": "city-guna",
+    "hub_rank": 2,
+    "access_distance_km": 137.06,
+    "access_duration_minutes": 257,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "madhya-pradesh--sanchi",
+    "city_id": "city-indore",
+    "hub_rank": 3,
+    "access_distance_km": 210.51,
+    "access_duration_minutes": 395,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "madhya-pradesh--ujjain",
+    "city_id": "city-indore",
+    "hub_rank": 1,
+    "access_distance_km": 52.22,
+    "access_duration_minutes": 98,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "madhya-pradesh--ujjain",
+    "city_id": "city-bhopal",
+    "hub_rank": 2,
+    "access_distance_km": 167.7,
+    "access_duration_minutes": 314,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "madhya-pradesh--ujjain",
+    "city_id": "city-guna",
+    "hub_rank": 3,
+    "access_distance_km": 226.06,
+    "access_duration_minutes": 424,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "maharashtra--amravati",
+    "city_id": "city-akola",
+    "hub_rank": 1,
+    "access_distance_km": 77.25,
+    "access_duration_minutes": 145,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "maharashtra--amravati",
+    "city_id": "city-nagpur",
+    "hub_rank": 2,
+    "access_distance_km": 140.23,
+    "access_duration_minutes": 263,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "maharashtra--amravati",
+    "city_id": "city-bhopal",
+    "hub_rank": 3,
+    "access_distance_km": 260.25,
+    "access_duration_minutes": 488,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "maharashtra--chhatrapati-sambhaji-nagar",
+    "city_id": "city-nashik",
+    "hub_rank": 1,
+    "access_distance_km": 158.92,
+    "access_duration_minutes": 298,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "maharashtra--chhatrapati-sambhaji-nagar",
+    "city_id": "city-akola",
+    "hub_rank": 2,
+    "access_distance_km": 206.4,
+    "access_duration_minutes": 387,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "maharashtra--chhatrapati-sambhaji-nagar",
+    "city_id": "city-pune",
+    "hub_rank": 3,
+    "access_distance_km": 213.3,
+    "access_duration_minutes": 400,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "maharashtra--igatpuri",
+    "city_id": "city-nashik",
+    "hub_rank": 1,
+    "access_distance_km": 41.44,
+    "access_duration_minutes": 78,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "maharashtra--igatpuri",
+    "city_id": "city-kalyan",
+    "hub_rank": 2,
+    "access_distance_km": 65.63,
+    "access_duration_minutes": 123,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "maharashtra--igatpuri",
+    "city_id": "city-vasai",
+    "hub_rank": 3,
+    "access_distance_km": 83.66,
+    "access_duration_minutes": 157,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "maharashtra--jalgaon",
+    "city_id": "city-pune",
+    "hub_rank": 1,
+    "access_distance_km": 131.97,
+    "access_duration_minutes": 247,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "maharashtra--jalgaon",
+    "city_id": "city-solapur",
+    "hub_rank": 2,
+    "access_distance_km": 144.69,
+    "access_duration_minutes": 271,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "maharashtra--jalgaon",
+    "city_id": "city-nashik",
+    "hub_rank": 3,
+    "access_distance_km": 202.55,
+    "access_duration_minutes": 380,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "maharashtra--kolhapur",
+    "city_id": "city-belagavi-belgaum",
+    "hub_rank": 1,
+    "access_distance_km": 100.03,
+    "access_duration_minutes": 188,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "maharashtra--kolhapur",
+    "city_id": "city-solapur",
+    "hub_rank": 2,
+    "access_distance_km": 122.19,
+    "access_duration_minutes": 229,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "maharashtra--kolhapur",
+    "city_id": "city-dabolim-vasco-da-gama",
+    "hub_rank": 3,
+    "access_distance_km": 152.21,
+    "access_duration_minutes": 285,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "maharashtra--mahabaleshwar",
+    "city_id": "city-pune",
+    "hub_rank": 1,
+    "access_distance_km": 69.5,
+    "access_duration_minutes": 130,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "maharashtra--mahabaleshwar",
+    "city_id": "city-navi-mumbai",
+    "hub_rank": 2,
+    "access_distance_km": 140.57,
+    "access_duration_minutes": 264,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "maharashtra--mahabaleshwar",
+    "city_id": "city-mumbai",
+    "hub_rank": 3,
+    "access_distance_km": 152.12,
+    "access_duration_minutes": 285,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "maharashtra--mumbai",
+    "city_id": "city-mumbai",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "maharashtra--nagpur",
+    "city_id": "city-nagpur",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "maharashtra--nashik",
+    "city_id": "city-nashik",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "maharashtra--pune",
+    "city_id": "city-pune",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "maharashtra--satara",
+    "city_id": "city-pune",
+    "hub_rank": 1,
+    "access_distance_km": 92.58,
+    "access_duration_minutes": 174,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "maharashtra--satara",
+    "city_id": "city-solapur",
+    "hub_rank": 2,
+    "access_distance_km": 129.01,
+    "access_duration_minutes": 242,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "maharashtra--satara",
+    "city_id": "city-navi-mumbai",
+    "hub_rank": 3,
+    "access_distance_km": 181.07,
+    "access_duration_minutes": 340,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "manipur--imphal",
+    "city_id": "city-dimapur",
+    "hub_rank": 1,
+    "access_distance_km": 123.27,
+    "access_duration_minutes": 231,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "manipur--imphal",
+    "city_id": "city-aizawl",
+    "hub_rank": 2,
+    "access_distance_km": 173.86,
+    "access_duration_minutes": 326,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "manipur--imphal",
+    "city_id": "city-guwahati",
+    "hub_rank": 3,
+    "access_distance_km": 267.63,
+    "access_duration_minutes": 502,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "meghalaya--cherrapunjee",
+    "city_id": "city-guwahati",
+    "hub_rank": 1,
+    "access_distance_km": 100.27,
+    "access_duration_minutes": 188,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "meghalaya--cherrapunjee",
+    "city_id": "city-agartala",
+    "hub_rank": 2,
+    "access_distance_km": 167.29,
+    "access_duration_minutes": 314,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "meghalaya--cherrapunjee",
+    "city_id": "city-aizawl",
+    "hub_rank": 3,
+    "access_distance_km": 199.07,
+    "access_duration_minutes": 373,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "meghalaya--shillong",
+    "city_id": "city-guwahati",
+    "hub_rank": 1,
+    "access_distance_km": 68.62,
+    "access_duration_minutes": 129,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "meghalaya--shillong",
+    "city_id": "city-dimapur",
+    "hub_rank": 2,
+    "access_distance_km": 190.32,
+    "access_duration_minutes": 357,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "meghalaya--shillong",
+    "city_id": "city-agartala",
+    "hub_rank": 3,
+    "access_distance_km": 203.24,
+    "access_duration_minutes": 381,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "mizoram--aizawl",
+    "city_id": "city-aizawl",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "mizoram--champhai",
+    "city_id": "city-aizawl",
+    "hub_rank": 1,
+    "access_distance_km": 68.39,
+    "access_duration_minutes": 128,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "mizoram--champhai",
+    "city_id": "city-agartala",
+    "hub_rank": 2,
+    "access_distance_km": 213.46,
+    "access_duration_minutes": 400,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "mizoram--champhai",
+    "city_id": "city-dimapur",
+    "hub_rank": 3,
+    "access_distance_km": 274.34,
+    "access_duration_minutes": 514,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "mizoram--lunglei",
+    "city_id": "city-aizawl",
+    "hub_rank": 1,
+    "access_distance_km": 91.66,
+    "access_duration_minutes": 172,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "mizoram--lunglei",
+    "city_id": "city-agartala",
+    "hub_rank": 2,
+    "access_distance_km": 183.78,
+    "access_duration_minutes": 345,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "mizoram--lunglei",
+    "city_id": "city-diu",
+    "hub_rank": 3,
+    "access_distance_km": 271.17,
+    "access_duration_minutes": 508,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "mizoram--serchhip",
+    "city_id": "city-aizawl",
+    "hub_rank": 1,
+    "access_distance_km": 49.55,
+    "access_duration_minutes": 93,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "mizoram--serchhip",
+    "city_id": "city-agartala",
+    "hub_rank": 2,
+    "access_distance_km": 170.01,
+    "access_duration_minutes": 319,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "mizoram--serchhip",
+    "city_id": "city-diu",
+    "hub_rank": 3,
+    "access_distance_km": 263.6,
+    "access_duration_minutes": 494,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "nagaland--dimapur",
+    "city_id": "city-dimapur",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "nagaland--kohima",
+    "city_id": "city-dimapur",
+    "hub_rank": 1,
+    "access_distance_km": 46.67,
+    "access_duration_minutes": 88,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "nagaland--kohima",
+    "city_id": "city-dibrugarh",
+    "hub_rank": 2,
+    "access_distance_km": 216.11,
+    "access_duration_minutes": 405,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "nagaland--kohima",
+    "city_id": "city-guwahati",
+    "hub_rank": 3,
+    "access_distance_km": 243.72,
+    "access_duration_minutes": 457,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "nagaland--mokokchung",
+    "city_id": "city-dimapur",
+    "hub_rank": 1,
+    "access_distance_km": 89.48,
+    "access_duration_minutes": 168,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "nagaland--mokokchung",
+    "city_id": "city-dibrugarh",
+    "hub_rank": 2,
+    "access_distance_km": 134.72,
+    "access_duration_minutes": 253,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "nagaland--mokokchung",
+    "city_id": "city-daporijo",
+    "hub_rank": 3,
+    "access_distance_km": 187.91,
+    "access_duration_minutes": 352,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "odisha--bhubaneswar",
+    "city_id": "city-bhubaneswar",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "odisha--cuttack",
+    "city_id": "city-bhubaneswar",
+    "hub_rank": 1,
+    "access_distance_km": 17.77,
+    "access_duration_minutes": 33,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "odisha--cuttack",
+    "city_id": "city-ranchi",
+    "hub_rank": 2,
+    "access_distance_km": 327.71,
+    "access_duration_minutes": 614,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "odisha--cuttack",
+    "city_id": "city-howrah",
+    "hub_rank": 3,
+    "access_distance_km": 347.03,
+    "access_duration_minutes": 651,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "odisha--koraput",
+    "city_id": "city-raipur",
+    "hub_rank": 1,
+    "access_distance_km": 292.56,
+    "access_duration_minutes": 549,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "odisha--koraput",
+    "city_id": "city-vijayawada",
+    "hub_rank": 2,
+    "access_distance_km": 337.69,
+    "access_duration_minutes": 633,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "odisha--koraput",
+    "city_id": "city-bhubaneswar",
+    "hub_rank": 3,
+    "access_distance_km": 366.02,
+    "access_duration_minutes": 686,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "odisha--mayurbhanj",
+    "city_id": "city-howrah",
+    "hub_rank": 1,
+    "access_distance_km": 178.66,
+    "access_duration_minutes": 335,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "odisha--mayurbhanj",
+    "city_id": "city-kolkata",
+    "hub_rank": 2,
+    "access_distance_km": 182.65,
+    "access_duration_minutes": 342,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "odisha--mayurbhanj",
+    "city_id": "city-bhubaneswar",
+    "hub_rank": 3,
+    "access_distance_km": 205.05,
+    "access_duration_minutes": 384,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "odisha--puri",
+    "city_id": "city-bhubaneswar",
+    "hub_rank": 1,
+    "access_distance_km": 54.2,
+    "access_duration_minutes": 102,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "odisha--puri",
+    "city_id": "city-ranchi",
+    "hub_rank": 2,
+    "access_distance_km": 397.76,
+    "access_duration_minutes": 746,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "odisha--puri",
+    "city_id": "city-howrah",
+    "hub_rank": 3,
+    "access_distance_km": 402.18,
+    "access_duration_minutes": 754,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "puducherry--puducherry",
+    "city_id": "city-chennai",
+    "hub_rank": 1,
+    "access_distance_km": 136.95,
+    "access_duration_minutes": 257,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "puducherry--puducherry",
+    "city_id": "city-tiruchirappalli",
+    "hub_rank": 2,
+    "access_distance_km": 174.39,
+    "access_duration_minutes": 327,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "puducherry--puducherry",
+    "city_id": "city-bengaluru",
+    "hub_rank": 3,
+    "access_distance_km": 269.61,
+    "access_duration_minutes": 506,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "punjab--amritsar",
+    "city_id": "city-amritsar",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "punjab--fatehgarh-sahib",
+    "city_id": "city-chandigarh",
+    "hub_rank": 1,
+    "access_distance_km": 66.55,
+    "access_duration_minutes": 125,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "punjab--fatehgarh-sahib",
+    "city_id": "city-ludhiana",
+    "hub_rank": 2,
+    "access_distance_km": 69.16,
+    "access_duration_minutes": 130,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "punjab--fatehgarh-sahib",
+    "city_id": "city-bathinda",
+    "hub_rank": 3,
+    "access_distance_km": 125.29,
+    "access_duration_minutes": 235,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "punjab--jalandhar",
+    "city_id": "city-ludhiana",
+    "hub_rank": 1,
+    "access_distance_km": 53.87,
+    "access_duration_minutes": 101,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "punjab--jalandhar",
+    "city_id": "city-amritsar",
+    "hub_rank": 2,
+    "access_distance_km": 73.54,
+    "access_duration_minutes": 138,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "punjab--jalandhar",
+    "city_id": "city-dharamshala-kangra",
+    "hub_rank": 3,
+    "access_distance_km": 119.81,
+    "access_duration_minutes": 225,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "punjab--kapurthala",
+    "city_id": "city-amritsar",
+    "hub_rank": 1,
+    "access_distance_km": 55.44,
+    "access_duration_minutes": 104,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "punjab--kapurthala",
+    "city_id": "city-ludhiana",
+    "hub_rank": 2,
+    "access_distance_km": 68.51,
+    "access_duration_minutes": 128,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "punjab--kapurthala",
+    "city_id": "city-dharamshala-kangra",
+    "hub_rank": 3,
+    "access_distance_km": 126.94,
+    "access_duration_minutes": 238,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "punjab--ludhiana",
+    "city_id": "city-ludhiana",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "punjab--pathankot",
+    "city_id": "city-dharamshala-kangra",
+    "hub_rank": 1,
+    "access_distance_km": 63.65,
+    "access_duration_minutes": 119,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "punjab--pathankot",
+    "city_id": "city-amritsar",
+    "hub_rank": 2,
+    "access_distance_km": 102.03,
+    "access_duration_minutes": 191,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "punjab--pathankot",
+    "city_id": "city-ludhiana",
+    "hub_rank": 3,
+    "access_distance_km": 152.46,
+    "access_duration_minutes": 286,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "punjab--patiala",
+    "city_id": "city-chandigarh",
+    "hub_rank": 1,
+    "access_distance_km": 24.0,
+    "access_duration_minutes": 45,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "punjab--patiala",
+    "city_id": "city-ludhiana",
+    "hub_rank": 2,
+    "access_distance_km": 84.07,
+    "access_duration_minutes": 158,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "punjab--patiala",
+    "city_id": "city-dehradun",
+    "hub_rank": 3,
+    "access_distance_km": 136.62,
+    "access_duration_minutes": 256,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "punjab--rupnagar",
+    "city_id": "city-chandigarh",
+    "hub_rank": 1,
+    "access_distance_km": 37.16,
+    "access_duration_minutes": 70,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "punjab--rupnagar",
+    "city_id": "city-ludhiana",
+    "hub_rank": 2,
+    "access_distance_km": 63.45,
+    "access_duration_minutes": 119,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "punjab--rupnagar",
+    "city_id": "city-dharamshala-kangra",
+    "hub_rank": 3,
+    "access_distance_km": 137.69,
+    "access_duration_minutes": 258,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "rajasthan--ajmer",
+    "city_id": "city-jaipur",
+    "hub_rank": 1,
+    "access_distance_km": 127.42,
+    "access_duration_minutes": 239,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "rajasthan--ajmer",
+    "city_id": "city-jodhpur",
+    "hub_rank": 2,
+    "access_distance_km": 161.66,
+    "access_duration_minutes": 303,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "rajasthan--ajmer",
+    "city_id": "city-bikaner",
+    "hub_rank": 3,
+    "access_distance_km": 216.3,
+    "access_duration_minutes": 406,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "rajasthan--alwar",
+    "city_id": "city-jaipur",
+    "hub_rank": 1,
+    "access_distance_km": 106.07,
+    "access_duration_minutes": 199,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "rajasthan--alwar",
+    "city_id": "city-faridabad",
+    "hub_rank": 2,
+    "access_distance_km": 116.56,
+    "access_duration_minutes": 219,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "rajasthan--alwar",
+    "city_id": "city-delhi",
+    "hub_rank": 3,
+    "access_distance_km": 136.12,
+    "access_duration_minutes": 255,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "rajasthan--bharatpur",
+    "city_id": "city-agra",
+    "hub_rank": 1,
+    "access_distance_km": 51.62,
+    "access_duration_minutes": 97,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "rajasthan--bharatpur",
+    "city_id": "city-aligarh",
+    "hub_rank": 2,
+    "access_distance_km": 94.72,
+    "access_duration_minutes": 178,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "rajasthan--bharatpur",
+    "city_id": "city-gwalior",
+    "hub_rank": 3,
+    "access_distance_km": 130.68,
+    "access_duration_minutes": 245,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "rajasthan--bikaner",
+    "city_id": "city-bikaner",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "rajasthan--bundi",
+    "city_id": "city-jaipur",
+    "hub_rank": 1,
+    "access_distance_km": 164.79,
+    "access_duration_minutes": 309,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "rajasthan--bundi",
+    "city_id": "city-guna",
+    "hub_rank": 2,
+    "access_distance_km": 190.32,
+    "access_duration_minutes": 357,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "rajasthan--bundi",
+    "city_id": "city-gwalior",
+    "hub_rank": 3,
+    "access_distance_km": 267.88,
+    "access_duration_minutes": 502,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "rajasthan--chittorgarh",
+    "city_id": "city-jodhpur",
+    "hub_rank": 1,
+    "access_distance_km": 224.13,
+    "access_duration_minutes": 420,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "rajasthan--chittorgarh",
+    "city_id": "city-jaipur",
+    "hub_rank": 2,
+    "access_distance_km": 256.14,
+    "access_duration_minutes": 480,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "rajasthan--chittorgarh",
+    "city_id": "city-indore",
+    "hub_rank": 3,
+    "access_distance_km": 271.19,
+    "access_duration_minutes": 508,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "rajasthan--dholpur",
+    "city_id": "city-agra",
+    "hub_rank": 1,
+    "access_distance_km": 54.68,
+    "access_duration_minutes": 103,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "rajasthan--dholpur",
+    "city_id": "city-gwalior",
+    "hub_rank": 2,
+    "access_distance_km": 60.84,
+    "access_duration_minutes": 114,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "rajasthan--dholpur",
+    "city_id": "city-aligarh",
+    "hub_rank": 3,
+    "access_distance_km": 128.75,
+    "access_duration_minutes": 241,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "rajasthan--jaipur",
+    "city_id": "city-jaipur",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "rajasthan--jaisalmer",
+    "city_id": "city-jodhpur",
+    "hub_rank": 1,
+    "access_distance_km": 220.99,
+    "access_duration_minutes": 414,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "rajasthan--jaisalmer",
+    "city_id": "city-bikaner",
+    "hub_rank": 2,
+    "access_distance_km": 266.6,
+    "access_duration_minutes": 500,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "rajasthan--jaisalmer",
+    "city_id": "city-bhuj",
+    "hub_rank": 3,
+    "access_distance_km": 426.6,
+    "access_duration_minutes": 800,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "rajasthan--jodhpur",
+    "city_id": "city-jodhpur",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "rajasthan--mount-abu",
+    "city_id": "city-ahmedabad",
+    "hub_rank": 1,
+    "access_distance_km": 175.13,
+    "access_duration_minutes": 328,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "rajasthan--mount-abu",
+    "city_id": "city-jodhpur",
+    "hub_rank": 2,
+    "access_distance_km": 191.95,
+    "access_duration_minutes": 360,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "rajasthan--mount-abu",
+    "city_id": "city-vadodara",
+    "hub_rank": 3,
+    "access_distance_km": 259.8,
+    "access_duration_minutes": 487,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "rajasthan--udaipur",
+    "city_id": "city-jodhpur",
+    "hub_rank": 1,
+    "access_distance_km": 201.33,
+    "access_duration_minutes": 377,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "rajasthan--udaipur",
+    "city_id": "city-ahmedabad",
+    "hub_rank": 2,
+    "access_distance_km": 206.76,
+    "access_duration_minutes": 388,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "rajasthan--udaipur",
+    "city_id": "city-vadodara",
+    "hub_rank": 3,
+    "access_distance_km": 258.64,
+    "access_duration_minutes": 485,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "sikkim--gangtok",
+    "city_id": "city-siliguri",
+    "hub_rank": 1,
+    "access_distance_km": 70.66,
+    "access_duration_minutes": 132,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "sikkim--gangtok",
+    "city_id": "city-cooch-behar",
+    "hub_rank": 2,
+    "access_distance_km": 138.95,
+    "access_duration_minutes": 261,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "sikkim--gangtok",
+    "city_id": "city-guwahati",
+    "hub_rank": 3,
+    "access_distance_km": 336.04,
+    "access_duration_minutes": 630,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "sikkim--mangan",
+    "city_id": "city-siliguri",
+    "hub_rank": 1,
+    "access_distance_km": 89.29,
+    "access_duration_minutes": 167,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "sikkim--mangan",
+    "city_id": "city-cooch-behar",
+    "hub_rank": 2,
+    "access_distance_km": 160.81,
+    "access_duration_minutes": 302,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "sikkim--mangan",
+    "city_id": "city-guwahati",
+    "hub_rank": 3,
+    "access_distance_km": 352.01,
+    "access_duration_minutes": 660,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "sikkim--pelling",
+    "city_id": "city-siliguri",
+    "hub_rank": 1,
+    "access_distance_km": 67.09,
+    "access_duration_minutes": 126,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "sikkim--pelling",
+    "city_id": "city-cooch-behar",
+    "hub_rank": 2,
+    "access_distance_km": 162.41,
+    "access_duration_minutes": 305,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "sikkim--pelling",
+    "city_id": "city-patna",
+    "hub_rank": 3,
+    "access_distance_km": 360.61,
+    "access_duration_minutes": 676,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "tamil-nadu--chennai",
+    "city_id": "city-chennai",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "tamil-nadu--coimbatore",
+    "city_id": "city-coimbatore",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "tamil-nadu--kanchipuram",
+    "city_id": "city-chennai",
+    "hub_rank": 1,
+    "access_distance_km": 55.3,
+    "access_duration_minutes": 104,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "tamil-nadu--kanchipuram",
+    "city_id": "city-kadapa",
+    "hub_rank": 2,
+    "access_distance_km": 238.27,
+    "access_duration_minutes": 447,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "tamil-nadu--kanchipuram",
+    "city_id": "city-tiruchirappalli",
+    "hub_rank": 3,
+    "access_distance_km": 248.88,
+    "access_duration_minutes": 467,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "tamil-nadu--kanniyakumari",
+    "city_id": "city-madurai",
+    "hub_rank": 1,
+    "access_distance_km": 212.99,
+    "access_duration_minutes": 399,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "tamil-nadu--kanniyakumari",
+    "city_id": "city-tiruchirappalli",
+    "hub_rank": 2,
+    "access_distance_km": 329.37,
+    "access_duration_minutes": 618,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "tamil-nadu--kanniyakumari",
+    "city_id": "city-coimbatore",
+    "hub_rank": 3,
+    "access_distance_km": 329.7,
+    "access_duration_minutes": 618,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "tamil-nadu--madurai",
+    "city_id": "city-madurai",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "tamil-nadu--mamallapuram",
+    "city_id": "city-chennai",
+    "hub_rank": 1,
+    "access_distance_km": 52.19,
+    "access_duration_minutes": 98,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "tamil-nadu--mamallapuram",
+    "city_id": "city-kadapa",
+    "hub_rank": 2,
+    "access_distance_km": 255.31,
+    "access_duration_minutes": 479,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "tamil-nadu--mamallapuram",
+    "city_id": "city-tiruchirappalli",
+    "hub_rank": 3,
+    "access_distance_km": 257.81,
+    "access_duration_minutes": 483,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "tamil-nadu--ooty",
+    "city_id": "city-coimbatore",
+    "hub_rank": 1,
+    "access_distance_km": 54.03,
+    "access_duration_minutes": 101,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "tamil-nadu--ooty",
+    "city_id": "city-mysore",
+    "hub_rank": 2,
+    "access_distance_km": 100.17,
+    "access_duration_minutes": 188,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "tamil-nadu--ooty",
+    "city_id": "city-kozhikode-calicut",
+    "hub_rank": 3,
+    "access_distance_km": 101.77,
+    "access_duration_minutes": 191,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "tamil-nadu--rameswaram",
+    "city_id": "city-vijayawada",
+    "hub_rank": 1,
+    "access_distance_km": 120.83,
+    "access_duration_minutes": 227,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "tamil-nadu--rameswaram",
+    "city_id": "city-hyderabad",
+    "hub_rank": 2,
+    "access_distance_km": 363.86,
+    "access_duration_minutes": 682,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "tamil-nadu--rameswaram",
+    "city_id": "city-kadapa",
+    "hub_rank": 3,
+    "access_distance_km": 379.93,
+    "access_duration_minutes": 712,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "tamil-nadu--thanjavur",
+    "city_id": "city-tiruchirappalli",
+    "hub_rank": 1,
+    "access_distance_km": 61.23,
+    "access_duration_minutes": 115,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "tamil-nadu--thanjavur",
+    "city_id": "city-madurai",
+    "hub_rank": 2,
+    "access_distance_km": 144.62,
+    "access_duration_minutes": 271,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "tamil-nadu--thanjavur",
+    "city_id": "city-coimbatore",
+    "hub_rank": 3,
+    "access_distance_km": 249.71,
+    "access_duration_minutes": 468,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "tamil-nadu--tiruchirappalli",
+    "city_id": "city-tiruchirappalli",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "telangana--bhongir",
+    "city_id": "city-hyderabad",
+    "hub_rank": 1,
+    "access_distance_km": 47.04,
+    "access_duration_minutes": 88,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "telangana--bhongir",
+    "city_id": "city-vijayawada",
+    "hub_rank": 2,
+    "access_distance_km": 214.26,
+    "access_duration_minutes": 402,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "telangana--bhongir",
+    "city_id": "city-bellary",
+    "hub_rank": 3,
+    "access_distance_km": 335.34,
+    "access_duration_minutes": 629,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "telangana--hyderabad",
+    "city_id": "city-hyderabad",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "telangana--karimnagar",
+    "city_id": "city-hyderabad",
+    "hub_rank": 1,
+    "access_distance_km": 138.28,
+    "access_duration_minutes": 259,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "telangana--karimnagar",
+    "city_id": "city-vijayawada",
+    "hub_rank": 2,
+    "access_distance_km": 265.07,
+    "access_duration_minutes": 497,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "telangana--karimnagar",
+    "city_id": "city-nagpur",
+    "hub_rank": 3,
+    "access_distance_km": 301.85,
+    "access_duration_minutes": 566,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "telangana--khammam",
+    "city_id": "city-vijayawada",
+    "hub_rank": 1,
+    "access_distance_km": 68.37,
+    "access_duration_minutes": 128,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "telangana--khammam",
+    "city_id": "city-hyderabad",
+    "hub_rank": 2,
+    "access_distance_km": 271.58,
+    "access_duration_minutes": 509,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "telangana--khammam",
+    "city_id": "city-kadapa",
+    "hub_rank": 3,
+    "access_distance_km": 366.17,
+    "access_duration_minutes": 687,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "telangana--warangal",
+    "city_id": "city-hyderabad",
+    "hub_rank": 1,
+    "access_distance_km": 126.81,
+    "access_duration_minutes": 238,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "telangana--warangal",
+    "city_id": "city-vijayawada",
+    "hub_rank": 2,
+    "access_distance_km": 198.66,
+    "access_duration_minutes": 372,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "telangana--warangal",
+    "city_id": "city-nagpur",
+    "hub_rank": 3,
+    "access_distance_km": 358.5,
+    "access_duration_minutes": 672,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "tripura--agartala",
+    "city_id": "city-agartala",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "tripura--unakoti",
+    "city_id": "city-agartala",
+    "hub_rank": 1,
+    "access_distance_km": 88.67,
+    "access_duration_minutes": 166,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "tripura--unakoti",
+    "city_id": "city-aizawl",
+    "hub_rank": 2,
+    "access_distance_km": 90.23,
+    "access_duration_minutes": 169,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "tripura--unakoti",
+    "city_id": "city-diu",
+    "hub_rank": 3,
+    "access_distance_km": 177.0,
+    "access_duration_minutes": 332,
+    "matching_method": "cross_state_geospatial"
   },
   {
     "destination_id": "uttar-pradesh--agra",
-    "city_id": "city--agra",
+    "city_id": "city-agra",
     "hub_rank": 1,
-    "access_distance_km": 3,
-    "access_duration_minutes": 15,
-    "matching_method": "exact_city"
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "uttar-pradesh--ayodhya",
+    "city_id": "city-gorakhpur",
+    "hub_rank": 1,
+    "access_distance_km": 115.89,
+    "access_duration_minutes": 217,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttar-pradesh--ayodhya",
+    "city_id": "city-lucknow",
+    "hub_rank": 2,
+    "access_distance_km": 124.45,
+    "access_duration_minutes": 233,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttar-pradesh--ayodhya",
+    "city_id": "city-prayagraj-allahabad",
+    "hub_rank": 3,
+    "access_distance_km": 151.52,
+    "access_duration_minutes": 284,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttar-pradesh--bareilly",
+    "city_id": "city-bareilly",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "uttar-pradesh--chitrakoot",
+    "city_id": "city-allahabad",
+    "hub_rank": 1,
+    "access_distance_km": 97.55,
+    "access_duration_minutes": 183,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttar-pradesh--chitrakoot",
+    "city_id": "city-prayagraj",
+    "hub_rank": 2,
+    "access_distance_km": 97.55,
+    "access_duration_minutes": 183,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttar-pradesh--chitrakoot",
+    "city_id": "city-prayagraj-allahabad",
+    "hub_rank": 3,
+    "access_distance_km": 98.26,
+    "access_duration_minutes": 184,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttar-pradesh--jhansi",
+    "city_id": "city-gwalior",
+    "hub_rank": 1,
+    "access_distance_km": 93.57,
+    "access_duration_minutes": 175,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttar-pradesh--jhansi",
+    "city_id": "city-khajuraho",
+    "hub_rank": 2,
+    "access_distance_km": 152.55,
+    "access_duration_minutes": 286,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttar-pradesh--jhansi",
+    "city_id": "city-guna",
+    "hub_rank": 3,
+    "access_distance_km": 154.33,
+    "access_duration_minutes": 289,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttar-pradesh--kanpur",
+    "city_id": "city-kanpur",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "uttar-pradesh--lucknow",
+    "city_id": "city-lucknow",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "uttar-pradesh--mathura",
+    "city_id": "city-agra",
+    "hub_rank": 1,
+    "access_distance_km": 48.76,
+    "access_duration_minutes": 91,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttar-pradesh--mathura",
+    "city_id": "city-aligarh",
+    "hub_rank": 2,
+    "access_distance_km": 61.6,
+    "access_duration_minutes": 115,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttar-pradesh--mathura",
+    "city_id": "city-faridabad",
+    "hub_rank": 3,
+    "access_distance_km": 109.13,
+    "access_duration_minutes": 205,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttar-pradesh--prayagraj",
+    "city_id": "city-prayagraj",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
   },
   {
     "destination_id": "uttar-pradesh--varanasi",
-    "city_id": "city--varanasi",
+    "city_id": "city-varanasi",
     "hub_rank": 1,
-    "access_distance_km": 5,
-    "access_duration_minutes": 20,
-    "matching_method": "exact_city"
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "uttarakhand--almora",
+    "city_id": "city-moradabad",
+    "hub_rank": 1,
+    "access_distance_km": 123.06,
+    "access_duration_minutes": 231,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttarakhand--almora",
+    "city_id": "city-bareilly",
+    "hub_rank": 2,
+    "access_distance_km": 139.13,
+    "access_duration_minutes": 261,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttarakhand--almora",
+    "city_id": "city-dehradun",
+    "hub_rank": 3,
+    "access_distance_km": 176.13,
+    "access_duration_minutes": 330,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttarakhand--badrinath",
+    "city_id": "city-dehradun",
+    "hub_rank": 1,
+    "access_distance_km": 148.22,
+    "access_duration_minutes": 278,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttarakhand--badrinath",
+    "city_id": "city-moradabad",
+    "hub_rank": 2,
+    "access_distance_km": 223.78,
+    "access_duration_minutes": 420,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttarakhand--badrinath",
+    "city_id": "city-chandigarh",
+    "hub_rank": 3,
+    "access_distance_km": 258.78,
+    "access_duration_minutes": 485,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttarakhand--bhimtal",
+    "city_id": "city-moradabad",
+    "hub_rank": 1,
+    "access_distance_km": 97.69,
+    "access_duration_minutes": 183,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttarakhand--bhimtal",
+    "city_id": "city-bareilly",
+    "hub_rank": 2,
+    "access_distance_km": 110.42,
+    "access_duration_minutes": 207,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttarakhand--bhimtal",
+    "city_id": "city-dehradun",
+    "hub_rank": 3,
+    "access_distance_km": 181.96,
+    "access_duration_minutes": 341,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttarakhand--chamoli",
+    "city_id": "city-dehradun",
+    "hub_rank": 1,
+    "access_distance_km": 125.33,
+    "access_duration_minutes": 235,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttarakhand--chamoli",
+    "city_id": "city-moradabad",
+    "hub_rank": 2,
+    "access_distance_km": 184.71,
+    "access_duration_minutes": 346,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttarakhand--chamoli",
+    "city_id": "city-meerut",
+    "hub_rank": 3,
+    "access_distance_km": 224.12,
+    "access_duration_minutes": 420,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttarakhand--dehradun",
+    "city_id": "city-dehradun",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "uttarakhand--gangotri",
+    "city_id": "city-dehradun",
+    "hub_rank": 1,
+    "access_distance_km": 115.52,
+    "access_duration_minutes": 217,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttarakhand--gangotri",
+    "city_id": "city-chandigarh",
+    "hub_rank": 2,
+    "access_distance_km": 207.44,
+    "access_duration_minutes": 389,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttarakhand--gangotri",
+    "city_id": "city-moradabad",
+    "hub_rank": 3,
+    "access_distance_km": 240.68,
+    "access_duration_minutes": 451,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttarakhand--haridwar",
+    "city_id": "city-dehradun",
+    "hub_rank": 1,
+    "access_distance_km": 41.25,
+    "access_duration_minutes": 77,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttarakhand--haridwar",
+    "city_id": "city-meerut",
+    "hub_rank": 2,
+    "access_distance_km": 118.41,
+    "access_duration_minutes": 222,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttarakhand--haridwar",
+    "city_id": "city-moradabad",
+    "hub_rank": 3,
+    "access_distance_km": 136.27,
+    "access_duration_minutes": 256,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttarakhand--kausani",
+    "city_id": "city-moradabad",
+    "hub_rank": 1,
+    "access_distance_km": 139.81,
+    "access_duration_minutes": 262,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttarakhand--kausani",
+    "city_id": "city-dehradun",
+    "hub_rank": 2,
+    "access_distance_km": 160.42,
+    "access_duration_minutes": 301,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttarakhand--kausani",
+    "city_id": "city-bareilly",
+    "hub_rank": 3,
+    "access_distance_km": 165.48,
+    "access_duration_minutes": 310,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttarakhand--kedarnath",
+    "city_id": "city-dehradun",
+    "hub_rank": 1,
+    "access_distance_km": 109.6,
+    "access_duration_minutes": 205,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttarakhand--kedarnath",
+    "city_id": "city-moradabad",
+    "hub_rank": 2,
+    "access_distance_km": 212.68,
+    "access_duration_minutes": 399,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttarakhand--kedarnath",
+    "city_id": "city-chandigarh",
+    "hub_rank": 3,
+    "access_distance_km": 217.75,
+    "access_duration_minutes": 408,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttarakhand--lansdowne",
+    "city_id": "city-dehradun",
+    "hub_rank": 1,
+    "access_distance_km": 82.88,
+    "access_duration_minutes": 155,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttarakhand--lansdowne",
+    "city_id": "city-moradabad",
+    "hub_rank": 2,
+    "access_distance_km": 109.82,
+    "access_duration_minutes": 206,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttarakhand--lansdowne",
+    "city_id": "city-meerut",
+    "hub_rank": 3,
+    "access_distance_km": 133.52,
+    "access_duration_minutes": 250,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttarakhand--mussoorie",
+    "city_id": "city-dehradun",
+    "hub_rank": 1,
+    "access_distance_km": 16.06,
+    "access_duration_minutes": 30,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttarakhand--mussoorie",
+    "city_id": "city-chandigarh",
+    "hub_rank": 2,
+    "access_distance_km": 127.32,
+    "access_duration_minutes": 239,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttarakhand--mussoorie",
+    "city_id": "city-meerut",
+    "hub_rank": 3,
+    "access_distance_km": 168.01,
+    "access_duration_minutes": 315,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttarakhand--nainital",
+    "city_id": "city-moradabad",
+    "hub_rank": 1,
+    "access_distance_km": 92.04,
+    "access_duration_minutes": 173,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttarakhand--nainital",
+    "city_id": "city-bareilly",
+    "hub_rank": 2,
+    "access_distance_km": 113.03,
+    "access_duration_minutes": 212,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttarakhand--nainital",
+    "city_id": "city-dehradun",
+    "hub_rank": 3,
+    "access_distance_km": 172.22,
+    "access_duration_minutes": 323,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttarakhand--pithoragarh",
+    "city_id": "city-bareilly",
+    "hub_rank": 1,
+    "access_distance_km": 128.51,
+    "access_duration_minutes": 241,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttarakhand--pithoragarh",
+    "city_id": "city-moradabad",
+    "hub_rank": 2,
+    "access_distance_km": 138.14,
+    "access_duration_minutes": 259,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttarakhand--pithoragarh",
+    "city_id": "city-dehradun",
+    "hub_rank": 3,
+    "access_distance_km": 215.74,
+    "access_duration_minutes": 405,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttarakhand--rishikesh",
+    "city_id": "city-dehradun",
+    "hub_rank": 1,
+    "access_distance_km": 35.58,
+    "access_duration_minutes": 67,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttarakhand--rishikesh",
+    "city_id": "city-meerut",
+    "hub_rank": 2,
+    "access_distance_km": 137.14,
+    "access_duration_minutes": 257,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "uttarakhand--rishikesh",
+    "city_id": "city-moradabad",
+    "hub_rank": 3,
+    "access_distance_km": 145.78,
+    "access_duration_minutes": 273,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "west-bengal--darjeeling",
+    "city_id": "city-siliguri",
+    "hub_rank": 1,
+    "access_distance_km": 38.58,
+    "access_duration_minutes": 72,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "west-bengal--darjeeling",
+    "city_id": "city-cooch-behar",
+    "hub_rank": 2,
+    "access_distance_km": 142.2,
+    "access_duration_minutes": 267,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "west-bengal--darjeeling",
+    "city_id": "city-patna",
+    "hub_rank": 3,
+    "access_distance_km": 349.25,
+    "access_duration_minutes": 655,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "west-bengal--durgapur",
+    "city_id": "city-dhanbad",
+    "hub_rank": 1,
+    "access_distance_km": 94.48,
+    "access_duration_minutes": 177,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "west-bengal--durgapur",
+    "city_id": "city-howrah",
+    "hub_rank": 2,
+    "access_distance_km": 149.53,
+    "access_duration_minutes": 280,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "west-bengal--durgapur",
+    "city_id": "city-kolkata",
+    "hub_rank": 3,
+    "access_distance_km": 153.22,
+    "access_duration_minutes": 287,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "west-bengal--howrah",
+    "city_id": "city-howrah",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "west-bengal--kalimpong",
+    "city_id": "city-siliguri",
+    "hub_rank": 1,
+    "access_distance_km": 38.13,
+    "access_duration_minutes": 71,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "west-bengal--kalimpong",
+    "city_id": "city-cooch-behar",
+    "hub_rank": 2,
+    "access_distance_km": 127.25,
+    "access_duration_minutes": 239,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "west-bengal--kalimpong",
+    "city_id": "city-guwahati",
+    "hub_rank": 3,
+    "access_distance_km": 340.41,
+    "access_duration_minutes": 638,
+    "matching_method": "cross_state_geospatial"
+  },
+  {
+    "destination_id": "west-bengal--kolkata",
+    "city_id": "city-kolkata",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
+  },
+  {
+    "destination_id": "west-bengal--siliguri",
+    "city_id": "city-siliguri",
+    "hub_rank": 1,
+    "access_distance_km": 0.0,
+    "access_duration_minutes": 0,
+    "matching_method": "exact_or_alias"
   }
 ]

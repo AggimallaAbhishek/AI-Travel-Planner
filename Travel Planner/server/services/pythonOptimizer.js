@@ -1,11 +1,13 @@
 import { spawn } from "node:child_process";
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 
-function normalizeText(value) {
-  return String(value ?? "").trim();
+function normalizeText(value, fallback = "") {
+  const normalized = String(value ?? "").trim();
+  return normalized || fallback;
 }
 
 function parsePositiveInteger(value, fallback) {
@@ -30,6 +32,22 @@ function resolveRouteOptimizerPath() {
   const currentFilePath = fileURLToPath(import.meta.url);
   const currentDirPath = path.dirname(currentFilePath);
   return path.resolve(currentDirPath, "../../../route_optimizer.py");
+}
+
+export function getPythonOptimizerReadiness() {
+  const optimizerPath = resolveRouteOptimizerPath();
+  const optimizerPathExists = fs.existsSync(optimizerPath);
+
+  return {
+    status: optimizerPathExists ? "ready" : "warning",
+    pythonBin: resolvePythonBin(),
+    optimizerPath,
+    optimizerPathExists,
+    timeoutMs: parsePositiveInteger(
+      process.env.PYTHON_OPTIMIZER_TIMEOUT_MS,
+      DEFAULT_TIMEOUT_MS
+    ),
+  };
 }
 
 function parseJsonSafely(value) {

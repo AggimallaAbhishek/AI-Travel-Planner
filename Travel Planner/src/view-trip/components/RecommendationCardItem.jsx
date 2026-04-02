@@ -1,7 +1,9 @@
 import React from "react";
 import {
   FaArrowRight,
+  FaCheckCircle,
   FaHotel,
+  FaLocationArrow,
   FaMapMarkerAlt,
   FaStar,
   FaTag,
@@ -81,6 +83,24 @@ function RecommendationCardItem({ item, type = "hotel", index = 0 }) {
             <span>{item.priceLabel}</span>
           </span>
         ) : null}
+
+        <div className="flex flex-wrap gap-2">
+          <span className="inline-flex items-center gap-2 rounded-full bg-[var(--voy-surface2)] px-3 py-1 text-xs text-[var(--voy-text-muted)]">
+            <FaCheckCircle className="text-[var(--voy-gold)]" />
+            {item.verificationSource || "unknown"}
+          </span>
+          {typeof item.distanceFromAnchorKm === "number" ? (
+            <span className="inline-flex items-center gap-2 rounded-full bg-[var(--voy-surface2)] px-3 py-1 text-xs text-[var(--voy-text-muted)]">
+              <FaLocationArrow className="text-[var(--voy-gold)]" />
+              {item.distanceFromAnchorKm.toFixed(1)} km from anchor
+            </span>
+          ) : null}
+          {item.budgetCategory ? (
+            <span className="inline-flex items-center gap-2 rounded-full bg-[var(--voy-surface2)] px-3 py-1 text-xs text-[var(--voy-text-muted)]">
+              budget: {item.budgetCategory}
+            </span>
+          ) : null}
+        </div>
 
         <a
           href={mapsUrl}

@@ -30,3 +30,5 @@ deps*.txt
 *.sw?
 
 .vercel
+__pycache__/
+*.py[cod]

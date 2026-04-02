@@ -154,5 +154,6 @@ frontend_versions/src/view-trip/components/RecommendationGridSection.jsx
 frontend_versions/src/view-trip/components/Restaurants.jsx
 frontend_versions/src/view-trip/components/RouteOptimizationSection.jsx
 frontend_versions/src/view-trip/index.jsx
+frontend_versions/src/view-trip/transportViewModel.js
 frontend_versions/tailwind.config.js
 frontend_versions/vite.config.js

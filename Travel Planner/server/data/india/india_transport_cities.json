@@ -1,52 +1,1077 @@
 [
   {
-    "city_id": "city--delhi",
-    "canonical_name": "Delhi",
-    "state_ut_name": "Delhi",
-    "latitude": 28.6139,
-    "longitude": 77.209,
+    "city_id": "city-agartala",
+    "canonical_name": "Agartala",
+    "state_ut_name": "",
+    "latitude": 23.833333333333,
+    "longitude": 91.266666666667,
     "aliases": [
-      "New Delhi",
-      "Delhi NCR"
+      "Agartala"
     ],
     "has_flight": true,
-    "has_train": true,
-    "has_road": true
+    "has_train": false,
+    "has_road": false
   },
   {
-    "city_id": "city--jaipur",
-    "canonical_name": "Jaipur",
-    "state_ut_name": "Rajasthan",
-    "latitude": 26.9124,
-    "longitude": 75.7873,
+    "city_id": "city-agatti-island-lakshadweep",
+    "canonical_name": "Agatti Island Lakshadweep",
+    "state_ut_name": "",
+    "latitude": 10.8476321,
+    "longitude": 72.1888468,
     "aliases": [
-      "Pink City"
+      "Agatti Island (Lakshadweep)",
+      "Agatti Island Lakshadweep"
     ],
     "has_flight": true,
-    "has_train": true,
-    "has_road": true
+    "has_train": false,
+    "has_road": false
   },
   {
-    "city_id": "city--agra",
+    "city_id": "city-agra",
     "canonical_name": "Agra",
-    "state_ut_name": "Uttar Pradesh",
-    "latitude": 27.1767,
-    "longitude": 78.0081,
-    "aliases": [],
+    "state_ut_name": "",
+    "latitude": 27.18,
+    "longitude": 78.02,
+    "aliases": [
+      "Agra"
+    ],
+    "has_flight": true,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-ahmedabad",
+    "canonical_name": "Ahmedabad",
+    "state_ut_name": "",
+    "latitude": 23.021944444444443,
+    "longitude": 72.57972222222222,
+    "aliases": [
+      "Ahmedabad"
+    ],
+    "has_flight": true,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-aizawl",
+    "canonical_name": "Aizawl",
+    "state_ut_name": "",
+    "latitude": 23.733333333333,
+    "longitude": 92.716666666667,
+    "aliases": [
+      "Aizawl"
+    ],
+    "has_flight": true,
+    "has_train": false,
+    "has_road": false
+  },
+  {
+    "city_id": "city-akola",
+    "canonical_name": "Akola",
+    "state_ut_name": "",
+    "latitude": 20.5,
+    "longitude": 77.166666666667,
+    "aliases": [
+      "Akola"
+    ],
+    "has_flight": true,
+    "has_train": false,
+    "has_road": false
+  },
+  {
+    "city_id": "city-aligarh",
+    "canonical_name": "Aligarh",
+    "state_ut_name": "",
+    "latitude": 27.833333333333,
+    "longitude": 78.166666666667,
+    "aliases": [
+      "Aligarh"
+    ],
     "has_flight": false,
     "has_train": true,
     "has_road": true
   },
   {
-    "city_id": "city--varanasi",
-    "canonical_name": "Varanasi",
-    "state_ut_name": "Uttar Pradesh",
-    "latitude": 25.3176,
-    "longitude": 82.9739,
+    "city_id": "city-allahabad",
+    "canonical_name": "Allahabad",
+    "state_ut_name": "",
+    "latitude": 25.45,
+    "longitude": 81.85,
     "aliases": [
-      "Banaras"
+      "Allahabad"
+    ],
+    "has_flight": true,
+    "has_train": false,
+    "has_road": true
+  },
+  {
+    "city_id": "city-amritsar",
+    "canonical_name": "Amritsar",
+    "state_ut_name": "",
+    "latitude": 31.626917,
+    "longitude": 74.87704,
+    "aliases": [
+      "Amritsar"
+    ],
+    "has_flight": true,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-aurangabad",
+    "canonical_name": "Aurangabad",
+    "state_ut_name": "",
+    "latitude": 24.75,
+    "longitude": 84.3667,
+    "aliases": [
+      "Aurangabad"
+    ],
+    "has_flight": true,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-bareilly",
+    "canonical_name": "Bareilly",
+    "state_ut_name": "",
+    "latitude": 28.364,
+    "longitude": 79.415,
+    "aliases": [
+      "Bareilly"
     ],
     "has_flight": false,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-bathinda",
+    "canonical_name": "Bathinda",
+    "state_ut_name": "",
+    "latitude": 30.21,
+    "longitude": 74.94,
+    "aliases": [
+      "Bathinda"
+    ],
+    "has_flight": true,
+    "has_train": false,
+    "has_road": false
+  },
+  {
+    "city_id": "city-belagavi-belgaum",
+    "canonical_name": "Belagavi Belgaum",
+    "state_ut_name": "",
+    "latitude": 15.8402819,
+    "longitude": 74.5093749,
+    "aliases": [
+      "Belagavi (Belgaum)",
+      "Belagavi Belgaum"
+    ],
+    "has_flight": true,
+    "has_train": false,
+    "has_road": false
+  },
+  {
+    "city_id": "city-bellary",
+    "canonical_name": "Bellary",
+    "state_ut_name": "",
+    "latitude": 15.15,
+    "longitude": 76.9333,
+    "aliases": [
+      "Bellary"
+    ],
+    "has_flight": true,
+    "has_train": false,
+    "has_road": false
+  },
+  {
+    "city_id": "city-bengaluru",
+    "canonical_name": "Bengaluru",
+    "state_ut_name": "",
+    "latitude": 12.9791198,
+    "longitude": 77.5912997,
+    "aliases": [
+      "Bangalore",
+      "Bengaluru"
+    ],
+    "has_flight": true,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-bhavnagar",
+    "canonical_name": "Bhavnagar",
+    "state_ut_name": "",
+    "latitude": 21.770277777778,
+    "longitude": 72.143055555556,
+    "aliases": [
+      "Bhavnagar"
+    ],
+    "has_flight": true,
+    "has_train": false,
+    "has_road": false
+  },
+  {
+    "city_id": "city-bhopal",
+    "canonical_name": "Bhopal",
+    "state_ut_name": "",
+    "latitude": 23.25,
+    "longitude": 77.416666666667,
+    "aliases": [
+      "Bhopal"
+    ],
+    "has_flight": true,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-bhubaneswar",
+    "canonical_name": "Bhubaneswar",
+    "state_ut_name": "",
+    "latitude": 20.295,
+    "longitude": 85.825,
+    "aliases": [
+      "Bhubaneswar"
+    ],
+    "has_flight": true,
+    "has_train": false,
+    "has_road": false
+  },
+  {
+    "city_id": "city-bhuj",
+    "canonical_name": "Bhuj",
+    "state_ut_name": "",
+    "latitude": 23.25,
+    "longitude": 69.67,
+    "aliases": [
+      "Bhuj"
+    ],
+    "has_flight": true,
+    "has_train": false,
+    "has_road": false
+  },
+  {
+    "city_id": "city-bikaner",
+    "canonical_name": "Bikaner",
+    "state_ut_name": "",
+    "latitude": 28.018055555556,
+    "longitude": 73.316944444444,
+    "aliases": [
+      "Bikaner"
+    ],
+    "has_flight": true,
+    "has_train": false,
+    "has_road": false
+  },
+  {
+    "city_id": "city-chandigarh",
+    "canonical_name": "Chandigarh",
+    "state_ut_name": "",
+    "latitude": 30.736388888889,
+    "longitude": 76.788333333333,
+    "aliases": [
+      "Chandigarh"
+    ],
+    "has_flight": true,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-chennai",
+    "canonical_name": "Chennai",
+    "state_ut_name": "",
+    "latitude": 13.0825,
+    "longitude": 80.275,
+    "aliases": [
+      "Chennai"
+    ],
+    "has_flight": true,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-coimbatore",
+    "canonical_name": "Coimbatore",
+    "state_ut_name": "",
+    "latitude": 11.000833333333333,
+    "longitude": 76.96333333333334,
+    "aliases": [
+      "Coimbatore"
+    ],
+    "has_flight": true,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-cooch-behar",
+    "canonical_name": "Cooch Behar",
+    "state_ut_name": "",
+    "latitude": 26.324188888889,
+    "longitude": 89.451030555556,
+    "aliases": [
+      "Cooch Behar"
+    ],
+    "has_flight": true,
+    "has_train": false,
+    "has_road": false
+  },
+  {
+    "city_id": "city-dabolim-vasco-da-gama",
+    "canonical_name": "Dabolim Vasco Da Gama",
+    "state_ut_name": "",
+    "latitude": 15.3849641,
+    "longitude": 73.8377125,
+    "aliases": [
+      "Dabolim (Vasco da Gama)",
+      "Dabolim Vasco Da Gama"
+    ],
+    "has_flight": true,
+    "has_train": false,
+    "has_road": false
+  },
+  {
+    "city_id": "city-daporijo",
+    "canonical_name": "Daporijo",
+    "state_ut_name": "",
+    "latitude": 27.986111111111,
+    "longitude": 94.221666666667,
+    "aliases": [
+      "Daporijo"
+    ],
+    "has_flight": true,
+    "has_train": false,
+    "has_road": false
+  },
+  {
+    "city_id": "city-dehradun",
+    "canonical_name": "Dehradun",
+    "state_ut_name": "",
+    "latitude": 30.318,
+    "longitude": 78.029,
+    "aliases": [
+      "Dehradun"
+    ],
+    "has_flight": true,
+    "has_train": false,
+    "has_road": false
+  },
+  {
+    "city_id": "city-delhi",
+    "canonical_name": "Delhi",
+    "state_ut_name": "",
+    "latitude": 28.666666666667,
+    "longitude": 77.216666666667,
+    "aliases": [
+      "Delhi",
+      "New Delhi"
+    ],
+    "has_flight": true,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-dhanbad",
+    "canonical_name": "Dhanbad",
+    "state_ut_name": "",
+    "latitude": 23.79,
+    "longitude": 86.43,
+    "aliases": [
+      "Dhanbad"
+    ],
+    "has_flight": true,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-dharamshala-kangra",
+    "canonical_name": "Dharamshala Kangra",
+    "state_ut_name": "",
+    "latitude": 32.1978182,
+    "longitude": 76.3211613,
+    "aliases": [
+      "Dharamshala / Kangra",
+      "Dharamshala Kangra"
+    ],
+    "has_flight": true,
+    "has_train": false,
+    "has_road": false
+  },
+  {
+    "city_id": "city-dibrugarh",
+    "canonical_name": "Dibrugarh",
+    "state_ut_name": "",
+    "latitude": 27.474161111111,
+    "longitude": 94.918097222222,
+    "aliases": [
+      "Dibrugarh"
+    ],
+    "has_flight": true,
+    "has_train": false,
+    "has_road": false
+  },
+  {
+    "city_id": "city-dimapur",
+    "canonical_name": "Dimapur",
+    "state_ut_name": "",
+    "latitude": 25.9125,
+    "longitude": 93.741666666667,
+    "aliases": [
+      "Dimapur"
+    ],
+    "has_flight": true,
+    "has_train": false,
+    "has_road": false
+  },
+  {
+    "city_id": "city-diu",
+    "canonical_name": "Diu",
+    "state_ut_name": "",
+    "latitude": 23.878611111111113,
+    "longitude": 90.32138888888889,
+    "aliases": [
+      "Diu"
+    ],
+    "has_flight": true,
+    "has_train": false,
+    "has_road": false
+  },
+  {
+    "city_id": "city-faridabad",
+    "canonical_name": "Faridabad",
+    "state_ut_name": "",
+    "latitude": 28.416666666667,
+    "longitude": 77.3,
+    "aliases": [
+      "Faridabad"
+    ],
+    "has_flight": false,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-gaya",
+    "canonical_name": "Gaya",
+    "state_ut_name": "",
+    "latitude": 11.887777777778,
+    "longitude": 3.4466666666667,
+    "aliases": [
+      "Gaya"
+    ],
+    "has_flight": true,
+    "has_train": false,
+    "has_road": false
+  },
+  {
+    "city_id": "city-gorakhpur",
+    "canonical_name": "Gorakhpur",
+    "state_ut_name": "",
+    "latitude": 26.761111111111113,
+    "longitude": 83.36666666666666,
+    "aliases": [
+      "Gorakhpur"
+    ],
+    "has_flight": true,
+    "has_train": false,
+    "has_road": false
+  },
+  {
+    "city_id": "city-guna",
+    "canonical_name": "Guna",
+    "state_ut_name": "",
+    "latitude": 24.65,
+    "longitude": 77.316666666667,
+    "aliases": [
+      "Guna"
+    ],
+    "has_flight": true,
+    "has_train": false,
+    "has_road": false
+  },
+  {
+    "city_id": "city-guwahati",
+    "canonical_name": "Guwahati",
+    "state_ut_name": "",
+    "latitude": 26.1805876,
+    "longitude": 91.750238,
+    "aliases": [
+      "Guwahati"
+    ],
+    "has_flight": true,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-gwalior",
+    "canonical_name": "Gwalior",
+    "state_ut_name": "",
+    "latitude": 26.2125,
+    "longitude": 78.1775,
+    "aliases": [
+      "Gwalior"
+    ],
+    "has_flight": true,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-hisar",
+    "canonical_name": "Hisar",
+    "state_ut_name": "",
+    "latitude": 38.526388888889,
+    "longitude": 68.538055555556,
+    "aliases": [
+      "Hisar"
+    ],
+    "has_flight": true,
+    "has_train": false,
+    "has_road": false
+  },
+  {
+    "city_id": "city-howrah",
+    "canonical_name": "Howrah",
+    "state_ut_name": "",
+    "latitude": 22.5736296,
+    "longitude": 88.3251045,
+    "aliases": [
+      "Howrah"
+    ],
+    "has_flight": false,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-hubballi-hubli",
+    "canonical_name": "Hubballi Hubli",
+    "state_ut_name": "",
+    "latitude": 15.3427544,
+    "longitude": 75.1694536,
+    "aliases": [
+      "Hubballi (Hubli)",
+      "Hubballi Hubli"
+    ],
+    "has_flight": true,
+    "has_train": false,
+    "has_road": false
+  },
+  {
+    "city_id": "city-hubli",
+    "canonical_name": "Hubli",
+    "state_ut_name": "",
+    "latitude": 15.458981,
+    "longitude": 75.00779,
+    "aliases": [
+      "Hubli"
+    ],
+    "has_flight": true,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-hyderabad",
+    "canonical_name": "Hyderabad",
+    "state_ut_name": "",
+    "latitude": 17.361666666666668,
+    "longitude": 78.47472222222223,
+    "aliases": [
+      "Hyderabad"
+    ],
+    "has_flight": true,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-indore",
+    "canonical_name": "Indore",
+    "state_ut_name": "",
+    "latitude": 22.718611111111112,
+    "longitude": 75.855,
+    "aliases": [
+      "Indore"
+    ],
+    "has_flight": true,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-jabalpur",
+    "canonical_name": "Jabalpur",
+    "state_ut_name": "",
+    "latitude": 23.166666666667,
+    "longitude": 79.933333333333,
+    "aliases": [
+      "Jabalpur"
+    ],
+    "has_flight": false,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-jaipur",
+    "canonical_name": "Jaipur",
+    "state_ut_name": "",
+    "latitude": 26.915,
+    "longitude": 75.82,
+    "aliases": [
+      "Jaipur"
+    ],
+    "has_flight": true,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-jodhpur",
+    "canonical_name": "Jodhpur",
+    "state_ut_name": "",
+    "latitude": 26.294444444444444,
+    "longitude": 73.02777777777777,
+    "aliases": [
+      "Jodhpur"
+    ],
+    "has_flight": true,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-kadapa",
+    "canonical_name": "Kadapa",
+    "state_ut_name": "",
+    "latitude": 14.48,
+    "longitude": 78.81,
+    "aliases": [
+      "Kadapa"
+    ],
+    "has_flight": true,
+    "has_train": false,
+    "has_road": false
+  },
+  {
+    "city_id": "city-kalyan",
+    "canonical_name": "Kalyan",
+    "state_ut_name": "",
+    "latitude": 19.25,
+    "longitude": 73.15,
+    "aliases": [
+      "Kalyan"
+    ],
+    "has_flight": false,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-kanpur",
+    "canonical_name": "Kanpur",
+    "state_ut_name": "",
+    "latitude": 26.4725,
+    "longitude": 80.331111111111,
+    "aliases": [
+      "Kanpur"
+    ],
+    "has_flight": false,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-khajuraho",
+    "canonical_name": "Khajuraho",
+    "state_ut_name": "",
+    "latitude": 24.85,
+    "longitude": 79.933333333333,
+    "aliases": [
+      "Khajuraho"
+    ],
+    "has_flight": true,
+    "has_train": false,
+    "has_road": false
+  },
+  {
+    "city_id": "city-kochi",
+    "canonical_name": "Kochi",
+    "state_ut_name": "",
+    "latitude": 33.55883333333333,
+    "longitude": 133.53122222222223,
+    "aliases": [
+      "Kochi"
+    ],
+    "has_flight": true,
+    "has_train": false,
+    "has_road": false
+  },
+  {
+    "city_id": "city-kolkata",
+    "canonical_name": "Kolkata",
+    "state_ut_name": "",
+    "latitude": 22.5675,
+    "longitude": 88.37,
+    "aliases": [
+      "Kolkata"
+    ],
+    "has_flight": true,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-kota",
+    "canonical_name": "Kota",
+    "state_ut_name": "",
+    "latitude": -7.817161672774816,
+    "longitude": 112.03000152005602,
+    "aliases": [
+      "Kota"
+    ],
+    "has_flight": false,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-kozhikode-calicut",
+    "canonical_name": "Kozhikode Calicut",
+    "state_ut_name": "",
+    "latitude": 11.2450558,
+    "longitude": 75.7754716,
+    "aliases": [
+      "Kozhikode (Calicut)",
+      "Kozhikode Calicut"
+    ],
+    "has_flight": true,
+    "has_train": false,
+    "has_road": false
+  },
+  {
+    "city_id": "city-lucknow",
+    "canonical_name": "Lucknow",
+    "state_ut_name": "",
+    "latitude": 26.847,
+    "longitude": 80.947,
+    "aliases": [
+      "Lucknow"
+    ],
+    "has_flight": true,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-ludhiana",
+    "canonical_name": "Ludhiana",
+    "state_ut_name": "",
+    "latitude": 30.908333333333,
+    "longitude": 75.848611111111,
+    "aliases": [
+      "Ludhiana"
+    ],
+    "has_flight": false,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-madurai",
+    "canonical_name": "Madurai",
+    "state_ut_name": "",
+    "latitude": 9.9196611111111,
+    "longitude": 78.119394444444,
+    "aliases": [
+      "Madurai"
+    ],
+    "has_flight": true,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-mangaluru-mangalore",
+    "canonical_name": "Mangaluru Mangalore",
+    "state_ut_name": "",
+    "latitude": 12.9798673,
+    "longitude": 74.8246658,
+    "aliases": [
+      "Mangaluru (Mangalore)",
+      "Mangaluru Mangalore"
+    ],
+    "has_flight": true,
+    "has_train": false,
+    "has_road": false
+  },
+  {
+    "city_id": "city-meerut",
+    "canonical_name": "Meerut",
+    "state_ut_name": "",
+    "latitude": 28.98,
+    "longitude": 77.706388888889,
+    "aliases": [
+      "Meerut"
+    ],
+    "has_flight": false,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-moradabad",
+    "canonical_name": "Moradabad",
+    "state_ut_name": "",
+    "latitude": 28.843236111111,
+    "longitude": 78.728741666667,
+    "aliases": [
+      "Moradabad"
+    ],
+    "has_flight": false,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-mumbai",
+    "canonical_name": "Mumbai",
+    "state_ut_name": "",
+    "latitude": 19.075833333333332,
+    "longitude": 72.8775,
+    "aliases": [
+      "Mumbai"
+    ],
+    "has_flight": true,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-mysore",
+    "canonical_name": "Mysore",
+    "state_ut_name": "",
+    "latitude": 12.30861111111111,
+    "longitude": 76.65305555555555,
+    "aliases": [
+      "Mysore"
+    ],
+    "has_flight": true,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-nagpur",
+    "canonical_name": "Nagpur",
+    "state_ut_name": "",
+    "latitude": 21.149722222222223,
+    "longitude": 79.08055555555555,
+    "aliases": [
+      "Nagpur"
+    ],
+    "has_flight": true,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-nashik",
+    "canonical_name": "Nashik",
+    "state_ut_name": "",
+    "latitude": 19.994166666667,
+    "longitude": 73.797222222222,
+    "aliases": [
+      "Nashik"
+    ],
+    "has_flight": true,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-navi-mumbai",
+    "canonical_name": "Navi Mumbai",
+    "state_ut_name": "",
+    "latitude": 19.03,
+    "longitude": 73.01,
+    "aliases": [
+      "Navi Mumbai"
+    ],
+    "has_flight": false,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-patna",
+    "canonical_name": "Patna",
+    "state_ut_name": "",
+    "latitude": 25.61,
+    "longitude": 85.141388888889,
+    "aliases": [
+      "Patna"
+    ],
+    "has_flight": true,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-prayagraj",
+    "canonical_name": "Prayagraj",
+    "state_ut_name": "",
+    "latitude": 25.45,
+    "longitude": 81.85,
+    "aliases": [
+      "Prayagraj"
+    ],
+    "has_flight": false,
+    "has_train": true,
+    "has_road": false
+  },
+  {
+    "city_id": "city-prayagraj-allahabad",
+    "canonical_name": "Prayagraj Allahabad",
+    "state_ut_name": "",
+    "latitude": 25.4741716,
+    "longitude": 81.8495397,
+    "aliases": [
+      "Prayagraj (Allahabad)",
+      "Prayagraj Allahabad"
+    ],
+    "has_flight": true,
+    "has_train": false,
+    "has_road": false
+  },
+  {
+    "city_id": "city-pune",
+    "canonical_name": "Pune",
+    "state_ut_name": "",
+    "latitude": 18.52111111111111,
+    "longitude": 73.85527777777777,
+    "aliases": [
+      "Pune"
+    ],
+    "has_flight": true,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-raipur",
+    "canonical_name": "Raipur",
+    "state_ut_name": "",
+    "latitude": 21.2379468,
+    "longitude": 81.6336833,
+    "aliases": [
+      "Raipur"
+    ],
+    "has_flight": true,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-rajkot",
+    "canonical_name": "Rajkot",
+    "state_ut_name": "",
+    "latitude": 22.3,
+    "longitude": 70.78,
+    "aliases": [
+      "Rajkot"
+    ],
+    "has_flight": true,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-ranchi",
+    "canonical_name": "Ranchi",
+    "state_ut_name": "",
+    "latitude": 23.355555555556,
+    "longitude": 85.334722222222,
+    "aliases": [
+      "Ranchi"
+    ],
+    "has_flight": true,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-siliguri",
+    "canonical_name": "Siliguri",
+    "state_ut_name": "",
+    "latitude": 26.72,
+    "longitude": 88.42,
+    "aliases": [
+      "Siliguri"
+    ],
+    "has_flight": true,
+    "has_train": false,
+    "has_road": false
+  },
+  {
+    "city_id": "city-solapur",
+    "canonical_name": "Solapur",
+    "state_ut_name": "",
+    "latitude": 17.35,
+    "longitude": 75.16,
+    "aliases": [
+      "Solapur"
+    ],
+    "has_flight": false,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-srinagar",
+    "canonical_name": "Srinagar",
+    "state_ut_name": "",
+    "latitude": 34.091111111111,
+    "longitude": 74.806111111111,
+    "aliases": [
+      "Srinagar"
+    ],
+    "has_flight": true,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-tiruchirappalli",
+    "canonical_name": "Tiruchirappalli",
+    "state_ut_name": "",
+    "latitude": 10.826944444444,
+    "longitude": 78.692777777778,
+    "aliases": [
+      "Tiruchirappalli"
+    ],
+    "has_flight": true,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-vadodara",
+    "canonical_name": "Vadodara",
+    "state_ut_name": "",
+    "latitude": 22.3,
+    "longitude": 73.2,
+    "aliases": [
+      "Vadodara"
+    ],
+    "has_flight": true,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-varanasi",
+    "canonical_name": "Varanasi",
+    "state_ut_name": "",
+    "latitude": 25.318888888889,
+    "longitude": 83.012777777778,
+    "aliases": [
+      "Varanasi"
+    ],
+    "has_flight": true,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-vasai",
+    "canonical_name": "Vasai",
+    "state_ut_name": "",
+    "latitude": 19.47,
+    "longitude": 72.8,
+    "aliases": [
+      "Vasai"
+    ],
+    "has_flight": false,
+    "has_train": true,
+    "has_road": true
+  },
+  {
+    "city_id": "city-vijayawada",
+    "canonical_name": "Vijayawada",
+    "state_ut_name": "",
+    "latitude": 16.516666666667,
+    "longitude": 80.616666666667,
+    "aliases": [
+      "Vijayawada"
+    ],
+    "has_flight": true,
     "has_train": true,
     "has_road": true
   }

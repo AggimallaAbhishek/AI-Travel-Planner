@@ -26,7 +26,7 @@ Travel Planner is a Vite + React single-page application backed by an Express AP
 
 ### Backend
 
-- Express 5 API under [`server/`](/Users/aggimallaabhishek/Documents/Travel-Plannar/Travel%20Planner/server)
+- Express 5 API under `server/`
 - Firebase Admin SDK for token verification and Firestore access
 - Data ingestion pipeline for destination POIs (hotels, restaurants, attractions)
 - Python optimizer bridge for shortest path + TSP heuristic + clustering
@@ -167,8 +167,9 @@ FIREBASE_PROJECT_ID=
 FIREBASE_CLIENT_EMAIL=
 FIREBASE_PRIVATE_KEY=
 
-SQL_ENABLE=true
+SQL_ENABLE=false
 SQL_DATABASE_URL=
+SQL_DRIVER_PACKAGE=pg
 SQL_MAX_POOL_SIZE=10
 SQL_IDLE_TIMEOUT_MS=30000
 SQL_CONNECT_TIMEOUT_MS=10000
@@ -182,6 +183,7 @@ PYTHON_OPTIMIZER_TIMEOUT_MS=10000
 INDIA_TRANSPORT_OPTIONS_CACHE_TTL_MS=300000
 INDIA_TRANSPORT_MAX_TRANSFERS=4
 INDIA_TRANSPORT_TOP_K=4
+INDIA_DATA_DIR=
 PLANNING_USE_GEMINI_NARRATIVE=true
 
 UPSTASH_REDIS_REST_URL=
@@ -190,7 +192,7 @@ UPSTASH_REDIS_REST_TOKEN=
 CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 ADMIN_EMAILS=
 TRIP_GENERATION_RATE_LIMIT_WINDOW_MS=60000
-TRIP_GENERATION_RATE_LIMIT_MAX=5
+TRIP_GENERATION_RATE_LIMIT_MAX=6
 PLACES_AUTOCOMPLETE_RATE_LIMIT_WINDOW_MS=60000
 PLACES_AUTOCOMPLETE_RATE_LIMIT_MAX=30
 RECOMMENDATIONS_RATE_LIMIT_WINDOW_MS=60000
@@ -259,10 +261,12 @@ If the script exits with code `2`, it detected an auth gate and could not reach 
 
 Frontend snapshots are maintained in:
 
-[`../frontend_versions/`](/Users/aggimallaabhishek/Documents/Travel-Plannar/frontend_versions)
+`../frontend_versions/`
 
 `npm run dev` automatically starts the polling-based backup sync process.  
 Manual sync is available through `npm run sync:frontend`.
+
+The backup directory is excluded from Vercel deployment upload via root `.vercelignore`.
 
 ## Testing
 
