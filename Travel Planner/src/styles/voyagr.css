@@ -2045,13 +2045,18 @@ html[data-theme="light"] .voy-create-suggestion-list {
 }
 
 .voy-create-suggestion-primary {
+  display: block;
   font-size: 0.84rem;
   font-weight: 600;
+  line-height: 1.25;
 }
 
 .voy-create-suggestion-secondary {
+  display: block;
+  margin-top: 0.08rem;
   font-size: 0.74rem;
   color: var(--voy-text-muted);
+  line-height: 1.25;
 }
 
 .voy-inline-error {

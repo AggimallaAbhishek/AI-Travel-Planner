@@ -440,28 +440,10 @@ function CreateTrip() {
     () => buildSelectionTags({ ...state.form, planType: selectedPlanType }),
     [selectedPlanType, state.form]
   );
-  const visibleDestinationSuggestions = useMemo(() => {
-    const typedValue = destinationInputValue.trim();
-    const hasTypedValue = Boolean(typedValue);
-    const hasExactMatch = destinationSuggestions.some(
-      (suggestion) => suggestion.label.toLowerCase() === typedValue.toLowerCase()
-    );
-
-    if (!hasTypedValue || hasExactMatch) {
-      return destinationSuggestions;
-    }
-
-    return [
-      {
-        label: typedValue,
-        primaryText: typedValue,
-        secondaryText: "Use typed destination",
-        placeId: "",
-        source: "manual",
-      },
-      ...destinationSuggestions,
-    ];
-  }, [destinationInputValue, destinationSuggestions]);
+  const visibleDestinationSuggestions = useMemo(
+    () => destinationSuggestions,
+    [destinationSuggestions]
+  );
   const destinationListId = "voy-create-destination-listbox";
 
   useEffect(() => {
