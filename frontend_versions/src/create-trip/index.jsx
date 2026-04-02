@@ -440,28 +440,10 @@ function CreateTrip() {
     () => buildSelectionTags({ ...state.form, planType: selectedPlanType }),
     [selectedPlanType, state.form]
   );
-  const visibleDestinationSuggestions = useMemo(() => {
-    const typedValue = destinationInputValue.trim();
-    const hasTypedValue = Boolean(typedValue);
-    const hasExactMatch = destinationSuggestions.some(
-      (suggestion) => suggestion.label.toLowerCase() === typedValue.toLowerCase()
-    );
-
-    if (!hasTypedValue || hasExactMatch) {
-      return destinationSuggestions;
-    }
-
-    return [
-      {
-        label: typedValue,
-        primaryText: typedValue,
-        secondaryText: "Use typed destination",
-        placeId: "",
-        source: "manual",
-      },
-      ...destinationSuggestions,
-    ];
-  }, [destinationInputValue, destinationSuggestions]);
+  const visibleDestinationSuggestions = useMemo(
+    () => destinationSuggestions,
+    [destinationSuggestions]
+  );
   const destinationListId = "voy-create-destination-listbox";
 
   useEffect(() => {
@@ -692,6 +674,15 @@ function CreateTrip() {
         status: error?.status ?? null,
         details: error?.details ?? null,
       });
+
+      if (error?.status === 401 && error?.details?.requiresReauth !== false) {
+        console.warn("[create-trip] Session expired. Prompting re-authentication.", {
+          details: error?.details ?? null,
+        });
+        setOpenDialog(true);
+        toast.error("Session expired. Please sign in again to continue.");
+        return;
+      }
 
       const message = error?.message ?? "Unable to generate a trip right now.";
       const hint = error?.details?.hint;

@@ -675,6 +675,15 @@ function CreateTrip() {
         details: error?.details ?? null,
       });
 
+      if (error?.status === 401 && error?.details?.requiresReauth !== false) {
+        console.warn("[create-trip] Session expired. Prompting re-authentication.", {
+          details: error?.details ?? null,
+        });
+        setOpenDialog(true);
+        toast.error("Session expired. Please sign in again to continue.");
+        return;
+      }
+
       const message = error?.message ?? "Unable to generate a trip right now.";
       const hint = error?.details?.hint;
       const debug = error?.details?.debug;

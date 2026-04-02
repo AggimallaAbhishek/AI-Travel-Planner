@@ -6,6 +6,10 @@ import {
   hashPlanningInput,
   rankCandidatePlaces,
 } from "../server/services/planningMath.js";
+import {
+  estimateDurationSeconds,
+  haversineDistanceMeters,
+} from "../server/services/geo.js";
 
 test("computePreferenceScore favors higher-rated nearby attraction points", () => {
   const destination = {
@@ -85,6 +89,16 @@ test("buildWeightMatrixFromEdges uses provided weights and fills missing weights
   assert.equal(matrix[0][1], 750);
   assert.equal(Number.isFinite(matrix[1][2]), true);
   assert.equal(matrix[0][0], 0);
+
+  const fallbackDistance = haversineDistanceMeters(
+    places[1].coordinates,
+    places[2].coordinates
+  );
+  const expectedFallbackDuration = estimateDurationSeconds(
+    fallbackDistance,
+    "drive"
+  );
+  assert.equal(matrix[1][2], expectedFallbackDuration);
 });
 
 test("hashPlanningInput is deterministic for identical payloads", () => {
@@ -105,4 +119,3 @@ test("hashPlanningInput is deterministic for identical payloads", () => {
 
   assert.equal(first, second);
 });
-

@@ -100,6 +100,19 @@ export function resolveTripGenerationFailure(error) {
   }
 
   if (
+    errorCode.toLowerCase().includes("firestore/timeout") ||
+    (includesAny(errorText, ["deadline exceeded", "timed out"]) &&
+      includesAny(errorText, ["firestore", "datastore"]))
+  ) {
+    return {
+      message:
+        "Trip generation completed, but the trip store timed out. Retry once and verify Firestore/network availability.",
+      hint:
+        "If this repeats, check Firestore status, outbound access to Google APIs, and FIRESTORE_OPERATION_TIMEOUT_MS.",
+    };
+  }
+
+  if (
     includesAny(errorText, [
       "missing google_gemini_api_key",
       "api key not valid",

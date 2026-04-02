@@ -1,5 +1,9 @@
 import { createHash } from "node:crypto";
-import { haversineDistanceMeters, hasCoordinates } from "./geo.js";
+import {
+  estimateDurationSeconds,
+  haversineDistanceMeters,
+  hasCoordinates,
+} from "./geo.js";
 
 function normalizeText(value, fallback = "") {
   if (typeof value !== "string") {
@@ -125,7 +129,7 @@ export function buildWeightMatrixFromEdges(places = [], edges = []) {
     matrix[fromIndex][toIndex] = weight;
   }
 
-  // Fill missing values from haversine distance as a deterministic fallback.
+  // Fill missing values using estimated transit duration so matrix units stay consistent.
   for (let fromIndex = 0; fromIndex < size; fromIndex += 1) {
     for (let toIndex = 0; toIndex < size; toIndex += 1) {
       if (fromIndex === toIndex) {
@@ -140,8 +144,12 @@ export function buildWeightMatrixFromEdges(places = [], edges = []) {
         places[fromIndex]?.coordinates,
         places[toIndex]?.coordinates
       );
-      matrix[fromIndex][toIndex] = Number.isFinite(fallbackDistance)
-        ? fallbackDistance
+      const fallbackDurationSeconds = estimateDurationSeconds(
+        fallbackDistance,
+        "drive"
+      );
+      matrix[fromIndex][toIndex] = Number.isFinite(fallbackDurationSeconds)
+        ? fallbackDurationSeconds
         : Number.POSITIVE_INFINITY;
     }
   }
@@ -166,4 +174,3 @@ export function normalizeClusterAssignments(assignments = {}, size = 0, dayCount
 
   return normalized;
 }
-

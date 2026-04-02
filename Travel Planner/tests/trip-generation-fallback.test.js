@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   buildPlanningFallbackResult,
+  resolveFirestoreOperationTimeoutMs,
   resolveTripMemoryFallbackEnabled,
   resolveTripPlanningFallbackEnabled,
 } from "../server/services/trips.js";
@@ -68,5 +69,23 @@ test("resolveTripMemoryFallbackEnabled honors explicit env override", () => {
     delete process.env.TRIP_MEMORY_FALLBACK_ENABLED;
   } else {
     process.env.TRIP_MEMORY_FALLBACK_ENABLED = previousValue;
+  }
+});
+
+test("resolveFirestoreOperationTimeoutMs defaults and supports explicit override", () => {
+  const previousValue = process.env.FIRESTORE_OPERATION_TIMEOUT_MS;
+  delete process.env.FIRESTORE_OPERATION_TIMEOUT_MS;
+  assert.equal(resolveFirestoreOperationTimeoutMs(), 12000);
+
+  process.env.FIRESTORE_OPERATION_TIMEOUT_MS = "25000";
+  assert.equal(resolveFirestoreOperationTimeoutMs(), 25000);
+
+  process.env.FIRESTORE_OPERATION_TIMEOUT_MS = "invalid";
+  assert.equal(resolveFirestoreOperationTimeoutMs(), 12000);
+
+  if (previousValue === undefined) {
+    delete process.env.FIRESTORE_OPERATION_TIMEOUT_MS;
+  } else {
+    process.env.FIRESTORE_OPERATION_TIMEOUT_MS = previousValue;
   }
 });

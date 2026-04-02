@@ -3,23 +3,25 @@ import { Button } from "@/components/ui/button";
 import {
   FaRoute,
   FaMapMarkerAlt,
-  FaRoad,
+  FaRegClock,
   FaClock,
   FaRedoAlt,
   FaStar,
 } from "react-icons/fa";
 
-function formatDistanceMeters(distanceMeters) {
-  const distance = Number.parseFloat(distanceMeters);
-  if (!Number.isFinite(distance) || distance <= 0) {
+function formatDurationSeconds(totalSeconds) {
+  const seconds = Number.parseFloat(totalSeconds);
+  if (!Number.isFinite(seconds) || seconds <= 0) {
     return "N/A";
   }
 
-  if (distance < 1_000) {
-    return `${Math.round(distance)} m`;
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.round((seconds % 3600) / 60);
+  if (hours === 0) {
+    return `${minutes} min`;
   }
 
-  return `${(distance / 1_000).toFixed(1)} km`;
+  return `${hours}h ${minutes}m`;
 }
 
 function formatTimestamp(value) {
@@ -51,7 +53,7 @@ function RouteOptimizationSection({
   };
   const planningMeta = routeData?.planningMeta ?? {};
   const optimization = routeData?.optimization ?? {};
-  const totalDistance = formatDistanceMeters(optimization.totalWeight);
+  const totalTravelTime = formatDurationSeconds(optimization.totalWeight);
   const hasStops = Array.isArray(route.stops) && route.stops.length > 0;
 
   return (
@@ -107,16 +109,16 @@ function RouteOptimizationSection({
               Objective
             </p>
             <p className="mt-2 text-lg font-semibold text-[var(--voy-text)]">
-              {optimization.objective || "minimize_total_distance"}
+              {optimization.objective || "minimize_total_travel_time"}
             </p>
           </div>
           <div className="rounded-2xl border border-[var(--voy-border)] bg-[var(--voy-surface2)] p-4">
             <p className="text-xs uppercase tracking-wider text-[var(--voy-text-faint)]">
-              Total Distance
+              Total Travel Time
             </p>
             <p className="mt-2 flex items-center gap-2 text-lg font-semibold text-[var(--voy-text)]">
-              <FaRoad className="text-[var(--voy-gold)]" />
-              {totalDistance}
+              <FaRegClock className="text-[var(--voy-gold)]" />
+              {totalTravelTime}
             </p>
           </div>
           <div className="rounded-2xl border border-[var(--voy-border)] bg-[var(--voy-surface2)] p-4">
@@ -207,4 +209,3 @@ function RouteOptimizationSection({
 }
 
 export default RouteOptimizationSection;
-

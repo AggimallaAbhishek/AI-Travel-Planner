@@ -98,7 +98,9 @@ export function buildCompleteTransportEdges(
         mode,
         distanceMeters,
         durationSeconds,
-        weight: distanceMeters,
+        // Keep optimization weights unit-consistent with Distance Matrix edges.
+        // `weight` is always interpreted as transit duration in seconds.
+        weight: durationSeconds,
         source,
       });
     }
@@ -106,4 +108,3 @@ export function buildCompleteTransportEdges(
 
   return edges;
 }
-

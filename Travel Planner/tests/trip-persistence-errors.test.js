@@ -19,3 +19,14 @@ test("resolveTripPersistenceFailure preserves unrelated errors", () => {
 
   assert.equal(resolved, error);
 });
+
+test("resolveTripPersistenceFailure maps timeout failures to firestore timeout guidance", () => {
+  const failure = resolveTripPersistenceFailure({
+    code: "firestore/timeout",
+    message: "Firestore trip write timed out after 12000ms.",
+  });
+
+  assert.equal(failure.code, "firestore/timeout");
+  assert.match(failure.message, /Firestore request timed out/i);
+  assert.match(failure.message, /FIRESTORE_OPERATION_TIMEOUT_MS/i);
+});

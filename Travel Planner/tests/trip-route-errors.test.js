@@ -43,6 +43,15 @@ test("resolveTripGenerationFailure maps Gemini network fetch failures", () => {
   assert.match(failure.hint, /outbound network access/i);
 });
 
+test("resolveTripGenerationFailure maps Firestore timeout failures", () => {
+  const error = new Error("Firestore trip write timed out after 12000ms.");
+  error.code = "firestore/timeout";
+  const failure = resolveTripGenerationFailure(error);
+
+  assert.match(failure.message, /trip store timed out/i);
+  assert.match(failure.hint, /FIRESTORE_OPERATION_TIMEOUT_MS/i);
+});
+
 test("resolveTripGenerationFailure keeps generic guidance for unknown errors", () => {
   const failure = resolveTripGenerationFailure(new Error("Unknown failure"));
 

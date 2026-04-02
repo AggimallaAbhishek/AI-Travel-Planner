@@ -12,6 +12,7 @@ import { normalizePlanningRequest } from "./planningRequest.js";
 
 const COLLECTION_NAME = "AITrips";
 const MEMORY_TRIP_STORE = new Map();
+const DEFAULT_FIRESTORE_OPERATION_TIMEOUT_MS = 12_000;
 
 function getTripsCollection() {
   return getAdminDb().collection(COLLECTION_NAME);
@@ -44,6 +45,15 @@ function parseBoolean(value, fallback = false) {
   return normalized === "1" || normalized === "true" || normalized === "yes";
 }
 
+function parsePositiveInteger(value, fallback) {
+  const parsed = Number.parseInt(value ?? "", 10);
+  if (Number.isInteger(parsed) && parsed > 0) {
+    return parsed;
+  }
+
+  return fallback;
+}
+
 export function resolveTripPlanningFallbackEnabled() {
   return parseBoolean(process.env.TRIP_PLANNING_FALLBACK_ENABLED, true);
 }
@@ -53,6 +63,38 @@ export function resolveTripMemoryFallbackEnabled() {
     process.env.TRIP_MEMORY_FALLBACK_ENABLED,
     process.env.NODE_ENV !== "production"
   );
+}
+
+export function resolveFirestoreOperationTimeoutMs() {
+  return parsePositiveInteger(
+    process.env.FIRESTORE_OPERATION_TIMEOUT_MS,
+    DEFAULT_FIRESTORE_OPERATION_TIMEOUT_MS
+  );
+}
+
+function createFirestoreTimeoutError({ operationLabel = "operation", timeoutMs }) {
+  const error = new Error(`Firestore ${operationLabel} timed out after ${timeoutMs}ms.`);
+  error.code = "firestore/timeout";
+  return error;
+}
+
+async function withFirestoreOperationTimeout(operationPromise, operationLabel) {
+  const timeoutMs = resolveFirestoreOperationTimeoutMs();
+  let timeoutId;
+  try {
+    return await Promise.race([
+      operationPromise,
+      new Promise((_, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(createFirestoreTimeoutError({ operationLabel, timeoutMs }));
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
 }
 
 export function buildPlanningFallbackResult({
@@ -188,6 +230,20 @@ export function resolveTripPersistenceFailure(error) {
   const projectId = process.env.FIREBASE_PROJECT_ID ?? "configured Firebase project";
 
   if (
+    errorCode.includes("firestore/timeout") ||
+    errorCode.includes("deadline-exceeded") ||
+    errorText.includes("deadline exceeded") ||
+    errorText.includes("timed out")
+  ) {
+    const wrappedError = new Error(
+      `Firestore request timed out for project ${projectId}. Check Firestore availability, network egress, and FIRESTORE_OPERATION_TIMEOUT_MS.`
+    );
+    wrappedError.code = "firestore/timeout";
+    wrappedError.cause = error;
+    return wrappedError;
+  }
+
+  if (
     errorText.includes("5 not_found") ||
     errorText.includes("not_found") ||
     errorCode === "5" ||
@@ -213,12 +269,15 @@ function isTripOwnedByUser(trip, user) {
 }
 
 async function backfillLegacyOwnership(docRef, user) {
-  await docRef.set(
-    {
-      ownerId: user.uid,
-      ownerEmail: user.email ?? "",
-    },
-    { merge: true }
+  await withFirestoreOperationTimeout(
+    docRef.set(
+      {
+        ownerId: user.uid,
+        ownerEmail: user.email ?? "",
+      },
+      { merge: true }
+    ),
+    "ownership backfill write"
   );
 }
 
@@ -285,7 +344,10 @@ export async function createTripForUser({
       collection: COLLECTION_NAME,
       traceId: traceId || null,
     });
-    await getTripsCollection().doc(trip.id).set(trip);
+    await withFirestoreOperationTimeout(
+      getTripsCollection().doc(trip.id).set(trip),
+      "trip write"
+    );
     console.info("[trips] Generated trip saved", {
       tripId: trip.id,
       traceId: traceId || null,
@@ -322,7 +384,7 @@ export async function getTripForUser({ tripId, user }) {
   const docRef = getTripsCollection().doc(tripId);
   let snapshot;
   try {
-    snapshot = await docRef.get();
+    snapshot = await withFirestoreOperationTimeout(docRef.get(), "trip read");
   } catch (error) {
     if (!resolveTripMemoryFallbackEnabled()) {
       throw resolveTripPersistenceFailure(error);
@@ -381,7 +443,10 @@ export async function listTripsForUser(user) {
 
   let snapshots = [];
   try {
-    snapshots = await Promise.all(queries);
+    snapshots = await withFirestoreOperationTimeout(
+      Promise.all(queries),
+      "trip list query"
+    );
   } catch (error) {
     if (!resolveTripMemoryFallbackEnabled()) {
       throw resolveTripPersistenceFailure(error);
