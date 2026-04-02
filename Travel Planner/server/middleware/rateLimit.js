@@ -87,3 +87,87 @@ export function createTripGenerationRateLimiter(options = {}) {
 }
 
 export const tripGenerationRateLimit = createTripGenerationRateLimiter();
+
+export function createEndpointRateLimiter(options = {}) {
+  const windowMs = parsePositiveInteger(options.windowMs, 60_000);
+  const maxRequests = parsePositiveInteger(options.maxRequests, 30);
+  const now = typeof options.now === "function" ? options.now : () => Date.now();
+  const rateLimitMessage = String(
+    options.message ??
+      "Too many requests. Please wait a moment and try again."
+  );
+  const label = String(options.label ?? "endpoint");
+  const requestLogByIdentity = new Map();
+
+  function clearExpiredBuckets(currentTime) {
+    for (const [identity, timestamps] of requestLogByIdentity.entries()) {
+      const activeTimestamps = timestamps.filter(
+        (timestamp) => currentTime - timestamp < windowMs
+      );
+
+      if (activeTimestamps.length > 0) {
+        requestLogByIdentity.set(identity, activeTimestamps);
+      } else {
+        requestLogByIdentity.delete(identity);
+      }
+    }
+  }
+
+  return function endpointRateLimit(req, res, next) {
+    const currentTime = now();
+    clearExpiredBuckets(currentTime);
+
+    const identity = getIdentity(req);
+    const timestamps = requestLogByIdentity.get(identity) ?? [];
+    const activeTimestamps = timestamps.filter(
+      (timestamp) => currentTime - timestamp < windowMs
+    );
+
+    if (activeTimestamps.length >= maxRequests) {
+      const oldestTimestamp = activeTimestamps[0];
+      const retryAfterSeconds = Math.max(
+        1,
+        Math.ceil((windowMs - (currentTime - oldestTimestamp)) / 1_000)
+      );
+
+      res.setHeader("Retry-After", String(retryAfterSeconds));
+      res.setHeader("X-RateLimit-Limit", String(maxRequests));
+      res.setHeader("X-RateLimit-Remaining", "0");
+
+      console.warn("[rate-limit] Endpoint throttled", {
+        label,
+        identity,
+        maxRequests,
+        windowMs,
+      });
+
+      res.status(429).json({
+        message: rateLimitMessage,
+      });
+      return;
+    }
+
+    const nextTimestamps = [...activeTimestamps, currentTime];
+    requestLogByIdentity.set(identity, nextTimestamps);
+    res.setHeader("X-RateLimit-Limit", String(maxRequests));
+    res.setHeader(
+      "X-RateLimit-Remaining",
+      String(Math.max(0, maxRequests - nextTimestamps.length))
+    );
+    next();
+  };
+}
+
+export const recommendationsRateLimit = createEndpointRateLimiter({
+  label: "destination-recommendations",
+  windowMs: process.env.RECOMMENDATIONS_RATE_LIMIT_WINDOW_MS,
+  maxRequests: process.env.RECOMMENDATIONS_RATE_LIMIT_MAX,
+  message: "Too many recommendation requests. Please try again shortly.",
+});
+
+export const routeOptimizationRateLimit = createEndpointRateLimiter({
+  label: "route-optimization",
+  windowMs: process.env.ROUTE_OPTIMIZATION_RATE_LIMIT_WINDOW_MS,
+  maxRequests: process.env.ROUTE_OPTIMIZATION_RATE_LIMIT_MAX,
+  message: "Too many route optimization requests. Please try again shortly.",
+});

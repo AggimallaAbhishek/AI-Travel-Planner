@@ -1,6 +1,7 @@
 import cors from "cors";
 import express from "express";
 import tripsRouter from "./routes/trips.js";
+import { attachRequestTrace } from "./lib/trace.js";
 
 const DEFAULT_ALLOWED_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"];
 
@@ -28,6 +29,7 @@ function isOriginAllowed(origin) {
 }
 
 const app = express();
+app.use(attachRequestTrace);
 
 app.use((_req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
@@ -69,6 +71,7 @@ app.use((req, _res, next) => {
     console.info("[api] Incoming request", {
       method: req.method,
       path: req.originalUrl,
+      traceId: req.traceId ?? null,
     });
   }
 

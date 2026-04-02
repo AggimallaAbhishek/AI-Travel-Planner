@@ -1,16 +1,22 @@
 import express from "express";
 import { requireAuth } from "../middleware/auth.js";
-import { tripGenerationRateLimit } from "../middleware/rateLimit.js";
+import {
+  recommendationsRateLimit,
+  routeOptimizationRateLimit,
+  tripGenerationRateLimit,
+} from "../middleware/rateLimit.js";
 import {
   createTripForUser,
   getTripForUser,
   listTripsForUser,
   validateTripRequest,
 } from "../services/trips.js";
+import { getDestinationAutocompleteSuggestions } from "../services/recommendations.js";
 import {
-  getDestinationAutocompleteSuggestions,
-  getDestinationRecommendations,
-} from "../services/recommendations.js";
+  buildRecommendationsFromStructuredPlaces,
+  ensureStructuredDestinationData,
+} from "../services/destinationIngestion.js";
+import { getTripRoutePlan } from "../services/tripRoutes.js";
 
 const router = express.Router();
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
@@ -40,6 +46,19 @@ function parseBooleanQueryFlag(value) {
     .trim()
     .toLowerCase();
   return normalized === "1" || normalized === "true" || normalized === "yes";
+}
+
+function parseRouteDayOrNull(value, maxDays) {
+  if (value === undefined || value === null || value === "") {
+    return 1;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > maxDays) {
+    return null;
+  }
+
+  return parsed;
 }
 
 export function resolveTripGenerationFailure(error) {
@@ -196,6 +215,7 @@ router.post("/trips/generate", requireAuth, tripGenerationRateLimit, async (req,
     const trip = await createTripForUser({
       user: req.user,
       userSelection,
+      traceId: req.traceId,
     });
 
     res.status(201).json({ trip });
@@ -220,54 +240,146 @@ router.post("/trips/generate", requireAuth, tripGenerationRateLimit, async (req,
   }
 });
 
-router.get("/trips/:tripId/recommendations", requireAuth, async (req, res) => {
-  try {
-    const trip = await getTripForUser({
-      tripId: req.params.tripId,
-      user: req.user,
-    });
-
-    if (!trip) {
-      res.status(404).json({
-        message: "Trip not found.",
+router.get(
+  "/trips/:tripId/recommendations",
+  requireAuth,
+  recommendationsRateLimit,
+  async (req, res) => {
+    try {
+      const trip = await getTripForUser({
+        tripId: req.params.tripId,
+        user: req.user,
       });
-      return;
-    }
 
-    if (trip === "forbidden") {
-      res.status(403).json({
-        message: "You do not have access to this trip.",
+      if (!trip) {
+        res.status(404).json({
+          message: "Trip not found.",
+        });
+        return;
+      }
+
+      if (trip === "forbidden") {
+        res.status(403).json({
+          message: "You do not have access to this trip.",
+        });
+        return;
+      }
+
+      const destination =
+        trip?.userSelection?.location?.label ?? trip?.aiPlan?.destination ?? "";
+      const forceRefresh = parseBooleanQueryFlag(req.query.force);
+      const ingestion = await ensureStructuredDestinationData({
+        destination,
+        forceRefresh,
+        traceId: req.traceId,
       });
-      return;
-    }
-
-    const destination =
-      trip?.userSelection?.location?.label ?? trip?.aiPlan?.destination ?? "";
-    const recommendations = await getDestinationRecommendations({
-      destination,
-      forceRefresh: parseBooleanQueryFlag(req.query.force),
-    });
-
-    res.json({
-      recommendations,
-    });
-  } catch (error) {
-    if (error?.code === "recommendations/invalid-destination") {
-      res.status(400).json({
-        message: error.message,
+      const recommendations = buildRecommendationsFromStructuredPlaces({
+        destination,
+        provider: ingestion.provider,
+        warning: ingestion.warning,
+        places: ingestion.places,
       });
-      return;
-    }
 
-    console.error("[trips] Failed to load destination recommendations", {
-      tripId: req.params.tripId,
-      errorMessage: getErrorText(error),
-    });
-    res.status(500).json({
-      message: "Unable to load destination recommendations right now.",
-    });
+      res.json({
+        recommendations,
+        planningMeta: {
+          dataProvider: ingestion.provider,
+          algorithmVersion: trip?.optimization?.algorithmVersion ?? "",
+          cacheHit: ingestion.cacheHit,
+          generatedAt: new Date().toISOString(),
+          freshness: ingestion?.freshness?.freshUntil ?? null,
+        },
+      });
+    } catch (error) {
+      if (error?.code === "recommendations/invalid-destination") {
+        res.status(400).json({
+          message: error.message,
+        });
+        return;
+      }
+
+      console.error("[trips] Failed to load destination recommendations", {
+        tripId: req.params.tripId,
+        traceId: req.traceId ?? null,
+        errorMessage: getErrorText(error),
+      });
+      res.status(500).json({
+        message: "Unable to load destination recommendations right now.",
+      });
+    }
   }
-});
+);
+
+router.get(
+  "/trips/:tripId/routes",
+  requireAuth,
+  routeOptimizationRateLimit,
+  async (req, res) => {
+    try {
+      const trip = await getTripForUser({
+        tripId: req.params.tripId,
+        user: req.user,
+      });
+
+      if (!trip) {
+        res.status(404).json({
+          message: "Trip not found.",
+        });
+        return;
+      }
+
+      if (trip === "forbidden") {
+        res.status(403).json({
+          message: "You do not have access to this trip.",
+        });
+        return;
+      }
+
+      const maxDays = Math.max(
+        1,
+        Number.parseInt(trip?.userSelection?.days ?? "1", 10) || 1
+      );
+      const requestedDay = parseRouteDayOrNull(req.query.day, maxDays);
+      if (!requestedDay) {
+        res.status(400).json({
+          message: `Route day must be an integer between 1 and ${maxDays}.`,
+        });
+        return;
+      }
+
+      const routePlan = await getTripRoutePlan({
+        trip,
+        day: requestedDay,
+        forceRefresh: parseBooleanQueryFlag(req.query.force),
+        traceId: req.traceId,
+      });
+
+      res.json({
+        day: routePlan.day,
+        totalDays: routePlan.totalDays,
+        route: routePlan.dayPlan,
+        optimization: routePlan.optimization,
+        planningMeta: routePlan.planningMeta,
+      });
+    } catch (error) {
+      if (error?.code === "recommendations/invalid-destination") {
+        res.status(400).json({
+          message: error.message,
+        });
+        return;
+      }
+
+      console.error("[trips] Failed to compute trip route", {
+        tripId: req.params.tripId,
+        traceId: req.traceId ?? null,
+        errorMessage: getErrorText(error),
+      });
+      res.status(500).json({
+        message: "Unable to compute trip routes right now.",
+      });
+    }
+  }
+);
 
 router.get("/trips/:tripId", requireAuth, async (req, res) => {
   try {
