@@ -3042,15 +3042,36 @@ html[data-theme="light"] .voy-inline-error {
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
-  padding: 0.3rem 0.6rem;
+  gap: 0.68rem;
+  min-height: 48px;
+  padding: 0.35rem 0.84rem 0.35rem 0.44rem;
 }
 
 .voy-user-chip img {
-  width: 28px;
-  height: 28px;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
   border-radius: 50%;
   object-fit: cover;
+  display: block;
+  border: 1px solid color-mix(in srgb, var(--voy-gold) 20%, var(--voy-border));
+  background: color-mix(in srgb, var(--voy-bg2) 74%, var(--voy-surface));
+}
+
+.voy-user-avatar {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.84rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--voy-gold);
+  border: 1px solid color-mix(in srgb, var(--voy-gold) 24%, var(--voy-border));
+  background: color-mix(in srgb, var(--voy-gold-dim) 60%, var(--voy-surface));
 }
 
 .voy-user-chip span {
@@ -3075,6 +3096,8 @@ html[data-theme="light"] .voy-inline-error {
   background: transparent;
   color: var(--voy-text-muted);
   font-size: 0.72rem;
+  margin-left: 0.12rem;
+  padding: 0;
 }
 
 .voy-user-chip button:hover {

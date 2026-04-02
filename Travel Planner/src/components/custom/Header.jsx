@@ -9,6 +9,7 @@ import { useTheme } from "@/context/ThemeContext";
 
 function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [avatarLoadError, setAvatarLoadError] = useState(false);
   const { user, isAdmin, signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
@@ -41,6 +42,15 @@ function Header() {
   useEffect(() => {
     setMenuOpen(false);
   }, [location.pathname, location.search, location.hash]);
+
+  useEffect(() => {
+    setAvatarLoadError(false);
+  }, [user?.photoURL]);
+
+  const avatarFallbackLetter = useMemo(() => {
+    const source = user?.displayName || user?.email || "Traveler";
+    return source.trim().charAt(0).toUpperCase();
+  }, [user?.displayName, user?.email]);
 
   const handleSignOut = async () => {
     try {
@@ -100,9 +110,18 @@ function Header() {
                 <Button className="voy-nav-pill">Create Trip</Button>
               </Link>
               <div className="voy-user-chip">
-                {user.photoURL ? (
-                  <img src={user.photoURL} alt={user.displayName ?? "User"} />
-                ) : null}
+                {user.photoURL && !avatarLoadError ? (
+                  <img
+                    src={user.photoURL}
+                    alt={`${user.displayName ?? "User"} profile`}
+                    onError={() => setAvatarLoadError(true)}
+                    loading="lazy"
+                  />
+                ) : (
+                  <span className="voy-user-avatar" aria-hidden="true">
+                    {avatarFallbackLetter}
+                  </span>
+                )}
                 <span>{user.displayName ?? "Traveler"}</span>
                 {isAdmin ? <span className="voy-admin-pill">Admin</span> : null}
                 <button type="button" onClick={handleSignOut}>
