@@ -2,3 +2,4 @@ export { buildTripPdfModel, buildBudgetBreakdown, extractRoutePoints, parseBudge
 export { createTripPdfDocument } from "./renderer.js";
 export { downloadTripPdf, printTripPdf } from "./actions.js";
 export { registerPdfFonts, resolvePdfAssets } from "./assets.js";
+export { analyzeTripPdfUiSnapshot, summarizeBrowserErrors } from "./verification.js";

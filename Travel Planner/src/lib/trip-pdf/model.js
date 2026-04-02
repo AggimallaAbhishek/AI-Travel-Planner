@@ -12,14 +12,27 @@ const MAX_DAY_COUNT = 30;
 const MAX_RECOMMENDATION_COUNT = 8;
 const MAX_TIP_COUNT = 10;
 
+function stripControlCharacters(value = "") {
+  let output = "";
+
+  for (const character of String(value)) {
+    const codePoint = character.charCodeAt(0);
+    const isControlCharacter = (codePoint >= 0 && codePoint <= 31) || codePoint === 127;
+    if (!isControlCharacter) {
+      output += character;
+    }
+  }
+
+  return output;
+}
+
 function normalizeText(value, fallback = "") {
   if (typeof value !== "string") {
     return fallback;
   }
 
-  const sanitized = value
+  const sanitized = stripControlCharacters(value)
     .replace(/\s+/g, " ")
-    .replace(/[\u0000-\u001F\u007F]/g, "")
     .trim();
 
   return sanitized || fallback;

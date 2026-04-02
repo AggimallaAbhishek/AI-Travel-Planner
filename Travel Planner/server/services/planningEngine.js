@@ -515,6 +515,8 @@ export async function buildDataDrivenTripPlan({
     places: ingestion.places,
   });
   const hotels = ingestion.placesByCategory.hotels.slice(0, 8).map(toHotelCard);
+  const totalEstimatedCostLabel =
+    formatBudgetAmount(selection.budgetAmount || 0) || "Budget not specified";
   const travelTips = Array.isArray(narrativePlan?.aiPlan?.travelTips)
     ? narrativePlan.aiPlan.travelTips
     : [
@@ -541,7 +543,7 @@ export async function buildDataDrivenTripPlan({
     aiPlan: {
       destination: ingestion.destination.canonicalName,
       days: aiPlanDays,
-      totalEstimatedCost: formatBudgetAmount(selection.budgetAmount || 0),
+      totalEstimatedCost: totalEstimatedCostLabel,
       travelTips,
     },
     recommendations,
@@ -567,4 +569,3 @@ export async function buildDataDrivenTripPlan({
     optimization: optimizationPayload.optimization,
   };
 }
-

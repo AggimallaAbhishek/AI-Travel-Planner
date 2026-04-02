@@ -52,3 +52,13 @@ test("GET /api/trips/:tripId/recommendations requires authentication", async () 
     assert.equal(body.message, "Authentication is required.");
   });
 });
+
+test("GET /api/trips/:tripId/routes requires authentication", async () => {
+  await withServer(async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/trips/sample-trip/routes?day=1`);
+    const body = await response.json();
+
+    assert.equal(response.status, 401);
+    assert.equal(body.message, "Authentication is required.");
+  });
+});

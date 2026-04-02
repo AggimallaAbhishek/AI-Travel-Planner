@@ -1,6 +1,6 @@
 # Travel Planner App
 
-Travel Planner is a Vite + React single-page application backed by a small Express API. It uses Firebase Authentication for Google sign-in, Cloud Firestore for saved trips, and Google Gemini for itinerary generation.
+Travel Planner is a Vite + React single-page application backed by an Express API. It combines Firebase Authentication + Firestore compatibility with a hybrid structured planning pipeline (PostgreSQL/PostGIS + Python route optimization + optional Gemini narrative enrichment).
 
 ## Implemented Product Surface
 
@@ -28,13 +28,16 @@ Travel Planner is a Vite + React single-page application backed by a small Expre
 
 - Express 5 API under [`server/`](/Users/aggimallaabhishek/Documents/Travel-Plannar/Travel%20Planner/server)
 - Firebase Admin SDK for token verification and Firestore access
-- Gemini service wrapper for itinerary generation
-- Request validation, auth guards, CORS, and in-memory rate limiting
+- Data ingestion pipeline for destination POIs (hotels, restaurants, attractions)
+- Python optimizer bridge for shortest path + TSP heuristic + clustering
+- Optional Gemini narrative enrichment (descriptions/tips only, not core routing logic)
+- Request validation, auth guards, CORS, trace IDs, and endpoint-specific rate limiting
 
 ### Storage And Identity
 
 - Firebase Authentication for user sign-in
-- Cloud Firestore for persisted trips
+- Cloud Firestore for persisted trip projection (frontend compatibility)
+- PostgreSQL/PostGIS for normalized destinations, places, transport edges, and optimization runs
 - Owner-based access checks for trip read/list endpoints
 
 ## Routes
@@ -67,6 +70,7 @@ Travel Planner is a Vite + React single-page application backed by a small Expre
 - `POST /api/trips/generate`
 - `GET /api/trips/:tripId`
 - `GET /api/trips/:tripId/recommendations`
+- `GET /api/trips/:tripId/routes?day=1`
 - `GET /api/my-trips`
 
 ## Project Structure
@@ -76,9 +80,10 @@ Travel Planner/
 ├── public/                     # Static assets
 ├── server/                     # Express API
 │   ├── lib/                    # Firebase Admin helpers
+│   ├── data/                   # Hybrid SQL + in-memory store adapters
 │   ├── middleware/             # Auth, CORS, rate limit
 │   ├── routes/                 # API route handlers
-│   └── services/               # Gemini and trip services
+│   └── services/               # Ingestion, planning, optimization, recommendations
 ├── shared/                     # Shared trip normalization / validation
 ├── scripts/                    # Frontend backup sync scripts
 ├── src/
@@ -96,6 +101,8 @@ Travel Planner/
 ├── .env.example
 ├── package.json
 └── vite.config.js
+
+route_optimizer.py              # Python Dijkstra + TSP + clustering engine
 ```
 
 ## Local Development
@@ -107,6 +114,7 @@ Travel Planner/
 - Firebase project with:
   - Authentication -> Google provider enabled
   - Cloud Firestore created in Native mode
+- PostgreSQL (PostGIS recommended) for structured planning storage
 - Gemini API key with model access
 
 ### Install
@@ -142,14 +150,37 @@ GOOGLE_PLACES_API_KEY=
 RECOMMENDATIONS_PROVIDER_TIMEOUT_MS=8000
 RECOMMENDATIONS_CACHE_TTL_MS=300000
 RECOMMENDATIONS_MOCK_CACHE_TTL_MS=30000
+DESTINATION_FRESHNESS_TTL_MS=86400000
 
 FIREBASE_PROJECT_ID=
 FIREBASE_CLIENT_EMAIL=
 FIREBASE_PRIVATE_KEY=
 
+SQL_ENABLE=true
+SQL_DATABASE_URL=
+SQL_MAX_POOL_SIZE=10
+SQL_IDLE_TIMEOUT_MS=30000
+SQL_CONNECT_TIMEOUT_MS=10000
+SQL_SSL_MODE=disable
+SQL_STRICT_MODE=false
+
+ROUTE_CANDIDATE_LIMIT=24
+PYTHON_BIN=python3
+PYTHON_ROUTE_OPTIMIZER_PATH=
+PYTHON_OPTIMIZER_TIMEOUT_MS=10000
+PLANNING_USE_GEMINI_NARRATIVE=true
+
+UPSTASH_REDIS_REST_URL=
+UPSTASH_REDIS_REST_TOKEN=
+
 CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 TRIP_GENERATION_RATE_LIMIT_WINDOW_MS=60000
 TRIP_GENERATION_RATE_LIMIT_MAX=5
+RECOMMENDATIONS_RATE_LIMIT_WINDOW_MS=60000
+RECOMMENDATIONS_RATE_LIMIT_MAX=30
+ROUTE_OPTIMIZATION_RATE_LIMIT_WINDOW_MS=60000
+ROUTE_OPTIMIZATION_RATE_LIMIT_MAX=30
+OUTBOUND_ALLOWED_HOSTS=maps.googleapis.com,generativelanguage.googleapis.com,api.upstash.com
 PORT=3001
 ```
 
@@ -179,9 +210,33 @@ npm run lint                # ESLint
 npm test                    # Node test runner
 npm run sync:frontend       # One-time mirror into ../frontend_versions
 npm run sync:frontend:watch # Watch-only frontend mirror
+npm run verify:trip-pdf-ui  # Browser automation check for /trips/:tripId PDF actions
 npm run audit:full          # Full npm audit
 npm run audit:prod          # Production dependency audit
 ```
+
+### Trip PDF UI Verification
+
+The automated verifier checks that `Download PDF` and `Print` actions are present and clickable on the trip detail header.
+
+Prerequisites:
+
+1. Start backend and frontend dev servers
+2. Sign in with Google in the local app
+3. Open a valid authenticated trip URL at `/trips/:tripId`
+
+Run:
+
+```bash
+TRIP_VERIFY_URL=http://127.0.0.1:4174/trips/<tripId> npm run verify:trip-pdf-ui
+```
+
+Output artifacts:
+
+- Screenshot: `/tmp/trip-pdf-ui-verify.png`
+- Structured logs prefixed with `[trip-pdf:verify]`
+
+If the script exits with code `2`, it detected an auth gate and could not reach trip actions.
 
 ## Frontend Backup Mirror
 
@@ -249,7 +304,9 @@ npm run server
 
 ## Current Constraints
 
-- Trip generation depends on external Gemini availability
-- Firestore and Firebase Auth must be configured correctly for the full flow
+- Structured planning quality depends on Google Places availability and destination freshness windows
+- PostgreSQL/PostGIS is recommended for full relational + geospatial performance (in-memory fallback exists for local/dev)
+- Python runtime (`python3`) must be available for the optimizer bridge (Node fallback heuristic is used when unavailable)
+- Firestore and Firebase Auth must be configured correctly for ownership-protected trip reads
 - The frontend backup mirror is operationally useful but not part of runtime behavior
 - Some static pages are informational and do not connect to backend data

@@ -110,6 +110,7 @@ frontend_versions/src/lib/trip-pdf/assets.js
 frontend_versions/src/lib/trip-pdf/index.js
 frontend_versions/src/lib/trip-pdf/model.js
 frontend_versions/src/lib/trip-pdf/renderer.js
+frontend_versions/src/lib/trip-pdf/verification.js
 frontend_versions/src/lib/tripPrefill.js
 frontend_versions/src/lib/tripRecommendations.js
 frontend_versions/src/lib/tripRoutes.js
@@ -146,6 +147,7 @@ frontend_versions/src/view-trip/components/PlacesToVisit.jsx
 frontend_versions/src/view-trip/components/RecommendationCardItem.jsx
 frontend_versions/src/view-trip/components/RecommendationGridSection.jsx
 frontend_versions/src/view-trip/components/Restaurants.jsx
+frontend_versions/src/view-trip/components/RouteOptimizationSection.jsx
 frontend_versions/src/view-trip/index.jsx
 frontend_versions/tailwind.config.js
 frontend_versions/vite.config.js

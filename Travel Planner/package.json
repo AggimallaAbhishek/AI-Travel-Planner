@@ -14,6 +14,7 @@
     "test": "node --test",
     "sync:frontend": "node ./scripts/frontendBackupSync.mjs --full",
     "sync:frontend:watch": "node ./scripts/frontendBackupSync.mjs --watch",
+    "verify:trip-pdf-ui": "node ./scripts/verifyTripPdfUi.mjs",
     "audit:full": "npm audit",
     "audit:prod": "npm audit --omit=dev"
   },

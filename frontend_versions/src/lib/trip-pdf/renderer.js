@@ -20,14 +20,27 @@ const COLORS = {
   danger: [160, 70, 70],
 };
 
+function stripControlCharacters(value = "") {
+  let output = "";
+
+  for (const character of String(value)) {
+    const codePoint = character.charCodeAt(0);
+    const isControlCharacter = (codePoint >= 0 && codePoint <= 31) || codePoint === 127;
+    if (!isControlCharacter) {
+      output += character;
+    }
+  }
+
+  return output;
+}
+
 function normalizeText(value, fallback = "") {
   if (typeof value !== "string") {
     return fallback;
   }
 
-  return value
+  return stripControlCharacters(value)
     .replace(/\s+/g, " ")
-    .replace(/[\u0000-\u001F\u007F]/g, "")
     .trim() || fallback;
 }
 

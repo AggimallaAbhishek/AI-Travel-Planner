@@ -8,9 +8,11 @@ import { toast } from "react-toastify";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/lib/api";
 import { fetchTripRecommendations } from "@/lib/tripRecommendations";
+import { fetchTripRoute } from "@/lib/tripRoutes";
 import { downloadTripPdf, printTripPdf } from "@/lib/trip-pdf";
 import { Button } from "@/components/ui/button";
 import { buildLoginPath } from "@/lib/authRedirect";
+import RouteOptimizationSection from "./components/RouteOptimizationSection";
 
 const INITIAL_RECOMMENDATION_STATE = {
   hotels: [],
@@ -18,6 +20,22 @@ const INITIAL_RECOMMENDATION_STATE = {
   provider: "",
   warning: "",
   destination: "",
+  loading: false,
+  errorMessage: "",
+};
+
+const INITIAL_ROUTE_STATE = {
+  day: 1,
+  totalDays: 1,
+  route: {
+    day: 1,
+    clusterId: 0,
+    stopCount: 0,
+    visitOrder: [],
+    stops: [],
+  },
+  optimization: {},
+  planningMeta: {},
   loading: false,
   errorMessage: "",
 };
@@ -65,6 +83,9 @@ function Viewtrip() {
     INITIAL_RECOMMENDATION_STATE
   );
   const [recommendationReloadToken, setRecommendationReloadToken] = useState(0);
+  const [routePlan, setRoutePlan] = useState(INITIAL_ROUTE_STATE);
+  const [routeReloadToken, setRouteReloadToken] = useState(0);
+  const [selectedRouteDay, setSelectedRouteDay] = useState(1);
   const [pdfAction, setPdfAction] = useState("");
   const loginPath = buildLoginPath(`${location.pathname}${location.search}${location.hash}`);
 
@@ -104,6 +125,8 @@ function Viewtrip() {
       setLoading(false);
       setTrip(null);
       setRecommendations(INITIAL_RECOMMENDATION_STATE);
+      setRoutePlan(INITIAL_ROUTE_STATE);
+      setSelectedRouteDay(1);
       return () => controller.abort();
     }
 
@@ -116,6 +139,7 @@ function Viewtrip() {
           signal: controller.signal,
         });
         setTrip(response.trip ?? null);
+        setSelectedRouteDay(1);
       } catch (error) {
         if (error.name === "AbortError") {
           return;
@@ -125,6 +149,7 @@ function Viewtrip() {
         setTrip(null);
         setErrorMessage(error.message ?? "Unable to load this trip.");
         toast.error(error.message ?? "Unable to load this trip.");
+        setRoutePlan(INITIAL_ROUTE_STATE);
       } finally {
         setLoading(false);
       }
@@ -208,8 +233,65 @@ function Viewtrip() {
     return () => controller.abort();
   }, [trip?.id, trip?.userSelection?.location?.label, user, recommendationReloadToken]);
 
+  useEffect(() => {
+    const controller = new AbortController();
+
+    if (!trip?.id || !user) {
+      setRoutePlan(INITIAL_ROUTE_STATE);
+      return () => controller.abort();
+    }
+
+    async function loadRoutePlan() {
+      setRoutePlan((previous) => ({
+        ...previous,
+        loading: true,
+        errorMessage: "",
+      }));
+
+      try {
+        const response = await fetchTripRoute(trip.id, {
+          signal: controller.signal,
+          day: selectedRouteDay,
+          force: routeReloadToken > 0,
+        });
+
+        setRoutePlan({
+          ...response,
+          loading: false,
+          errorMessage: "",
+        });
+      } catch (error) {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        console.error("[view-trip] Failed to load route optimization", {
+          tripId: trip.id,
+          day: selectedRouteDay,
+          message: error?.message,
+          status: error?.status ?? null,
+        });
+
+        setRoutePlan((previous) => ({
+          ...previous,
+          day: selectedRouteDay,
+          loading: false,
+          errorMessage:
+            error?.message ?? "Unable to load optimized route details right now.",
+        }));
+      }
+    }
+
+    loadRoutePlan();
+    return () => controller.abort();
+  }, [trip?.id, selectedRouteDay, user, routeReloadToken]);
+
   const handleRetryRecommendations = () => {
     setRecommendationReloadToken((previous) => previous + 1);
+  };
+
+  const handleRetryRoutePlan = () => {
+    setRouteReloadToken((previous) => previous + 1);
   };
 
   const handleDownloadPdf = async () => {
@@ -347,6 +429,20 @@ function Viewtrip() {
           errorMessage={restaurantSectionError}
           note={restaurantNote}
           onRetry={handleRetryRecommendations}
+        />
+        <RouteOptimizationSection
+          routeData={routePlan}
+          selectedDay={selectedRouteDay}
+          isLoading={routePlan.loading}
+          errorMessage={routePlan.errorMessage}
+          onDayChange={(nextDay) => {
+            if (!Number.isInteger(nextDay) || nextDay < 1) {
+              return;
+            }
+
+            setSelectedRouteDay(nextDay);
+          }}
+          onRetry={handleRetryRoutePlan}
         />
         <PlacesToVisit trip={trip} />
       </div>
