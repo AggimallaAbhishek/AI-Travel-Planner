@@ -31,10 +31,19 @@ function MyTrips() {
         });
         setUserTrips(response.trips ?? []);
       } catch (error) {
-        if (error.name !== "AbortError") {
-          console.error("[my-trips] Failed to load trips", error);
-          toast.error(error.message ?? "Unable to load your saved trips.");
+        // Native AbortError checking works now thanks to api.js fixes.
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
         }
+
+        // The API layer automatically handles re-auth prompts for 401s,
+        // so we don't need to show a redundant generic error toast here.
+        if (error?.details?.requiresReauth) {
+          return;
+        }
+
+        console.error("[my-trips] Failed to load trips", error);
+        toast.error(error.message ?? "Unable to load your saved trips.");
       } finally {
         setIsLoadingTrips(false);
       }

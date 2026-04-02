@@ -18,6 +18,7 @@ import Layout from "./components/layout/Layout.jsx";
 import { AuthProvider } from "./context/AuthContext.jsx";
 import { ThemeProvider } from "./context/ThemeContext.jsx";
 import AppToastContainer from "./components/ui/AppToastContainer.jsx";
+import SessionExpiredModal from "./components/ui/SessionExpiredModal.jsx";
 import { initializeTheme } from "./lib/theme.js";
 
 import Home from "./pages/Home.jsx";

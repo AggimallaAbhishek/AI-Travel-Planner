@@ -141,15 +141,19 @@ function Viewtrip() {
         setTrip(response.trip ?? null);
         setSelectedRouteDay(1);
       } catch (error) {
-        if (error.name === "AbortError") {
+        if (error instanceof DOMException && error.name === "AbortError") {
           return;
         }
 
         console.error("[view-trip] Failed to load trip", error);
         setTrip(null);
         setErrorMessage(error.message ?? "Unable to load this trip.");
-        toast.error(error.message ?? "Unable to load this trip.");
         setRoutePlan(INITIAL_ROUTE_STATE);
+
+        // Suppress toast if the API client is popping the re-auth modal
+        if (!error?.details?.requiresReauth) {
+          toast.error(error.message ?? "Unable to load this trip.");
+        }
       } finally {
         setLoading(false);
       }
@@ -207,7 +211,7 @@ function Viewtrip() {
           errorMessage: "",
         });
       } catch (error) {
-        if (controller.signal.aborted) {
+        if (controller.signal.aborted || (error instanceof DOMException && error.name === "AbortError")) {
           return;
         }
 
@@ -217,6 +221,12 @@ function Viewtrip() {
           message: error?.message,
           status: error?.status ?? null,
         });
+
+        // Don't show inline errors if the global re-auth modal is handling it
+        if (error?.details?.requiresReauth) {
+          return;
+        }
+
         setRecommendations((previous) => ({
           ...previous,
           destination,
@@ -261,7 +271,7 @@ function Viewtrip() {
           errorMessage: "",
         });
       } catch (error) {
-        if (controller.signal.aborted) {
+        if (controller.signal.aborted || (error instanceof DOMException && error.name === "AbortError")) {
           return;
         }
 
@@ -271,6 +281,11 @@ function Viewtrip() {
           message: error?.message,
           status: error?.status ?? null,
         });
+
+        // Don't show inline errors if the global re-auth modal is handling it
+        if (error?.details?.requiresReauth) {
+          return;
+        }
 
         setRoutePlan((previous) => ({
           ...previous,

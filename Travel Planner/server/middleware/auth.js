@@ -98,7 +98,9 @@ export async function requireAuth(req, res, next) {
   const idToken = authorization.replace("Bearer ", "").trim();
 
   try {
-    req.user = await getAdminAuth().verifyIdToken(idToken);
+    // Pass checkRevoked: true to proactively reject tokens if the user
+    // signed out on another device, overriding the typical 1-hr expiration.
+    req.user = await getAdminAuth().verifyIdToken(idToken, true);
     next();
   } catch (error) {
     const failure = classifyAuthFailure(error);

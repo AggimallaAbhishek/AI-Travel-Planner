@@ -676,11 +676,8 @@ function CreateTrip() {
       });
 
       if (error?.status === 401 && error?.details?.requiresReauth !== false) {
-        console.warn("[create-trip] Session expired. Prompting re-authentication.", {
-          details: error?.details ?? null,
-        });
-        setOpenDialog(true);
-        toast.error("Session expired. Please sign in again to continue.");
+        // Redundant modal trigger and error toast removed.
+        // The api client now globally signals the SessionExpiredModal.
         return;
       }
 

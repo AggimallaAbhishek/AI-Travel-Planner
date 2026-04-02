@@ -76,6 +76,7 @@ frontend_versions/src/components/ui/AppImage.jsx
 frontend_versions/src/components/ui/AppToastContainer.jsx
 frontend_versions/src/components/ui/button.jsx
 frontend_versions/src/components/ui/dialog.jsx
+frontend_versions/src/components/ui/SessionExpiredModal.jsx
 frontend_versions/src/components/voyagr/data.js
 frontend_versions/src/components/voyagr/DestinationsSection.jsx
 frontend_versions/src/components/voyagr/HeroSection.jsx

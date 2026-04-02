@@ -3820,3 +3820,124 @@ html[data-theme="light"] .voy-inline-error {
     min-width: 0;
   }
 }
+
+/* ── Session Expired Modal ─────────────────────────────────────────── */
+
+.voy-session-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6, 9, 18, 0.72);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  animation: voySessionFadeIn 0.32s ease both;
+}
+
+html[data-theme="light"] .voy-session-overlay {
+  background: rgba(248, 245, 240, 0.68);
+}
+
+@keyframes voySessionFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.voy-session-card {
+  width: min(420px, calc(100vw - 2rem));
+  padding: 2.4rem 2rem 2rem;
+  background: var(--voy-surface);
+  border: 1px solid var(--voy-border);
+  border-radius: var(--voy-radius-lg);
+  box-shadow: var(--voy-shadow);
+  text-align: center;
+  animation: voySessionSlideUp 0.38s ease both;
+}
+
+@keyframes voySessionSlideUp {
+  from {
+    transform: translateY(18px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.voy-session-icon {
+  color: var(--voy-gold);
+  margin-bottom: 1rem;
+}
+
+.voy-session-card h2 {
+  margin: 0 0 0.6rem;
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: 1.5rem;
+}
+
+.voy-session-card p {
+  margin: 0 0 1.5rem;
+  color: var(--voy-text-muted);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+.voy-session-google-btn {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 0.85rem 1.4rem;
+  border: 1px solid var(--voy-border);
+  border-radius: var(--voy-radius-sm);
+  background: var(--voy-surface2);
+  color: var(--voy-text);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    border-color var(--voy-transition),
+    background var(--voy-transition),
+    transform var(--voy-transition);
+}
+
+.voy-session-google-btn:hover:not(:disabled) {
+  border-color: var(--voy-gold);
+  background: var(--voy-gold-dim);
+  transform: translateY(-1px);
+}
+
+.voy-session-google-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.voy-session-dismiss {
+  display: block;
+  width: 100%;
+  margin-top: 0.75rem;
+  padding: 0.6rem;
+  border: none;
+  background: none;
+  color: var(--voy-text-faint);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: color var(--voy-transition);
+}
+
+.voy-session-dismiss:hover:not(:disabled) {
+  color: var(--voy-text-muted);
+}
+
+.voy-session-dismiss:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
