@@ -1097,35 +1097,6 @@ function CreateTrip() {
                 </div>
 
                 <div className="voy-create-preferences-grid">
-                  <div className="voy-create-subsection voy-create-subsection-full mb-6">
-                    <div className="voy-create-subsection-head voy-create-subsection-head-tight">
-                      <h4>Logistics & Stay</h4>
-                      <p>Optional: Share your stay and arrival or departure details. Gemini uses them to personalize daily summaries and tips, while route planning still follows your selected stops and trip structure.</p>
-                    </div>
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <label className="voy-create-budget-input-wrap text-left">
-                        <span className="text-sm font-medium mb-1 block">Preferred Accommodation</span>
-                        <input
-                          type="text"
-                          placeholder="Ex. The Hilton Downtown, Airbnb in Soho..."
-                          className="voy-create-field w-full px-4 py-2"
-                          value={state.form.accommodation}
-                          onChange={(event) => dispatch({ type: "set_accommodation", value: event.target.value })}
-                        />
-                      </label>
-                      <label className="voy-create-budget-input-wrap text-left">
-                        <span className="text-sm font-medium mb-1 block">Arrival / Departure Info</span>
-                        <input
-                          type="text"
-                          placeholder="Ex. Arrive 10am day 1, depart 5pm last day..."
-                          className="voy-create-field w-full px-4 py-2"
-                          value={state.form.logistics}
-                          onChange={(event) => dispatch({ type: "set_logistics", value: event.target.value })}
-                        />
-                      </label>
-                    </div>
-                  </div>
-
                   <div className="voy-create-subsection">
                     <div className="voy-create-subsection-head">
                       <h4>Food Preferences</h4>
