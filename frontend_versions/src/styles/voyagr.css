@@ -2206,6 +2206,392 @@ html[data-theme="light"] .voy-inline-error {
   font-size: 0.74rem;
 }
 
+.voy-create-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(320px, 0.9fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.voy-create-main-stack {
+  display: grid;
+  gap: 1rem;
+}
+
+.voy-create-sidebar {
+  min-width: 0;
+}
+
+.voy-create-grid-basics {
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+}
+
+.voy-create-choice-grid-plan {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.voy-create-choice-grid-compact {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.voy-create-smart-choice {
+  min-height: 148px;
+}
+
+.voy-create-smart-choice-compact {
+  min-height: 124px;
+}
+
+.voy-create-helper-copy {
+  margin: 0;
+  color: var(--voy-text-muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.voy-create-inline-spinner {
+  color: var(--voy-gold);
+  flex-shrink: 0;
+}
+
+.voy-create-suggestion-empty {
+  padding: 0.75rem 0.8rem;
+  color: var(--voy-text-muted);
+  font-size: 0.82rem;
+}
+
+.voy-create-suggestion-badge {
+  flex-shrink: 0;
+  padding: 0.28rem 0.56rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--voy-gold) 30%, transparent);
+  background: color-mix(in srgb, var(--voy-gold-dim) 74%, transparent);
+  color: var(--voy-gold);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.voy-create-budget-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(180px, 0.85fr);
+  gap: 1rem;
+  align-items: end;
+}
+
+.voy-create-budget-input-wrap {
+  display: grid;
+  gap: 0.42rem;
+  color: var(--voy-text-muted);
+  font-size: 0.78rem;
+}
+
+.voy-create-budget-meta {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.95rem 1rem;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--voy-border) 85%, transparent);
+  background: color-mix(in srgb, var(--voy-surface) 86%, transparent);
+}
+
+.voy-create-budget-meta strong {
+  color: var(--voy-text);
+  font-size: 1.15rem;
+}
+
+.voy-create-budget-meta span {
+  color: var(--voy-text-muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.voy-create-slider {
+  width: 100%;
+  accent-color: color-mix(in srgb, var(--voy-gold) 88%, white 12%);
+}
+
+.voy-create-tag-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.voy-create-tag {
+  border-radius: 999px;
+  border: 1px solid var(--voy-border);
+  background: color-mix(in srgb, var(--voy-surface) 88%, transparent);
+  color: var(--voy-text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.48rem;
+  padding: 0.65rem 0.9rem;
+  font-size: 0.84rem;
+  font-weight: 600;
+  transition:
+    transform var(--voy-transition),
+    border-color var(--voy-transition),
+    background var(--voy-transition),
+    color var(--voy-transition);
+}
+
+.voy-create-tag:hover,
+.voy-create-tag:focus-visible {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--voy-gold) 62%, transparent);
+}
+
+.voy-create-tag.active {
+  border-color: var(--voy-gold);
+  background: color-mix(in srgb, var(--voy-gold-dim) 82%, var(--voy-surface));
+  color: var(--voy-text);
+}
+
+.voy-create-segmented-control {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.voy-create-segment {
+  border-radius: 16px;
+  border: 1px solid var(--voy-border);
+  background: color-mix(in srgb, var(--voy-surface) 88%, transparent);
+  color: var(--voy-text);
+  text-align: left;
+  display: grid;
+  gap: 0.45rem;
+  min-height: 118px;
+  padding: 0.9rem;
+  transition:
+    transform var(--voy-transition),
+    border-color var(--voy-transition),
+    background var(--voy-transition),
+    box-shadow var(--voy-transition);
+}
+
+.voy-create-segment:hover,
+.voy-create-segment:focus-visible {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--voy-gold) 60%, transparent);
+}
+
+.voy-create-segment.active {
+  border-color: var(--voy-gold);
+  background: color-mix(in srgb, var(--voy-gold-dim) 82%, var(--voy-surface));
+  box-shadow: 0 14px 30px color-mix(in srgb, var(--voy-gold) 16%, transparent);
+}
+
+.voy-create-segment strong {
+  display: block;
+  font-size: 0.92rem;
+}
+
+.voy-create-segment small {
+  color: var(--voy-text-muted);
+  line-height: 1.45;
+}
+
+.voy-create-actions-start {
+  justify-content: flex-start;
+}
+
+.voy-create-summary-panel {
+  position: sticky;
+  top: 1.25rem;
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: 22px;
+  border: 1px solid color-mix(in srgb, var(--voy-border) 90%, transparent);
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--voy-gold-dim) 24%, transparent), transparent 42%),
+    color-mix(in srgb, var(--voy-surface2) 58%, transparent);
+  box-shadow: 0 18px 40px rgba(6, 10, 20, 0.16);
+}
+
+.voy-create-summary-head {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.voy-create-summary-kicker {
+  color: var(--voy-gold);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.voy-create-summary-head h3 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.voy-create-summary-head p {
+  margin: 0;
+  color: var(--voy-text-muted);
+  font-size: 0.84rem;
+}
+
+.voy-create-summary-block {
+  display: grid;
+  gap: 0.72rem;
+  padding-top: 0.2rem;
+}
+
+.voy-create-summary-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--voy-text-muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.voy-create-summary-bars {
+  display: grid;
+  gap: 0.72rem;
+}
+
+.voy-create-budget-card {
+  display: grid;
+  gap: 0.48rem;
+  padding: 0.8rem;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--voy-border) 80%, transparent);
+  background: color-mix(in srgb, var(--voy-surface) 88%, transparent);
+}
+
+.voy-create-budget-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.84rem;
+  color: var(--voy-text);
+}
+
+.voy-create-budget-row strong {
+  color: var(--voy-gold);
+}
+
+.voy-create-budget-track {
+  width: 100%;
+  height: 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--voy-surface2) 90%, transparent);
+  overflow: hidden;
+}
+
+.voy-create-budget-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--voy-gold), var(--voy-gold-light));
+}
+
+.voy-create-budget-card small {
+  color: var(--voy-text-muted);
+  line-height: 1.45;
+}
+
+.voy-create-summary-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.voy-create-summary-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.42rem 0.72rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--voy-border) 84%, transparent);
+  background: color-mix(in srgb, var(--voy-surface) 88%, transparent);
+  color: var(--voy-text-muted);
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.voy-create-summary-empty {
+  color: var(--voy-text-muted);
+  font-size: 0.82rem;
+}
+
+.voy-create-warning-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.voy-create-warning-item {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.8rem;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, #ffb7b7 30%, transparent);
+  background: color-mix(in srgb, #ffb7b7 12%, transparent);
+}
+
+.voy-create-warning-item span {
+  color: #ffcfaa;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.voy-create-warning-item p {
+  margin: 0;
+  color: var(--voy-text);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.voy-create-warning-item.success {
+  border-color: color-mix(in srgb, var(--voy-gold) 32%, transparent);
+  background: color-mix(in srgb, var(--voy-gold-dim) 68%, transparent);
+}
+
+.voy-create-warning-item.success span {
+  color: var(--voy-gold);
+}
+
+.voy-create-ai-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.voy-create-ai-chip {
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--voy-border) 84%, transparent);
+  background: color-mix(in srgb, var(--voy-surface) 90%, transparent);
+  color: var(--voy-text);
+  padding: 0.58rem 0.85rem;
+  font-size: 0.76rem;
+  font-weight: 600;
+  text-align: left;
+  transition:
+    transform var(--voy-transition),
+    border-color var(--voy-transition),
+    background var(--voy-transition);
+}
+
+.voy-create-ai-chip:hover,
+.voy-create-ai-chip:focus-visible {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--voy-gold) 60%, transparent);
+}
+
+.voy-create-ai-chip.plan,
+.voy-create-ai-chip.budget {
+  background: color-mix(in srgb, var(--voy-gold-dim) 70%, var(--voy-surface));
+}
+
+.voy-create-ai-chip.destination {
+  background: color-mix(in srgb, var(--voy-surface2) 90%, transparent);
+}
+
 .voy-trips-page {
   min-height: 100vh;
   background: linear-gradient(145deg, var(--voy-bg) 0%, var(--voy-bg2) 100%);
@@ -3052,6 +3438,32 @@ html[data-theme="light"] .voy-inline-error {
   .voy-create-row {
     grid-template-columns: 1fr;
   }
+
+  .voy-create-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .voy-create-main-stack {
+    display: contents;
+  }
+
+  .voy-create-grid-basics,
+  .voy-create-budget-grid,
+  .voy-create-segmented-control {
+    grid-template-columns: 1fr;
+  }
+
+  .voy-create-summary-panel {
+    position: static;
+  }
+
+  .voy-create-sidebar {
+    order: 90;
+  }
+
+  .voy-create-actions-start {
+    order: 100;
+  }
 }
 
 @media (max-width: 640px) {
@@ -3076,6 +3488,17 @@ html[data-theme="light"] .voy-inline-error {
 
   .voy-create-choice-grid {
     grid-template-columns: 1fr;
+  }
+
+  .voy-create-tag-grid,
+  .voy-create-ai-chip-list {
+    display: grid;
+  }
+
+  .voy-create-tag,
+  .voy-create-ai-chip {
+    width: 100%;
+    justify-content: center;
   }
 
   .voy-create-primary {

@@ -1,4 +1,8 @@
-import { normalizeUserSelection } from "./trips.js";
+import {
+  normalizePlanType,
+  normalizeUserSelection,
+  suggestPlanTypeFromBudget,
+} from "./trips.js";
 
 const TRAVELER_LABELS = {
   solo: "Just Me",
@@ -70,14 +74,14 @@ export function budgetTierFromAmount(value) {
   }
 
   if (amount <= 1500) {
-    return "Cheap";
+    return "Cheap Plan";
   }
 
   if (amount <= 5000) {
-    return "Moderate";
+    return "Moderate Plan";
   }
 
-  return "Luxury";
+  return "Best Plan";
 }
 
 function getDaysFromDateRange(fromDate, toDate) {
@@ -116,18 +120,45 @@ export function buildCreateTripQuery(input = {}) {
     params.set("days", String(Math.min(days, 30)));
   }
 
-  if (input.budget) {
+  const numericBudget =
+    parseInteger(input.budgetAmount ?? input.budget) ??
+    parseInteger(input.totalBudget);
+  if (numericBudget) {
+    params.set("budget", String(numericBudget));
+  } else if (input.budget) {
     params.set("budget", String(input.budget));
-  } else {
-    const derivedBudget = budgetTierFromAmount(input.budgetAmount);
-    if (derivedBudget) {
-      params.set("budget", derivedBudget);
-    }
+  }
+
+  const planType = normalizePlanType(input.planType ?? input.plan_type) ||
+    (numericBudget ? suggestPlanTypeFromBudget(numericBudget, days ?? 1) : "");
+  if (planType) {
+    params.set("plan_type", planType);
   }
 
   const travelers = normalizeTravelersLabel(input.travelers);
   if (travelers) {
     params.set("travelers", travelers);
+  }
+
+  if (input.travelStyle ?? input.travel_style) {
+    params.set("travel_style", String(input.travelStyle ?? input.travel_style));
+  }
+
+  if (input.pace) {
+    params.set("pace", String(input.pace));
+  }
+
+  const rawFoodPreferences =
+    input.foodPreferences ??
+    input.food_preference ??
+    input.foodPreference;
+  const foodPreferences = Array.isArray(rawFoodPreferences)
+    ? rawFoodPreferences
+    : typeof rawFoodPreferences === "string"
+      ? rawFoodPreferences.split(",")
+      : [];
+  if (foodPreferences.length > 0) {
+    params.set("food_preference", foodPreferences.join(","));
   }
 
   return params.toString();
@@ -145,10 +176,25 @@ export function readCreateTripPrefill(queryInput) {
     params.get("destination") ?? params.get("location") ?? params.get("place");
   const days = params.get("days");
   const budget = params.get("budget");
+  const planType = params.get("plan_type") ?? params.get("planType");
   const travelers = params.get("travelers");
+  const travelStyle =
+    params.get("travel_style") ?? params.get("travelStyle") ?? params.get("tripType");
+  const pace = params.get("pace");
+  const foodPreference =
+    params.get("food_preference") ?? params.get("foodPreference");
   const parsedDays = parseInteger(days);
 
-  const hasPrefill = [destination, days, budget, travelers].some(Boolean);
+  const hasPrefill = [
+    destination,
+    days,
+    budget,
+    planType,
+    travelers,
+    travelStyle,
+    pace,
+    foodPreference,
+  ].some(Boolean);
   if (!hasPrefill) {
     return null;
   }
@@ -157,7 +203,11 @@ export function readCreateTripPrefill(queryInput) {
     location: destination ? { label: destination } : { label: "" },
     days: parsedDays ?? 1,
     budget: budget ?? "",
+    planType: planType ?? "",
     travelers: normalizeTravelersLabel(travelers),
+    travelStyle: travelStyle ?? "",
+    pace: pace ?? "",
+    foodPreferences: foodPreference ? foodPreference.split(",") : [],
   });
 
   return {
@@ -166,7 +216,11 @@ export function readCreateTripPrefill(queryInput) {
       Number.isInteger(parsedDays) && parsedDays >= 1 && parsedDays <= 30
         ? parsedDays
         : null,
-    budget: normalized.budget || null,
+    budgetAmount: normalized.budgetAmount || null,
+    planType: normalized.planType || null,
     travelers: normalized.travelers || null,
+    travelStyle: normalized.travelStyle || null,
+    pace: normalized.pace || null,
+    foodPreferences: normalized.foodPreferences ?? [],
   };
 }

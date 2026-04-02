@@ -195,6 +195,150 @@ def two_opt_path(weight_matrix, order, fixed_start=True, fixed_end=True):
     return best_order
 
 
+def normalize_coordinate(value):
+    if not isinstance(value, dict):
+        return None
+
+    latitude = value.get("latitude", value.get("lat"))
+    longitude = value.get("longitude", value.get("lng"))
+
+    try:
+        latitude = float(latitude)
+        longitude = float(longitude)
+    except (TypeError, ValueError):
+        return None
+
+    if not (math.isfinite(latitude) and math.isfinite(longitude)):
+        return None
+
+    return (latitude, longitude)
+
+
+def squared_distance(left, right):
+    if left is None or right is None:
+        return math.inf
+
+    latitude_delta = left[0] - right[0]
+    longitude_delta = left[1] - right[1]
+    return latitude_delta * latitude_delta + longitude_delta * longitude_delta
+
+
+def cluster_coordinates(node_coordinates, cluster_count):
+    coordinates = [normalize_coordinate(item) for item in node_coordinates]
+    node_count = len(coordinates)
+    if node_count == 0:
+        return {}, []
+
+    if cluster_count <= 1:
+        return {index: 0 for index in range(node_count)}, [coordinates[0]]
+
+    valid_indices = [index for index, coordinate in enumerate(coordinates) if coordinate is not None]
+    if not valid_indices:
+        return {index: index % cluster_count for index in range(node_count)}, []
+
+    cluster_count = max(1, min(cluster_count, len(valid_indices)))
+    stride = max(1, len(valid_indices) // cluster_count)
+    centroid_indices = [valid_indices[min(index * stride, len(valid_indices) - 1)] for index in range(cluster_count)]
+    centroids = [coordinates[index] for index in centroid_indices]
+
+    assignments = {}
+
+    for _ in range(24):
+        next_assignments = {}
+
+        for node_index, coordinate in enumerate(coordinates):
+            if coordinate is None:
+                next_assignments[node_index] = node_index % cluster_count
+                continue
+
+            best_cluster_id = min(
+                range(cluster_count),
+                key=lambda cluster_id: squared_distance(coordinate, centroids[cluster_id]),
+            )
+            next_assignments[node_index] = best_cluster_id
+
+        if next_assignments == assignments:
+            break
+
+        assignments = next_assignments
+        cluster_buckets = {cluster_id: [] for cluster_id in range(cluster_count)}
+
+        for node_index, cluster_id in assignments.items():
+            coordinate = coordinates[node_index]
+            if coordinate is None:
+                continue
+            cluster_buckets[cluster_id].append(coordinate)
+
+        next_centroids = []
+        for cluster_id in range(cluster_count):
+            bucket = cluster_buckets[cluster_id]
+            if not bucket:
+                next_centroids.append(centroids[cluster_id])
+                continue
+
+            latitude_mean = sum(item[0] for item in bucket) / len(bucket)
+            longitude_mean = sum(item[1] for item in bucket) / len(bucket)
+            next_centroids.append((latitude_mean, longitude_mean))
+
+        centroids = next_centroids
+
+    if not assignments:
+        assignments = {index: index % cluster_count for index in range(node_count)}
+
+    return assignments, centroids
+
+
+def build_clusters(assignments, cluster_count):
+    if cluster_count <= 0:
+        return []
+
+    clusters = []
+    for cluster_id in range(cluster_count):
+        members = sorted(
+            [node_index for node_index, assigned_cluster_id in assignments.items() if assigned_cluster_id == cluster_id]
+        )
+        clusters.append(
+            {
+                "clusterId": cluster_id,
+                "members": members,
+            }
+        )
+
+    return clusters
+
+
+def build_day_plans(visit_order, assignments, cluster_count):
+    if cluster_count <= 0:
+        return []
+
+    day_plans = []
+    for cluster_id in range(cluster_count):
+        cluster_visit_order = [node_index for node_index in visit_order if assignments.get(node_index) == cluster_id]
+        if not cluster_visit_order:
+            continue
+
+        day_plans.append(
+            {
+                "day": len(day_plans) + 1,
+                "clusterId": cluster_id,
+                "visitOrder": cluster_visit_order,
+                "stopCount": len(cluster_visit_order),
+            }
+        )
+
+    if not day_plans and visit_order:
+        day_plans.append(
+            {
+                "day": 1,
+                "clusterId": 0,
+                "visitOrder": visit_order,
+                "stopCount": len(visit_order),
+            }
+        )
+
+    return day_plans
+
+
 def optimize_route(payload):
     weight_matrix = normalize_weight_matrix(payload.get("matrix", []))
     if not weight_matrix:
@@ -220,6 +364,15 @@ def optimize_route(payload):
         fixed_start=True,
         fixed_end=destination_index is not None and destination_index != origin_index,
     )
+    raw_cluster_count = payload.get("clusterCount", 1)
+    try:
+        cluster_count = int(raw_cluster_count)
+    except (TypeError, ValueError):
+        cluster_count = 1
+    node_coordinates = payload.get("nodeCoordinates", [])
+    assignments, _ = cluster_coordinates(node_coordinates, cluster_count)
+    clusters = build_clusters(assignments, max(1, cluster_count))
+    day_plans = build_day_plans(optimized_order, assignments, max(1, cluster_count))
 
     shortest_paths = dijkstra(weight_matrix, origin_index)
     mst = prim_mst(weight_matrix)
@@ -231,6 +384,9 @@ def optimize_route(payload):
         "shortestPathsFromOrigin": shortest_paths["distances"],
         "previous": shortest_paths["previous"],
         "mst": mst,
+        "clusters": clusters,
+        "clusterAssignments": assignments,
+        "dayPlans": day_plans,
     }
 
 

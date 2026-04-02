@@ -7,7 +7,10 @@ import {
   listTripsForUser,
   validateTripRequest,
 } from "../services/trips.js";
-import { getDestinationRecommendations } from "../services/recommendations.js";
+import {
+  getDestinationAutocompleteSuggestions,
+  getDestinationRecommendations,
+} from "../services/recommendations.js";
 
 const router = express.Router();
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
@@ -151,6 +154,32 @@ export function resolveTripGenerationFailure(error) {
       "Check server logs for [trips] Failed to generate trip, then verify Firestore setup, Firebase Admin credentials, and Gemini API connectivity.",
   };
 }
+
+router.get("/places/autocomplete", async (req, res) => {
+  try {
+    const suggestions = await getDestinationAutocompleteSuggestions({
+      query: req.query.q,
+      forceRefresh: parseBooleanQueryFlag(req.query.force),
+    });
+
+    res.json({ suggestions });
+  } catch (error) {
+    if (error?.code === "recommendations/invalid-query") {
+      res.status(400).json({
+        message: error.message,
+      });
+      return;
+    }
+
+    console.error("[places] Failed to load autocomplete suggestions", {
+      query: String(req.query.q ?? ""),
+      errorMessage: getErrorText(error),
+    });
+    res.status(500).json({
+      message: "Unable to load destination suggestions right now.",
+    });
+  }
+});
 
 router.post("/trips/generate", requireAuth, tripGenerationRateLimit, async (req, res) => {
   const { userSelection, errors } = validateTripRequest(req.body);

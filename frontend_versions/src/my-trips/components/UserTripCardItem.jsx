@@ -3,9 +3,23 @@ import { Link } from "react-router-dom";
 import { getTripImage } from "@/lib/destinationImages";
 import AppImage from "@/components/ui/AppImage";
 import { IMAGE_FALLBACKS } from "@/lib/imageManifest";
+import {
+  formatBudgetSummary,
+  normalizeUserSelection,
+} from "../../../shared/trips.js";
 
 function UserTripCardItem({ trip }) {
-  const imageSrc = getTripImage(trip?.userSelection?.location?.label);
+  const selection = normalizeUserSelection(trip?.userSelection ?? {});
+  const destinationLabel = selection.location.label || "Unknown Location";
+  const imageSrc = getTripImage(destinationLabel);
+  const summaryParts = [
+    `${selection.days || "N/A"} Day${selection.days === 1 ? "" : "s"}`,
+    selection.planType || formatBudgetSummary(selection),
+  ].filter(Boolean);
+  const metaParts = [
+    selection.travelStyle,
+    selection.pace ? `${selection.pace} pace` : "",
+  ].filter(Boolean);
 
   return (
     <Link to={`/trips/${trip?.id}`} className="block">
@@ -13,18 +27,28 @@ function UserTripCardItem({ trip }) {
         <AppImage
           src={imageSrc}
           fallbackSrc={IMAGE_FALLBACKS.scenic}
-          alt={`${trip?.userSelection?.location?.label || "Trip"} destination`}
+          alt={`${destinationLabel || "Trip"} destination`}
           sizes="(max-width: 560px) 100vw, (max-width: 980px) 50vw, 33vw"
           className="h-[220px] w-full"
           imgClassName="h-full w-full object-cover"
         />
         <div className="p-5">
           <h2 className="font-bold text-lg text-[var(--voy-text)] truncate">
-            {trip?.userSelection?.location?.label || "Unknown Location"}
+            {destinationLabel}
           </h2>
           <p className="mt-2 text-sm text-[var(--voy-text-muted)]">
-            {trip?.userSelection?.days || "N/A"} Days • {trip?.userSelection?.budget || "N/A"} Budget
+            {summaryParts.join(" • ")}
           </p>
+          {metaParts.length > 0 ? (
+            <p className="mt-1 text-xs text-[var(--voy-text-muted)]">
+              {metaParts.join(" • ")}
+            </p>
+          ) : null}
+          {selection.foodPreferences.length > 0 ? (
+            <p className="mt-2 text-xs text-[var(--voy-text-faint)] line-clamp-1">
+              Food: {selection.foodPreferences.join(", ")}
+            </p>
+          ) : null}
           {trip?.createdAt ? (
             <p className="mt-2 text-xs text-[var(--voy-text-faint)]">
               Created: {new Date(trip.createdAt).toLocaleDateString()}

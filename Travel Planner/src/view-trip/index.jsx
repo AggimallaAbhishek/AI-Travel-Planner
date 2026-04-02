@@ -8,6 +8,7 @@ import { toast } from "react-toastify";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/lib/api";
 import { fetchTripRecommendations } from "@/lib/tripRecommendations";
+import { downloadTripPdf, printTripPdf } from "@/lib/trip-pdf";
 import { Button } from "@/components/ui/button";
 import { buildLoginPath } from "@/lib/authRedirect";
 
@@ -64,6 +65,7 @@ function Viewtrip() {
     INITIAL_RECOMMENDATION_STATE
   );
   const [recommendationReloadToken, setRecommendationReloadToken] = useState(0);
+  const [pdfAction, setPdfAction] = useState("");
   const loginPath = buildLoginPath(`${location.pathname}${location.search}${location.hash}`);
 
   const fallbackHotelRecommendations = useMemo(
@@ -86,6 +88,14 @@ function Viewtrip() {
     .filter(Boolean)
     .join(" ");
   const restaurantNote = recommendations.warning;
+  const recommendationsForPdf = useMemo(
+    () => ({
+      ...recommendations,
+      hotels: hotelsToDisplay,
+      restaurants: recommendations.restaurants,
+    }),
+    [recommendations, hotelsToDisplay]
+  );
 
   useEffect(() => {
     const controller = new AbortController();
@@ -202,6 +212,56 @@ function Viewtrip() {
     setRecommendationReloadToken((previous) => previous + 1);
   };
 
+  const handleDownloadPdf = async () => {
+    if (!trip || pdfAction) {
+      return;
+    }
+
+    setPdfAction("download");
+
+    try {
+      const result = await downloadTripPdf({
+        trip,
+        recommendations: recommendationsForPdf,
+      });
+
+      toast.success(`Travel brochure downloaded (${result.pageCount} pages).`);
+    } catch (error) {
+      console.error("[view-trip] Failed to download brochure PDF", {
+        tripId: trip.id,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      toast.error(error?.message ?? "Unable to generate the PDF brochure right now.");
+    } finally {
+      setPdfAction("");
+    }
+  };
+
+  const handlePrintPdf = async () => {
+    if (!trip || pdfAction) {
+      return;
+    }
+
+    setPdfAction("print");
+
+    try {
+      const result = await printTripPdf({
+        trip,
+        recommendations: recommendationsForPdf,
+      });
+
+      toast.success(`Print ready (${result.pageCount} pages).`);
+    } catch (error) {
+      console.error("[view-trip] Failed to print brochure PDF", {
+        tripId: trip.id,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      toast.error(error?.message ?? "Unable to open print preview right now.");
+    } finally {
+      setPdfAction("");
+    }
+  };
+
   if (authLoading) {
     return (
       <section className="voy-view-shell">
@@ -264,7 +324,12 @@ function Viewtrip() {
   return (
     <section className="voy-view-shell">
       <div className="voy-view-content">
-        <InfoSection trip={trip} />
+        <InfoSection
+          trip={trip}
+          pdfAction={pdfAction}
+          onDownloadPdf={handleDownloadPdf}
+          onPrintPdf={handlePrintPdf}
+        />
         <Hotels
           trip={trip}
           hotels={hotelsToDisplay}

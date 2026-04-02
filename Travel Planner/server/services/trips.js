@@ -7,7 +7,7 @@ import {
   sortTripsNewestFirst,
 } from "../../shared/trips.js";
 import { getAdminDb } from "../lib/firebaseAdmin.js";
-import { generateTripPlan } from "./gemini.js";
+import { buildDataDrivenTripPlan } from "./planningEngine.js";
 
 const COLLECTION_NAME = "AITrips";
 
@@ -74,14 +74,24 @@ export function validateTripRequest(body = {}) {
   return { userSelection, errors };
 }
 
-export async function createTripForUser({ user, userSelection }) {
-  const generatedTrip = await generateTripPlan(userSelection);
+export async function createTripForUser({ user, userSelection, traceId = "" }) {
+  const tripId = randomUUID();
+  const dataDrivenPlan = await buildDataDrivenTripPlan({
+    tripId,
+    user,
+    userSelection,
+    traceId,
+  });
   const trip = buildStoredTrip({
-    id: randomUUID(),
+    id: tripId,
     ownerId: user.uid,
     ownerEmail: user.email ?? "",
     userSelection,
-    generatedTrip,
+    generatedTrip: dataDrivenPlan.generatedTrip,
+    planningMeta: dataDrivenPlan.planningMeta,
+    optimization: dataDrivenPlan.optimization,
+    routePlans: dataDrivenPlan.generatedTrip.routePlans,
+    recommendations: dataDrivenPlan.generatedTrip.recommendations,
   });
 
   try {
@@ -89,10 +99,12 @@ export async function createTripForUser({ user, userSelection }) {
       tripId: trip.id,
       projectId: process.env.FIREBASE_PROJECT_ID ?? null,
       collection: COLLECTION_NAME,
+      traceId: traceId || null,
     });
     await getTripsCollection().doc(trip.id).set(trip);
     console.info("[trips] Generated trip saved", {
       tripId: trip.id,
+      traceId: traceId || null,
     });
   } catch (error) {
     const resolvedError = resolveTripPersistenceFailure(error);
@@ -103,6 +115,7 @@ export async function createTripForUser({ user, userSelection }) {
       errorMessage: getErrorText(error),
       errorCode: error?.code ?? null,
       resolvedMessage: getErrorText(resolvedError),
+      traceId: traceId || null,
     });
     throw resolvedError;
   }

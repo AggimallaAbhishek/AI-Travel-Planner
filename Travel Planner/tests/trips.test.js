@@ -72,6 +72,8 @@ test("normalizeStoredTrip upgrades legacy trip documents", () => {
   assert.equal(trip.ownerEmail, "owner@example.com");
   assert.equal(trip.userSelection.days, 3);
   assert.equal(trip.userSelection.travelers, "A Couple");
+  assert.equal(trip.userSelection.planType, "Moderate Plan");
+  assert.equal(trip.userSelection.budgetAmount > 0, true);
   assert.equal(trip.itinerary.days[0].places[0].placeName, "Eiffel Tower");
   assert.equal(trip.aiPlan.days[0].day, 1);
 });
@@ -96,13 +98,12 @@ test("getUserSelectionErrors enforces maximum text lengths", () => {
   const errors = getUserSelectionErrors({
     location: { label: "P".repeat(121) },
     days: 4,
-    budget: "B".repeat(41),
+    budget: 4500,
     travelers: "T".repeat(41),
   });
 
   assert.deepEqual(errors, [
     "Destination must be 120 characters or fewer.",
-    "Budget must be 40 characters or fewer.",
     "Traveler type must be 40 characters or fewer.",
   ]);
 });
@@ -111,10 +112,21 @@ test("getUserSelectionErrors validates traveler count bounds when provided", () 
   const errors = getUserSelectionErrors({
     location: { label: "Delhi" },
     days: 4,
-    budget: "Moderate",
+    budget: 1600,
     travelers: "Friends",
     travelerCount: 51,
   });
 
   assert.ok(errors.includes("Traveler count must be between 1 and 50."));
+});
+
+test("getUserSelectionErrors validates minimum realistic budget", () => {
+  const errors = getUserSelectionErrors({
+    location: { label: "Delhi" },
+    days: 4,
+    budget: 50,
+    travelers: "Friends",
+  });
+
+  assert.ok(errors.includes("Budget must be between $100 and $50,000."));
 });

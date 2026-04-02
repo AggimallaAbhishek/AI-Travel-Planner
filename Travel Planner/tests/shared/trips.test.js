@@ -8,6 +8,7 @@ import {
   normalizeUserSelection,
   parseAiTripPayload,
   sortTripsNewestFirst,
+  suggestPlanTypeFromBudget,
 } from "../../shared/trips.js";
 
 test("normalizeUserSelection maps legacy keys into canonical shape", () => {
@@ -18,25 +19,47 @@ test("normalizeUserSelection maps legacy keys into canonical shape", () => {
     travelWith: "Friends",
   });
 
-  assert.deepEqual(normalized, {
-    location: { label: "Kyoto" },
-    days: 5,
-    budget: "Luxury",
-    travelers: "Friends",
-    travelType: "",
-    travelerCount: null,
+  assert.equal(normalized.location.label, "Kyoto");
+  assert.equal(normalized.days, 5);
+  assert.equal(normalized.planType, "Best Plan");
+  assert.equal(normalized.travelers, "Friends");
+  assert.equal(normalized.budgetAmount > 0, true);
+});
+
+test("normalizeUserSelection keeps Mixed food preference exclusive", () => {
+  const normalized = normalizeUserSelection({
+    foodPreferences: ["Vegetarian", "Mixed", "Vegan"],
   });
+
+  assert.deepEqual(normalized.foodPreferences, ["Mixed"]);
+});
+
+test("suggestPlanTypeFromBudget derives plan tiers from daily budget", () => {
+  assert.equal(suggestPlanTypeFromBudget(700, 5), "Cheap Plan");
+  assert.equal(suggestPlanTypeFromBudget(1200, 5), "Moderate Plan");
+  assert.equal(suggestPlanTypeFromBudget(2500, 5), "Best Plan");
 });
 
 test("getUserSelectionErrors flags invalid duration range", () => {
   const errors = getUserSelectionErrors({
     location: { label: "Rome" },
     days: 31,
-    budget: "Moderate",
+    budget: 1600,
     travelers: "Just Me",
   });
 
   assert.ok(errors.includes("Trip duration must be between 1 and 30 days."));
+});
+
+test("getUserSelectionErrors rejects unrealistic numeric budgets", () => {
+  const errors = getUserSelectionErrors({
+    location: { label: "Rome" },
+    days: 4,
+    budget: 99,
+    travelers: "Just Me",
+  });
+
+  assert.ok(errors.includes("Budget must be between $100 and $50,000."));
 });
 
 test("parseAiTripPayload accepts fenced JSON payloads", () => {
@@ -118,16 +141,25 @@ test("normalizeGeneratedTrip maps strict Gemini JSON shape to aiPlan and itinera
   assert.equal(normalized.itinerary.days[0].places[0].placeName, "Hotel check-in");
 });
 
-test("buildFallbackGeneratedTrip returns deterministic minimum itinerary", () => {
+test("buildFallbackGeneratedTrip responds to travel style, pace, and food preferences", () => {
   const fallback = buildFallbackGeneratedTrip({
     location: { label: "Tokyo" },
     days: 2,
-    budget: "Cheap",
+    budget: 500,
     travelers: "Just Me",
+    travelStyle: "Adventure",
+    pace: "Fast-paced",
+    foodPreferences: ["Vegan"],
   });
 
   assert.equal(fallback.aiPlan.destination, "Tokyo");
   assert.equal(fallback.aiPlan.days.length, 2);
+  assert.equal(
+    fallback.aiPlan.days[0].activities.some((activity) =>
+      activity.toLowerCase().includes("vegan")
+    ),
+    true
+  );
   assert.equal(fallback.itinerary.days.length, 2);
   assert.ok(fallback.aiPlan.totalEstimatedCost.includes("$"));
 });
@@ -146,16 +178,21 @@ test("buildTripPrompt contains all normalized user selection fields", () => {
   const prompt = buildTripPrompt({
     location: { label: "Seoul" },
     days: 4,
-    budget: "Cheap",
+    budget: 1600,
+    planType: "Cheap Plan",
     travelers: "Family",
-    travelType: "Relaxation",
+    travelStyle: "Relaxation",
     travelerCount: 3,
+    pace: "Balanced",
+    foodPreferences: ["Vegetarian"],
   });
 
   assert.ok(prompt.includes("Destination: Seoul"));
-  assert.ok(prompt.includes("Duration: 4 day(s)"));
-  assert.ok(prompt.includes("Budget: Cheap"));
-  assert.ok(prompt.includes("Travel Type: Relaxation"));
+  assert.ok(prompt.includes("Plan Type: Cheap Plan"));
+  assert.ok(prompt.includes("Total Budget: $1,600 total"));
+  assert.ok(prompt.includes("Travel Style: Relaxation"));
+  assert.ok(prompt.includes("Time Preference: Balanced"));
+  assert.ok(prompt.includes("Food Preferences: Vegetarian"));
   assert.ok(prompt.includes("Number of Travelers: 3"));
   assert.ok(prompt.includes("\"total_estimated_cost\""));
 });

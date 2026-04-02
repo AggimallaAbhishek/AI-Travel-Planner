@@ -1,3 +1,5 @@
+import { normalizeDestinationRecommendations } from "./recommendations.js";
+
 function normalizeText(value, fallback = "") {
   if (typeof value !== "string") {
     return fallback;
@@ -144,25 +146,235 @@ function normalizeActivities(source = []) {
   return [];
 }
 
-function getBudgetCostBand(budget) {
-  const normalized = normalizeText(budget).toLowerCase();
+export const PLAN_TYPE_LABELS = Object.freeze([
+  "Cheap Plan",
+  "Moderate Plan",
+  "Best Plan",
+]);
 
-  if (/cheap|budget|economy/.test(normalized)) {
-    return { min: 45, max: 90 };
+export const FOOD_PREFERENCE_LABELS = Object.freeze([
+  "Vegetarian",
+  "Non-Vegetarian",
+  "Vegan",
+  "Mixed",
+]);
+
+export const TRAVEL_STYLE_LABELS = Object.freeze([
+  "Adventure",
+  "Relaxation",
+  "Cultural",
+  "Nightlife",
+]);
+
+export const PACE_LABELS = Object.freeze([
+  "Fast-paced",
+  "Balanced",
+  "Relaxed",
+]);
+
+const PLAN_TYPE_BUDGET_BANDS = Object.freeze({
+  "Cheap Plan": { dailyMin: 80, dailyMax: 150, split: { stay: 0.34, food: 0.24, travel: 0.42 } },
+  "Moderate Plan": {
+    dailyMin: 151,
+    dailyMax: 320,
+    split: { stay: 0.45, food: 0.25, travel: 0.3 },
+  },
+  "Best Plan": { dailyMin: 321, dailyMax: 650, split: { stay: 0.56, food: 0.24, travel: 0.2 } },
+});
+
+function normalizeNumericValue(value, fallback = null) {
+  if (value === undefined || value === null || value === "") {
+    return fallback;
   }
 
-  if (/luxury|premium/.test(normalized)) {
-    return { min: 220, max: 420 };
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
   }
 
-  return { min: 90, max: 180 };
+  if (typeof value === "string") {
+    const cleaned = value.replace(/[^\d.-]/g, "");
+    if (!cleaned) {
+      return fallback;
+    }
+
+    const parsed = Number.parseFloat(cleaned);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  }
+
+  return fallback;
 }
 
-function buildEstimatedTotalCost(budget, days) {
-  const band = getBudgetCostBand(budget);
-  const min = band.min * days;
-  const max = band.max * days;
-  return `Approx. $${min} - $${max}`;
+function roundBudgetAmount(value) {
+  const numeric = normalizeNumericValue(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return null;
+  }
+
+  return Math.round(numeric);
+}
+
+function normalizeLabelAgainstOptions(value, options = [], fallback = "") {
+  const normalized = normalizeText(String(value ?? ""));
+  if (!normalized) {
+    return fallback;
+  }
+
+  const normalizedKey = normalized.toLowerCase();
+  const directMatch = options.find(
+    (option) => option.toLowerCase() === normalizedKey
+  );
+  if (directMatch) {
+    return directMatch;
+  }
+
+  return fallback;
+}
+
+export function normalizePlanType(value, fallback = "") {
+  const normalized = normalizeText(String(value ?? ""));
+  if (!normalized) {
+    return fallback;
+  }
+
+  const key = normalized.toLowerCase();
+
+  if (/(cheap|budget|economy)/.test(key)) {
+    return "Cheap Plan";
+  }
+
+  if (/(best|luxury|premium)/.test(key)) {
+    return "Best Plan";
+  }
+
+  if (/(moderate|standard|average|mid)/.test(key)) {
+    return "Moderate Plan";
+  }
+
+  return normalizeLabelAgainstOptions(normalized, PLAN_TYPE_LABELS, fallback);
+}
+
+export function suggestPlanTypeFromBudget(budgetAmount, days = 1) {
+  const totalBudget = roundBudgetAmount(budgetAmount);
+  const safeDays = clampInteger(days, 1, 30, 1);
+
+  if (!totalBudget) {
+    return "";
+  }
+
+  const budgetPerDay = totalBudget / safeDays;
+
+  if (budgetPerDay <= PLAN_TYPE_BUDGET_BANDS["Cheap Plan"].dailyMax) {
+    return "Cheap Plan";
+  }
+
+  if (budgetPerDay <= PLAN_TYPE_BUDGET_BANDS["Moderate Plan"].dailyMax) {
+    return "Moderate Plan";
+  }
+
+  return "Best Plan";
+}
+
+function getPlanTypeBudgetBand(planType) {
+  return PLAN_TYPE_BUDGET_BANDS[normalizePlanType(planType, "Moderate Plan")] ??
+    PLAN_TYPE_BUDGET_BANDS["Moderate Plan"];
+}
+
+export function buildRecommendedBudgetRange(planType, days = 1) {
+  const safeDays = clampInteger(days, 1, 30, 1);
+  const band = getPlanTypeBudgetBand(planType);
+  return {
+    min: band.dailyMin * safeDays,
+    max: band.dailyMax * safeDays,
+  };
+}
+
+export function buildBudgetBreakdown(budgetAmount, planType) {
+  const safeBudgetAmount = roundBudgetAmount(budgetAmount);
+  const band = getPlanTypeBudgetBand(planType);
+  const total =
+    safeBudgetAmount ??
+    Math.round((band.dailyMin + band.dailyMax) / 2);
+
+  return {
+    total,
+    stay: Math.round(total * band.split.stay),
+    food: Math.round(total * band.split.food),
+    travel: Math.max(
+      0,
+      total - Math.round(total * band.split.stay) - Math.round(total * band.split.food)
+    ),
+  };
+}
+
+export function formatBudgetAmount(value) {
+  const numeric = roundBudgetAmount(value);
+  if (!numeric) {
+    return "";
+  }
+
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(numeric);
+}
+
+export function formatBudgetSummary(selectionInput = {}) {
+  const selection = normalizeUserSelection(selectionInput);
+
+  if (selection.budgetAmount) {
+    return `${formatBudgetAmount(selection.budgetAmount)} total`;
+  }
+
+  if (selection.planType) {
+    const recommended = buildRecommendedBudgetRange(selection.planType, selection.days);
+    return `${formatBudgetAmount(recommended.min)}-${formatBudgetAmount(
+      recommended.max
+    )}`;
+  }
+
+  return "Budget not set";
+}
+
+function buildEstimatedTotalCost(selectionInput = {}) {
+  const selection = normalizeUserSelection(selectionInput);
+
+  if (selection.budgetAmount) {
+    const budgetPerDay = Math.max(
+      1,
+      Math.round(selection.budgetAmount / clampInteger(selection.days, 1, 30, 1))
+    );
+
+    return `${formatBudgetAmount(selection.budgetAmount)} total (~${formatBudgetAmount(
+      budgetPerDay
+    )}/day)`;
+  }
+
+  const recommended = buildRecommendedBudgetRange(selection.planType, selection.days);
+  return `Approx. ${formatBudgetAmount(recommended.min)} - ${formatBudgetAmount(
+    recommended.max
+  )}`;
+}
+
+function normalizeFoodPreferences(values) {
+  const normalized = normalizeStringArray(
+    Array.isArray(values)
+      ? values
+      : typeof values === "string"
+        ? values.split(",")
+        : [],
+    FOOD_PREFERENCE_LABELS.length
+  )
+    .map((value) =>
+      normalizeLabelAgainstOptions(value, FOOD_PREFERENCE_LABELS, value)
+    )
+    .filter(Boolean);
+
+  if (normalized.includes("Mixed")) {
+    return ["Mixed"];
+  }
+
+  return normalizeStringArray(normalized, FOOD_PREFERENCE_LABELS.length);
 }
 
 function normalizeTravelTips(value, destination) {
@@ -294,24 +506,150 @@ function normalizeAiDay(rawDay = {}, index) {
   };
 }
 
+function normalizeTravelStyle(value, fallback = "") {
+  const normalized = normalizeText(String(value ?? ""));
+  if (!normalized) {
+    return fallback;
+  }
+
+  const key = normalized.toLowerCase();
+
+  if (key.includes("adventure")) {
+    return "Adventure";
+  }
+
+  if (
+    key.includes("relax") ||
+    key.includes("spa") ||
+    key.includes("leisure")
+  ) {
+    return "Relaxation";
+  }
+
+  if (
+    key.includes("cultur") ||
+    key.includes("heritage") ||
+    key.includes("history") ||
+    key.includes("museum")
+  ) {
+    return "Cultural";
+  }
+
+  if (key.includes("night")) {
+    return "Nightlife";
+  }
+
+  return normalizeLabelAgainstOptions(normalized, TRAVEL_STYLE_LABELS, fallback);
+}
+
+function normalizePace(value, fallback = "") {
+  const normalized = normalizeText(String(value ?? ""));
+  if (!normalized) {
+    return fallback;
+  }
+
+  const key = normalized.toLowerCase();
+
+  if (key.includes("fast") || key.includes("packed")) {
+    return "Fast-paced";
+  }
+
+  if (
+    key.includes("relax") ||
+    key.includes("leisure") ||
+    key.includes("slow")
+  ) {
+    return "Relaxed";
+  }
+
+  if (
+    key.includes("balanced") ||
+    key.includes("moderate")
+  ) {
+    return "Balanced";
+  }
+
+  return normalizeLabelAgainstOptions(normalized, PACE_LABELS, fallback);
+}
+
+function resolveBudgetAmount(rawBudgetAmount, planType, days) {
+  const directBudgetAmount = roundBudgetAmount(rawBudgetAmount);
+  if (directBudgetAmount) {
+    return directBudgetAmount;
+  }
+
+  const normalizedPlanType = normalizePlanType(planType);
+  if (!normalizedPlanType) {
+    return null;
+  }
+
+  const recommended = buildRecommendedBudgetRange(normalizedPlanType, days);
+  return Math.round((recommended.min + recommended.max) / 2);
+}
+
 function buildFallbackPlanDays(selection) {
   const destination = normalizeText(selection.location.label, "your destination");
   const dayCount = clampInteger(selection.days, 1, 30, 1);
-  const activitiesByDay = [
-    ["Arrive and check in", "Orientation walk around the main district", "Evening local food experience"],
-    ["Visit a major landmark", "Explore a cultural neighborhood", "Sunset viewpoint"],
-    ["Museum or heritage site tour", "Relaxed cafe break", "Local market shopping"],
-    ["Nature or scenic day trip", "Free exploration window", "Dinner in a recommended area"],
-  ];
+  const travelStyle = normalizeTravelStyle(selection.travelStyle, "Cultural");
+  const pace = normalizePace(selection.pace, "Balanced");
+  const foodPreference =
+    selection.foodPreferences?.[0] && selection.foodPreferences[0] !== "Mixed"
+      ? selection.foodPreferences[0].toLowerCase()
+      : "local";
+
+  const activitiesByStyle = {
+    Adventure: [
+      `Trail or nature route around ${destination}`,
+      "High-energy outdoor stop",
+      `${foodPreference} lunch near the activity hub`,
+      "Scenic sunset viewpoint",
+      "Recovery dinner in a lively district",
+    ],
+    Relaxation: [
+      "Slow breakfast and neighborhood walk",
+      "Wellness or scenic downtime block",
+      `${foodPreference} lunch with a calm setting`,
+      "Flexible free time",
+      "Sunset dinner with minimal transit",
+    ],
+    Cultural: [
+      "Historic district orientation walk",
+      "Museum or heritage site visit",
+      `${foodPreference} local dining stop`,
+      "Market or craft quarter browsing",
+      "Evening cultural experience",
+    ],
+    Nightlife: [
+      "Late-morning city reset",
+      "Design-forward neighborhood stop",
+      `${foodPreference} dinner in a social area`,
+      "Rooftop or live-music venue",
+      "Late evening free exploration",
+    ],
+  };
+
+  const activityCount = {
+    "Fast-paced": 5,
+    Balanced: 4,
+    Relaxed: 3,
+  }[pace];
 
   return Array.from({ length: dayCount }, (_, index) => {
-    const template = activitiesByDay[index % activitiesByDay.length];
+    const template = (activitiesByStyle[travelStyle] ?? activitiesByStyle.Cultural).slice(
+      0,
+      activityCount
+    );
     return {
       day: index + 1,
       title: `Day ${index + 1} in ${destination}`,
       activities: template,
-      estimatedCost: "Not specified",
-      tips: `Plan transport between stops in ${destination} to avoid idle time.`,
+      estimatedCost: buildEstimatedTotalCost(selection),
+      tips:
+        pace === "Fast-paced"
+          ? `Cluster nearby stops in ${destination} to keep the itinerary efficient.`
+          : pace === "Relaxed"
+            ? `Leave buffer time between stops in ${destination} so the day stays easy.`
+            : `Balance anchor attractions with flexible exploration time in ${destination}.`,
     };
   });
 }
@@ -331,36 +669,94 @@ export function isRemoteImageUrl(value) {
 
 export function normalizeLocation(input) {
   if (typeof input === "string") {
-    return { label: normalizeText(input) };
+    return {
+      label: normalizeText(input),
+      placeId: "",
+      source: "",
+      primaryText: "",
+      secondaryText: "",
+    };
   }
 
   if (input && typeof input === "object") {
     return {
       label: normalizeText(input.label ?? input.description ?? input.value),
+      placeId: normalizeText(input.placeId ?? input.place_id),
+      source: normalizeText(input.source),
+      primaryText: normalizeText(
+        input.primaryText ??
+          input.structured_formatting?.main_text
+      ),
+      secondaryText: normalizeText(
+        input.secondaryText ??
+          input.structured_formatting?.secondary_text
+      ),
     };
   }
 
-  return { label: "" };
+  return {
+    label: "",
+    placeId: "",
+    source: "",
+    primaryText: "",
+    secondaryText: "",
+  };
 }
 
 export function normalizeUserSelection(input = {}) {
   const rawTravelerCount =
     input.travelerCount ?? input.numberOfTravelers ?? input.travelersCount;
+  const days = normalizeInteger(input.days ?? input.noOfDays, 1);
   const travelerCount =
     rawTravelerCount === undefined || rawTravelerCount === null || rawTravelerCount === ""
       ? null
       : normalizeInteger(rawTravelerCount, 0);
+  const rawPlanType =
+    input.planType ??
+    input.plan_type ??
+    input.plan ??
+    input.budgetTier ??
+    input.budgetLabel;
+  const rawBudgetAmount =
+    input.budgetAmount ??
+    input.budget_amount ??
+    input.totalBudget ??
+    input.total_budget ??
+    input.budget;
+  const planType =
+    normalizePlanType(rawPlanType ?? rawBudgetAmount) ||
+    suggestPlanTypeFromBudget(rawBudgetAmount, days);
+  const budgetAmount = resolveBudgetAmount(rawBudgetAmount, planType, days);
+  const travelStyle = normalizeTravelStyle(
+    input.travelStyle ??
+      input.travel_style ??
+      input.travelType ??
+      input.tripType
+  );
+  const pace = normalizePace(
+    input.pace ??
+      input.timePreference ??
+      input.time_preference
+  );
+  const foodPreferences = normalizeFoodPreferences(
+    input.foodPreferences ??
+      input.foodPreference ??
+      input.food_preference
+  );
 
   return {
     location: normalizeLocation(input.location ?? input.destination),
-    days: normalizeInteger(input.days ?? input.noOfDays, 1),
-    budget: normalizeChoice(input.budget),
+    days,
+    budget: budgetAmount,
+    budgetAmount,
+    planType,
     travelers: normalizeChoice(
       input.travelers ?? input.travelWith ?? input.traveler
     ),
-    travelType: normalizeChoice(
-      input.travelType ?? input.tripType ?? input.travelStyle
-    ),
+    travelStyle,
+    travelType: travelStyle,
+    pace,
+    foodPreferences,
     travelerCount,
   };
 }
@@ -370,6 +766,7 @@ export function getUserSelectionErrors(input = {}) {
   const errors = [];
   const MAX_LOCATION_LENGTH = 120;
   const MAX_CHOICE_LENGTH = 40;
+  const MAX_BUDGET = 50_000;
 
   if (!selection.location.label) {
     errors.push("Destination is required.");
@@ -385,10 +782,14 @@ export function getUserSelectionErrors(input = {}) {
     errors.push("Trip duration must be between 1 and 30 days.");
   }
 
-  if (!selection.budget) {
+  if (!selection.budgetAmount) {
     errors.push("Budget is required.");
-  } else if (selection.budget.length > MAX_CHOICE_LENGTH) {
-    errors.push("Budget must be 40 characters or fewer.");
+  } else if (selection.budgetAmount < 100 || selection.budgetAmount > MAX_BUDGET) {
+    errors.push("Budget must be between $100 and $50,000.");
+  }
+
+  if (selection.planType && selection.planType.length > MAX_CHOICE_LENGTH) {
+    errors.push("Plan type must be 40 characters or fewer.");
   }
 
   if (!selection.travelers) {
@@ -397,11 +798,19 @@ export function getUserSelectionErrors(input = {}) {
     errors.push("Traveler type must be 40 characters or fewer.");
   }
 
+  if (selection.travelStyle && selection.travelStyle.length > MAX_CHOICE_LENGTH) {
+    errors.push("Travel style must be 40 characters or fewer.");
+  }
+
+  if (selection.pace && selection.pace.length > MAX_CHOICE_LENGTH) {
+    errors.push("Time preference must be 40 characters or fewer.");
+  }
+
   if (
-    selection.travelType &&
-    selection.travelType.length > MAX_CHOICE_LENGTH
+    selection.foodPreferences.includes("Mixed") &&
+    selection.foodPreferences.length > 1
   ) {
-    errors.push("Travel type must be 40 characters or fewer.");
+    errors.push("Mixed food preference cannot be combined with other food selections.");
   }
 
   if (
@@ -546,7 +955,10 @@ export function normalizeAiPlan(payload = {}, fallbackSelection = {}) {
       payload?.totalEstimatedCost ??
       payload?.estimated_total_cost ??
       payload?.costSummary,
-    buildEstimatedTotalCost(selection.budget, days.length)
+    buildEstimatedTotalCost({
+      ...selection,
+      days: days.length,
+    })
   );
 
   const travelTips = normalizeTravelTips(
@@ -607,12 +1019,135 @@ function normalizeCreatedAt(value) {
   return null;
 }
 
+function normalizeBoolean(value) {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  const normalized = normalizeText(String(value ?? "")).toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  return normalized === "true" || normalized === "1" || normalized === "yes";
+}
+
+function normalizePlanningMeta(input = {}) {
+  if (!input || typeof input !== "object") {
+    return {
+      dataProvider: "",
+      algorithmVersion: "",
+      cacheHit: false,
+      generatedAt: "",
+      freshness: "",
+      storageMode: "",
+      recommendationProvider: "",
+    };
+  }
+
+  return {
+    dataProvider: normalizeText(input.dataProvider),
+    algorithmVersion: normalizeText(input.algorithmVersion),
+    cacheHit: normalizeBoolean(input.cacheHit),
+    generatedAt: normalizeCreatedAt(input.generatedAt) ?? "",
+    freshness: normalizeCreatedAt(input.freshness) ?? normalizeText(input.freshness),
+    storageMode: normalizeText(input.storageMode),
+    recommendationProvider: normalizeText(input.recommendationProvider),
+  };
+}
+
+function normalizeOptimization(input = {}) {
+  if (!input || typeof input !== "object") {
+    return {
+      objective: "",
+      algorithmVersion: "",
+      totalWeight: null,
+      visitOrder: [],
+      shortestPaths: [],
+      previous: [],
+      clusters: [],
+      clusterAssignments: [],
+      dayPlans: [],
+      inputHash: "",
+      cacheHit: false,
+    };
+  }
+
+  const totalWeight = Number.parseFloat(input.totalWeight);
+  const clusterAssignments = Array.isArray(input.clusterAssignments)
+    ? input.clusterAssignments
+    : typeof input.clusterAssignments === "object" && input.clusterAssignments
+      ? Object.entries(input.clusterAssignments)
+          .map(([key, value]) => [Number.parseInt(key, 10), Number.parseInt(value, 10)])
+          .filter(([index, clusterId]) => Number.isInteger(index) && Number.isInteger(clusterId))
+          .sort((left, right) => left[0] - right[0])
+          .map(([, clusterId]) => clusterId)
+      : [];
+
+  return {
+    objective: normalizeText(input.objective),
+    algorithmVersion: normalizeText(input.algorithmVersion ?? input.algorithm),
+    totalWeight: Number.isFinite(totalWeight) ? Number(totalWeight.toFixed(2)) : null,
+    visitOrder: Array.isArray(input.visitOrder)
+      ? input.visitOrder.filter((value) => Number.isInteger(value))
+      : [],
+    shortestPaths: Array.isArray(input.shortestPaths)
+      ? input.shortestPaths
+      : Array.isArray(input.shortestPathsFromOrigin)
+        ? input.shortestPathsFromOrigin
+        : [],
+    previous: Array.isArray(input.previous) ? input.previous : [],
+    clusters: Array.isArray(input.clusters) ? input.clusters : [],
+    clusterAssignments,
+    dayPlans: Array.isArray(input.dayPlans) ? input.dayPlans : [],
+    inputHash: normalizeText(input.inputHash),
+    cacheHit: normalizeBoolean(input.cacheHit),
+  };
+}
+
+function normalizeRoutePlans(routePlans = []) {
+  if (!Array.isArray(routePlans)) {
+    return [];
+  }
+
+  return routePlans
+    .map((plan, index) => ({
+      day: clampInteger(plan?.day, 1, 30, index + 1),
+      clusterId:
+        Number.isInteger(plan?.clusterId) && plan.clusterId >= 0
+          ? plan.clusterId
+          : null,
+      stopCount: clampInteger(plan?.stopCount, 0, 100, 0),
+      visitOrder: Array.isArray(plan?.visitOrder)
+        ? plan.visitOrder.filter((value) => Number.isInteger(value))
+        : [],
+      stops: Array.isArray(plan?.stops)
+        ? plan.stops
+            .map((stop, stopIndex) => ({
+              order: clampInteger(stop?.order, 1, 200, stopIndex + 1),
+              placeId: normalizeText(stop?.placeId),
+              name: normalizeText(stop?.name),
+              address: normalizeText(stop?.address),
+              category: normalizeText(stop?.category),
+              rating: normalizeRating(stop?.rating),
+              coordinates: normalizeCoordinates(stop?.coordinates),
+            }))
+            .filter((stop) => stop.name || stop.placeId)
+        : [],
+    }))
+    .filter((plan) => plan.visitOrder.length > 0 || plan.stops.length > 0);
+}
+
 export function buildStoredTrip({
   id,
   ownerId,
   ownerEmail,
   userSelection,
   generatedTrip,
+  planningMeta = {},
+  optimization = {},
+  routePlans = [],
+  recommendations = {},
   createdAt = new Date().toISOString(),
 }) {
   const normalizedGeneratedTrip = normalizeGeneratedTrip(generatedTrip, {
@@ -628,6 +1163,26 @@ export function buildStoredTrip({
     hotels: normalizedGeneratedTrip.hotels,
     itinerary: normalizedGeneratedTrip.itinerary,
     aiPlan: normalizedGeneratedTrip.aiPlan,
+    recommendations: normalizeDestinationRecommendations(
+      recommendations && typeof recommendations === "object"
+        ? recommendations
+        : generatedTrip?.recommendations
+    ),
+    planningMeta: normalizePlanningMeta(
+      planningMeta && typeof planningMeta === "object"
+        ? planningMeta
+        : generatedTrip?.planningMeta
+    ),
+    optimization: normalizeOptimization(
+      optimization && typeof optimization === "object"
+        ? optimization
+        : generatedTrip?.optimization
+    ),
+    routePlans: normalizeRoutePlans(
+      Array.isArray(routePlans) && routePlans.length > 0
+        ? routePlans
+        : generatedTrip?.routePlans
+    ),
   };
 }
 
@@ -655,7 +1210,15 @@ export function normalizeStoredTrip(input = {}) {
         input.travelTips ??
         input.travel_tips ??
         input.tripData?.travel_tips,
+      recommendations: input.recommendations,
+      planningMeta: input.planningMeta,
+      optimization: input.optimization,
+      routePlans: input.routePlans,
     },
+    planningMeta: input.planningMeta,
+    optimization: input.optimization,
+    routePlans: input.routePlans,
+    recommendations: input.recommendations,
     createdAt: normalizeCreatedAt(input.createdAt) ?? new Date().toISOString(),
   });
 
@@ -677,13 +1240,21 @@ export function sortTripsNewestFirst(trips = []) {
 export function buildTripPrompt(input = {}) {
   const selection = normalizeUserSelection(input);
   const destination = normalizeText(selection.location.label, "Not provided");
-  const budget = normalizeText(selection.budget, "Not provided");
+  const planType = normalizeText(selection.planType, "Auto-select if needed");
+  const budget = selection.budgetAmount
+    ? `${formatBudgetAmount(selection.budgetAmount)} total`
+    : formatBudgetSummary(selection);
   const travelers = normalizeText(selection.travelers, "Not provided");
-  const travelType = normalizeText(
-    selection.travelType,
-    selection.travelers || "General"
-  );
+  const travelStyle = normalizeText(selection.travelStyle, "General");
+  const pace = normalizeText(selection.pace, "Balanced");
+  const foodPreferences = selection.foodPreferences.length
+    ? selection.foodPreferences.join(", ")
+    : "No explicit food preference";
   const travelerCount = selection.travelerCount ?? "Not specified";
+  const locationSource = selection.location.source || "typed by user";
+  const locationPrecision = selection.location.placeId
+    ? `${selection.location.label} (place id available)`
+    : selection.location.label;
 
   return `You are a travel expert planner.
 
@@ -692,9 +1263,14 @@ Return valid JSON with no extra keys.
 
 Trip request:
 - Destination: ${destination}
+- Destination Precision: ${locationPrecision}
+- Destination Source: ${locationSource}
 - Duration: ${selection.days} day(s)
-- Budget: ${budget}
-- Travel Type: ${travelType}
+- Plan Type: ${planType}
+- Total Budget: ${budget}
+- Travel Style: ${travelStyle}
+- Time Preference: ${pace}
+- Food Preferences: ${foodPreferences}
 - Number of Travelers: ${travelerCount}
 - Traveler Profile: ${travelers}
 
@@ -718,6 +1294,9 @@ Rules:
 - The "days" array length must exactly match requested Duration.
 - "day" values must be sequential starting at 1.
 - Each day should have 3-5 concise activities.
+- Match pacing to the requested time preference.
+- Reflect food preferences in at least one dining recommendation per day when practical.
+- Match lodging and activity intensity to the selected plan type and total budget.
 - Keep tips actionable and specific to the destination.
 - Use plain text cost ranges when exact costs are unknown.
 - Output JSON only.`;
@@ -733,7 +1312,10 @@ export function buildFallbackGeneratedTrip(userSelection = {}) {
   const aiPlan = {
     destination,
     days,
-    totalEstimatedCost: buildEstimatedTotalCost(selection.budget, days.length),
+    totalEstimatedCost: buildEstimatedTotalCost({
+      ...selection,
+      days: days.length,
+    }),
     travelTips: normalizeTravelTips([], destination),
   };
 
