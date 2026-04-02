@@ -453,8 +453,8 @@ test("getIndiaDestinationDetail flags transportCoverage none when no hubs are av
   assert.equal(detail?.transportCoverage, "none");
 });
 
-test("getIndiaTransportOptions resolves origin aliases and returns multimodal options", () => {
-  const payload = getIndiaTransportOptions({
+test("getIndiaTransportOptions resolves origin aliases and returns multimodal options", async () => {
+  const payload = await getIndiaTransportOptions({
     origin: "New Delhi",
     destination: "Jaipur",
   });
@@ -468,6 +468,7 @@ test("getIndiaTransportOptions resolves origin aliases and returns multimodal op
   assert.equal(payload.options[0].destination_city, "Jaipur");
   assert.equal(payload.options[1].cost_ac3, 780);
   assert.equal(payload.options[0].last_mile?.matching_method, "exact_city");
+  assert.equal(typeof payload.route_verification?.status, "string");
 });
 
 test("GET /api/india/destinations returns search results", async () => {
@@ -512,7 +513,7 @@ test("GET /api/india/transport/options returns structured no-route responses wit
   assert.deepEqual(response.body.options, []);
   assert.equal(
     response.body.message,
-    "No direct transport options were found for the selected origin and destination."
+    "No transport route was found for the selected origin and destination."
   );
 });
 

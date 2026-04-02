@@ -287,13 +287,31 @@ export function fetchIndiaDestinationDetail(destinationId, options = {}) {
 }
 
 export function fetchIndiaTransportOptions(
-  { origin = "", destination = "" } = {},
+  {
+    origin = "",
+    destination = "",
+    preferredModes = [],
+    maxTransfers,
+    topK,
+    force = false,
+  } = {},
   options = {}
 ) {
-  const searchParams = new URLSearchParams({
-    origin: String(origin ?? "").trim(),
-    destination: String(destination ?? "").trim(),
-  });
+  const searchParams = new URLSearchParams();
+  searchParams.set("origin", String(origin ?? "").trim());
+  searchParams.set("destination", String(destination ?? "").trim());
+  if (Array.isArray(preferredModes) && preferredModes.length > 0) {
+    searchParams.set("preferredModes", preferredModes.join(","));
+  }
+  if (maxTransfers !== undefined && maxTransfers !== null && maxTransfers !== "") {
+    searchParams.set("maxTransfers", String(maxTransfers));
+  }
+  if (topK !== undefined && topK !== null && topK !== "") {
+    searchParams.set("topK", String(topK));
+  }
+  if (force) {
+    searchParams.set("force", "true");
+  }
 
   return apiFetch(`/api/india/transport/options?${searchParams}`, options);
 }

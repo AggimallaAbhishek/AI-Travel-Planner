@@ -1,6 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createBoundedTtlCache } from "../lib/boundedTtlCache.js";
+import { verifyMultimodalRoutes } from "./gemini.js";
+import { runPythonTransportOptimization } from "./pythonOptimizer.js";
 
 function normalizeText(value, fallback = "") {
   if (typeof value !== "string") {
@@ -27,6 +30,57 @@ function parsePositiveInteger(value, fallback) {
   return fallback;
 }
 
+function parseModes(values = []) {
+  if (!Array.isArray(values)) {
+    return [];
+  }
+
+  return [
+    ...new Set(
+      values
+        .map((value) => normalizeText(String(value ?? "")).toLowerCase())
+        .filter((value) => ["flight", "train", "road"].includes(value))
+    ),
+  ];
+}
+
+function resolveTransportOptionsCacheTtlMs() {
+  return parsePositiveInteger(
+    process.env.INDIA_TRANSPORT_OPTIONS_CACHE_TTL_MS,
+    DEFAULT_TRANSPORT_OPTIONS_CACHE_TTL_MS
+  );
+}
+
+function resolveTransportMaxTransfers(value) {
+  return parsePositiveInteger(
+    value ?? process.env.INDIA_TRANSPORT_MAX_TRANSFERS,
+    DEFAULT_TRANSPORT_MAX_TRANSFERS
+  );
+}
+
+function resolveTransportTopK(value) {
+  return parsePositiveInteger(
+    value ?? process.env.INDIA_TRANSPORT_TOP_K,
+    DEFAULT_TRANSPORT_TOP_K
+  );
+}
+
+function getTransportCacheKey({
+  origin,
+  destinationId,
+  preferredModes = [],
+  maxTransfers,
+  topK,
+}) {
+  return [
+    normalizeLookupKey(origin),
+    normalizeText(destinationId),
+    preferredModes.join(","),
+    String(maxTransfers),
+    String(topK),
+  ].join("::");
+}
+
 const currentFilePath = fileURLToPath(import.meta.url);
 const currentDirPath = path.dirname(currentFilePath);
 const indiaDataDirPath = path.resolve(currentDirPath, "../data/india");
@@ -39,6 +93,14 @@ const indiaDatasetPaths = {
 };
 
 let cachedSnapshot = null;
+const DEFAULT_TRANSPORT_OPTIONS_CACHE_TTL_MS = 5 * 60 * 1_000;
+const DEFAULT_TRANSPORT_OPTIONS_CACHE_MAX_ENTRIES = 200;
+const DEFAULT_TRANSPORT_MAX_TRANSFERS = 4;
+const DEFAULT_TRANSPORT_TOP_K = 4;
+const TRANSPORT_OPTIONS_CACHE = createBoundedTtlCache({
+  defaultTtlMs: DEFAULT_TRANSPORT_OPTIONS_CACHE_TTL_MS,
+  maxEntries: DEFAULT_TRANSPORT_OPTIONS_CACHE_MAX_ENTRIES,
+});
 
 function readJsonFile(filePath) {
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
@@ -115,6 +177,7 @@ function ensureIndiaDatasetExists() {
 
 export function clearIndiaDataCache() {
   cachedSnapshot = null;
+  TRANSPORT_OPTIONS_CACHE.clear();
 }
 
 export function loadIndiaDataSnapshot() {
@@ -333,7 +396,133 @@ function resolveOriginCity(query = "", snapshot = loadIndiaDataSnapshot()) {
   };
 }
 
-export function getIndiaTransportOptions({ origin = "", destination = "" } = {}) {
+function buildLegacyDirectOptions({
+  snapshot,
+  resolvedOrigin,
+  destinationHubs = [],
+}) {
+  const hubByCityId = new Map(destinationHubs.map((hub) => [hub.city_id, hub]));
+  const candidateRoutes =
+    snapshot.routesBySourceCityId.get(resolvedOrigin.city.city_id) ?? [];
+
+  return candidateRoutes
+    .filter((route) => hubByCityId.has(route.destination_city_id))
+    .map((route) => {
+      const sourceCity = snapshot.transportCityById.get(route.source_city_id) ?? null;
+      const destinationCity =
+        snapshot.transportCityById.get(route.destination_city_id) ?? null;
+      const hub = hubByCityId.get(route.destination_city_id) ?? null;
+
+      return {
+        option_id:
+          route.route_id ||
+          `${route.source_city_id}-${route.destination_city_id}-${route.mode}`,
+        mode: route.mode,
+        submode: route.submode,
+        source_city: sourceCity?.canonical_name ?? "",
+        destination_city: destinationCity?.canonical_name ?? "",
+        duration_minutes: route.duration_minutes,
+        distance_km: route.distance_km,
+        availability_status: route.availability_status,
+        cost_general: route.cost_general,
+        cost_sleeper: route.cost_sleeper,
+        cost_ac3: route.cost_ac3,
+        cost_ac2: route.cost_ac2,
+        cost_ac1: route.cost_ac1,
+        cost_is_estimated: route.cost_is_estimated,
+        source_quality: route.source_quality,
+        source_dataset: route.source_dataset,
+        transfer_count: 0,
+        segment_count: 1,
+        mode_mix: [route.mode],
+        source_datasets: [route.source_dataset].filter(Boolean),
+        segments: [
+          {
+            segment_index: 1,
+            route_id: route.route_id,
+            source_city_id: route.source_city_id,
+            source_city_name: sourceCity?.canonical_name ?? "",
+            destination_city_id: route.destination_city_id,
+            destination_city_name: destinationCity?.canonical_name ?? "",
+            mode: route.mode,
+            submode: route.submode,
+            duration_minutes: route.duration_minutes,
+            distance_km: route.distance_km,
+            availability_status: route.availability_status,
+            cost_general: route.cost_general,
+            cost_sleeper: route.cost_sleeper,
+            cost_ac3: route.cost_ac3,
+            cost_ac2: route.cost_ac2,
+            cost_ac1: route.cost_ac1,
+            cost_is_estimated: route.cost_is_estimated,
+            source_dataset: route.source_dataset,
+            source_quality: route.source_quality,
+          },
+        ],
+        last_mile: hub
+          ? {
+              destination_id: hub.destination_id,
+              city_id: hub.city_id,
+              hub_rank: hub.hub_rank,
+              access_distance_km: hub.access_distance_km,
+              access_duration_minutes: hub.access_duration_minutes,
+              matching_method: hub.matching_method,
+            }
+          : null,
+      };
+    })
+    .sort((left, right) => {
+      if (left.duration_minutes !== right.duration_minutes) {
+        return left.duration_minutes - right.duration_minutes;
+      }
+
+      return left.mode.localeCompare(right.mode);
+    });
+}
+
+function flattenOptimizerOptionToApi(option = {}, fallbackOriginCityName = "") {
+  const modeMix = Array.isArray(option.mode_mix) ? option.mode_mix : [];
+  const mode = modeMix.length === 1 ? modeMix[0] : "multimodal";
+
+  return {
+    option_id: option.option_id,
+    mode,
+    submode: modeMix.length > 0 ? modeMix.join("+") : "unknown",
+    source_city: fallbackOriginCityName,
+    destination_city: option.destination_city_name,
+    duration_minutes: option.total_duration_minutes ?? option.duration_minutes,
+    distance_km: option.total_distance_km ?? option.distance_km ?? null,
+    availability_status: option.availability_status ?? "unknown",
+    cost_general: option.cost_general ?? null,
+    cost_sleeper: option.cost_sleeper ?? null,
+    cost_ac3: option.cost_ac3 ?? null,
+    cost_ac2: option.cost_ac2 ?? null,
+    cost_ac1: option.cost_ac1 ?? null,
+    cost_is_estimated: Boolean(option.cost_is_estimated),
+    source_quality: option.source_quality ?? "medium",
+    source_dataset: Array.isArray(option.source_datasets)
+      ? option.source_datasets.join(",")
+      : option.source_dataset ?? "",
+    transfer_count: option.transfer_count ?? 0,
+    segment_count: option.segment_count ?? 0,
+    mode_mix: modeMix,
+    source_datasets: Array.isArray(option.source_datasets)
+      ? option.source_datasets
+      : [],
+    segments: Array.isArray(option.segments) ? option.segments : [],
+    last_mile: option.last_mile ?? null,
+  };
+}
+
+export async function getIndiaTransportOptions({
+  origin = "",
+  destination = "",
+  preferredModes = [],
+  maxTransfers,
+  topK,
+  forceRefresh = false,
+  traceId = "",
+} = {}) {
   const snapshot = loadIndiaDataSnapshot();
   const resolvedDestination = resolveIndiaDestination(destination);
 
@@ -352,61 +541,139 @@ export function getIndiaTransportOptions({ origin = "", destination = "" } = {})
 
   const destinationHubs =
     snapshot.hubsByDestinationId.get(resolvedDestination.destination_id) ?? [];
-  const hubByCityId = new Map(
-    destinationHubs.map((hub) => [hub.city_id, hub])
-  );
-  const candidateRoutes =
-    snapshot.routesBySourceCityId.get(resolvedOrigin.city.city_id) ?? [];
-  const options = candidateRoutes
-    .filter((route) => hubByCityId.has(route.destination_city_id))
-    .map((route) => {
-      const sourceCity = snapshot.transportCityById.get(route.source_city_id) ?? null;
-      const destinationCity =
-        snapshot.transportCityById.get(route.destination_city_id) ?? null;
-      const hub = hubByCityId.get(route.destination_city_id) ?? null;
+  const resolvedPreferredModes = parseModes(preferredModes);
+  const resolvedMaxTransfers = resolveTransportMaxTransfers(maxTransfers);
+  const resolvedTopK = resolveTransportTopK(topK);
+  const cacheKey = getTransportCacheKey({
+    origin,
+    destinationId: resolvedDestination.destination_id,
+    preferredModes: resolvedPreferredModes,
+    maxTransfers: resolvedMaxTransfers,
+    topK: resolvedTopK,
+  });
 
+  if (!forceRefresh) {
+    const cached = TRANSPORT_OPTIONS_CACHE.get(cacheKey);
+    if (cached) {
       return {
-        mode: route.mode,
-        submode: route.submode,
-        source_city: sourceCity?.canonical_name ?? "",
-        destination_city: destinationCity?.canonical_name ?? "",
-        duration_minutes: route.duration_minutes,
-        distance_km: route.distance_km,
-        availability_status: route.availability_status,
-        cost_general: route.cost_general,
-        cost_sleeper: route.cost_sleeper,
-        cost_ac3: route.cost_ac3,
-        cost_ac2: route.cost_ac2,
-        cost_ac1: route.cost_ac1,
-        cost_is_estimated: route.cost_is_estimated,
-        source_quality: route.source_quality,
-        source_dataset: route.source_dataset,
-        last_mile: hub
-          ? {
-              city_id: hub.city_id,
-              hub_rank: hub.hub_rank,
-              access_distance_km: hub.access_distance_km,
-              access_duration_minutes: hub.access_duration_minutes,
-              matching_method: hub.matching_method,
-            }
-          : null,
+        ...cached,
+        transport_summary: {
+          ...(cached.transport_summary ?? {}),
+          cacheHit: true,
+        },
       };
-    })
-    .sort((left, right) => {
-      if (left.duration_minutes !== right.duration_minutes) {
-        return left.duration_minutes - right.duration_minutes;
-      }
+    }
+  }
 
-      return left.mode.localeCompare(right.mode);
-    });
+  const legacyDirectOptions = buildLegacyDirectOptions({
+    snapshot,
+    resolvedOrigin,
+    destinationHubs,
+  });
+
+  let optimizerResult = null;
+  if (destinationHubs.length > 0) {
+    optimizerResult = await runPythonTransportOptimization(
+      {
+        mode: "multimodal",
+        objective: "fastest_feasible",
+        originCityId: resolvedOrigin.city.city_id,
+        destinationCityIds: destinationHubs.map((hub) => hub.city_id),
+        preferredModes: resolvedPreferredModes,
+        maxTransfers: resolvedMaxTransfers,
+        topK: resolvedTopK,
+        routes: snapshot.transportRoutes,
+        cities: snapshot.transportCities,
+        destinationHubs,
+      },
+      { traceId }
+    );
+  }
+
+  let optimizedOptions = Array.isArray(optimizerResult?.transportOptions)
+    ? optimizerResult.transportOptions
+    : [];
+  let fallbackUsed = false;
+  if (optimizedOptions.length === 0 && legacyDirectOptions.length > 0) {
+    fallbackUsed = true;
+    optimizedOptions = legacyDirectOptions;
+  }
+
+  if (legacyDirectOptions.length > 0 && optimizedOptions.length > 0) {
+    const buildOptionSignature = (option) => {
+      const mode =
+        normalizeText(option.mode).toLowerCase() ||
+        (Array.isArray(option.mode_mix) && option.mode_mix.length === 1
+          ? normalizeText(option.mode_mix[0]).toLowerCase()
+          : normalizeText(option.submode).toLowerCase());
+      const numericDistance = Number.parseFloat(
+        option.total_distance_km ?? option.distance_km
+      );
+      const roundedDistance = Number.isFinite(numericDistance)
+        ? Number(numericDistance.toFixed(2))
+        : "";
+      return [
+        mode,
+        String(option.total_duration_minutes ?? option.duration_minutes ?? ""),
+        String(roundedDistance),
+        String(option.transfer_count ?? 0),
+      ].join("|");
+    };
+
+    const seenSignatures = new Set(
+      optimizedOptions.map((option) => buildOptionSignature(option))
+    );
+
+    for (const directOption of legacyDirectOptions) {
+      const signature = buildOptionSignature(directOption);
+      if (seenSignatures.has(signature)) {
+        continue;
+      }
+      seenSignatures.add(signature);
+      optimizedOptions.push(directOption);
+    }
+  }
+
+  optimizedOptions.sort((left, right) => {
+    const leftDuration =
+      Number.parseFloat(left.total_duration_minutes ?? left.duration_minutes) ||
+      Number.MAX_SAFE_INTEGER;
+    const rightDuration =
+      Number.parseFloat(right.total_duration_minutes ?? right.duration_minutes) ||
+      Number.MAX_SAFE_INTEGER;
+    if (leftDuration !== rightDuration) {
+      return leftDuration - rightDuration;
+    }
+
+    const leftTransfers = Number.parseInt(left.transfer_count ?? "0", 10) || 0;
+    const rightTransfers = Number.parseInt(right.transfer_count ?? "0", 10) || 0;
+    return leftTransfers - rightTransfers;
+  });
+
+  const verificationContext = await verifyMultimodalRoutes({
+    originCityName: resolvedOrigin.city.canonical_name,
+    destinationLabel: `${resolvedDestination.destination_name}, ${resolvedDestination.state_ut_name}, India`,
+    options: optimizedOptions,
+    traceId,
+  });
+
+  const options = verificationContext.options.map((option) =>
+    flattenOptimizerOptionToApi(option, resolvedOrigin.city.canonical_name)
+  );
+  const routeVerification = verificationContext.verification;
 
   console.info("[india-data] Transport options resolved", {
     origin: normalizeText(origin),
     destination: normalizeText(destination),
     optionCount: options.length,
+    preferredModes: resolvedPreferredModes,
+    maxTransfers: resolvedMaxTransfers,
+    topK: resolvedTopK,
+    fallbackUsed,
+    traceId: traceId || null,
   });
 
-  return {
+  const payload = {
     origin: {
       query: normalizeText(origin),
       matchedBy: resolvedOrigin.matchedBy,
@@ -414,9 +681,37 @@ export function getIndiaTransportOptions({ origin = "", destination = "" } = {})
     },
     destination: getIndiaDestinationDetail(resolvedDestination.destination_id),
     options,
+    route_verification: routeVerification,
+    transport_summary: {
+      objective: "fastest_feasible",
+      algorithm: normalizeText(
+        optimizerResult?.algorithm,
+        fallbackUsed
+          ? "direct-route-fallback"
+          : "python-multimodal-dijkstra-v2"
+      ),
+      preferredModes: resolvedPreferredModes,
+      maxTransfers: resolvedMaxTransfers,
+      topK: resolvedTopK,
+      cacheHit: false,
+      fallbackUsed,
+      notes: Array.isArray(optimizerResult?.notes) ? optimizerResult.notes : [],
+      graphMetrics:
+        optimizerResult?.graphMetrics && typeof optimizerResult.graphMetrics === "object"
+          ? optimizerResult.graphMetrics
+          : {},
+    },
     message:
       options.length > 0
         ? ""
-        : "No direct transport options were found for the selected origin and destination.",
+        : "No transport route was found for the selected origin and destination.",
   };
+
+  TRANSPORT_OPTIONS_CACHE.set(
+    cacheKey,
+    payload,
+    resolveTransportOptionsCacheTtlMs()
+  );
+
+  return payload;
 }

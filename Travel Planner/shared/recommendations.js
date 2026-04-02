@@ -32,6 +32,11 @@ function normalizeRating(value) {
   return Number(rating.toFixed(1));
 }
 
+function normalizeInteger(value) {
+  const parsed = Number.parseInt(value ?? "", 10);
+  return Number.isInteger(parsed) ? parsed : null;
+}
+
 function normalizeCoordinates(coordinates = {}) {
   if (!coordinates || typeof coordinates !== "object") {
     return { latitude: null, longitude: null };
@@ -84,6 +89,27 @@ function toPriceLabel(value) {
   return text;
 }
 
+function resolveBudgetCategory(priceLabel = "") {
+  const normalized = normalizeText(priceLabel);
+  if (!normalized) {
+    return "unknown";
+  }
+
+  if (normalized === "$") {
+    return "budget";
+  }
+
+  if (normalized === "$$") {
+    return "midrange";
+  }
+
+  if (normalized === "$$$" || normalized === "$$$$") {
+    return "premium";
+  }
+
+  return "unknown";
+}
+
 export function normalizeDestinationLabel(destination, fallback = "") {
   return normalizeText(destination, fallback);
 }
@@ -121,19 +147,45 @@ export function normalizeRecommendationItem(item = {}, type = "hotel") {
     item.hotelImageUrl ??
     item.placeImageUrl;
 
+  const priceLabel = toPriceLabel(
+    item.priceLabel ?? item.price ?? item.priceRange ?? item.price_level
+  );
+  const distanceFromAnchorKm = normalizeNumber(
+    item.distanceFromAnchorKm ?? item.distance_from_anchor_km
+  );
+  const rankingScore = normalizeNumber(item.rankingScore ?? item.ranking_score);
+  const popularity = normalizeInteger(item.popularity ?? item.userRatingsTotal);
+
   return {
     name,
     imageUrl: isRemoteUrl(imageUrlSource) ? imageUrlSource : "",
     rating: normalizeRating(item.rating),
     location,
     description,
-    priceLabel: toPriceLabel(
-      item.priceLabel ?? item.price ?? item.priceRange ?? item.price_level
-    ),
+    priceLabel,
     mapsUrl,
     geoCoordinates,
     externalPlaceId,
     source: normalizeText(item.source),
+    verificationSource: normalizeText(
+      item.verificationSource ?? item.verification_source ?? item.source,
+      "unknown"
+    ),
+    distanceFromAnchorKm:
+      distanceFromAnchorKm !== null ? Number(distanceFromAnchorKm.toFixed(2)) : null,
+    distance_from_anchor_km:
+      distanceFromAnchorKm !== null ? Number(distanceFromAnchorKm.toFixed(2)) : null,
+    budgetCategory: normalizeText(
+      item.budgetCategory ?? item.budget_category,
+      resolveBudgetCategory(priceLabel)
+    ),
+    budget_category: normalizeText(
+      item.budgetCategory ?? item.budget_category,
+      resolveBudgetCategory(priceLabel)
+    ),
+    rankingScore: rankingScore !== null ? Number(rankingScore.toFixed(4)) : null,
+    ranking_score: rankingScore !== null ? Number(rankingScore.toFixed(4)) : null,
+    popularity,
   };
 }
 

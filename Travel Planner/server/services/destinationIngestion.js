@@ -21,6 +21,7 @@ import { buildCompleteTransportEdges, hasCoordinates } from "./geo.js";
 
 const DEFAULT_DESTINATION_FRESHNESS_TTL_MS = 24 * 60 * 60 * 1_000;
 const DEFAULT_ALLOW_MOCK_PLACE_DATA = false;
+const DEFAULT_VERIFIED_ONLY_MODE = true;
 
 function parsePositiveInteger(value, fallback) {
   const parsed = Number.parseInt(value ?? "", 10);
@@ -76,6 +77,14 @@ function resolveDestinationFreshnessTtlMs() {
 }
 
 function resolveAllowMockPlaceData() {
+  const verifiedOnlyMode = parseBoolean(
+    process.env.RECOMMENDATIONS_VERIFIED_ONLY_MODE,
+    DEFAULT_VERIFIED_ONLY_MODE
+  );
+  if (verifiedOnlyMode) {
+    return false;
+  }
+
   return parseBoolean(
     process.env.ALLOW_MOCK_PLACE_DATA,
     DEFAULT_ALLOW_MOCK_PLACE_DATA

@@ -5,6 +5,7 @@ import { incrementPlanningMetric } from "../lib/planningMetrics.js";
 let model;
 const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
 const DEFAULT_TIMEOUT_MS = 20_000;
+const DEFAULT_ROUTE_VERIFICATION_TIMEOUT_MS = 5_000;
 const DEFAULT_MAX_RETRIES = 1;
 
 function normalizeText(value, fallback = "") {
@@ -27,6 +28,21 @@ function normalizeTips(value) {
     .slice(0, 4);
 }
 
+function parseBoolean(value, fallback = false) {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  const normalized = String(value ?? "")
+    .trim()
+    .toLowerCase();
+  if (!normalized) {
+    return fallback;
+  }
+
+  return normalized === "1" || normalized === "true" || normalized === "yes";
+}
+
 export function resolveGeminiApiKey() {
   return process.env.GOOGLE_GEMINI_API_KEY ?? process.env.GEMINI_API_KEY ?? "";
 }
@@ -47,6 +63,20 @@ function resolveGeminiMaxRetries() {
   return Number.isFinite(retries) && retries >= 0 && retries <= 3
     ? retries
     : DEFAULT_MAX_RETRIES;
+}
+
+function resolveGeminiRouteVerificationEnabled() {
+  return parseBoolean(process.env.TRANSPORT_GEMINI_VERIFICATION_ENABLED, true);
+}
+
+function resolveGeminiRouteVerificationTimeoutMs() {
+  const timeoutMs = Number.parseInt(
+    process.env.GEMINI_ROUTE_VERIFICATION_TIMEOUT_MS ?? "",
+    10
+  );
+  return Number.isFinite(timeoutMs) && timeoutMs >= 2_000
+    ? timeoutMs
+    : DEFAULT_ROUTE_VERIFICATION_TIMEOUT_MS;
 }
 
 function getGeminiModel() {
@@ -356,4 +386,235 @@ export async function generateGroundedNarrative({
     ...fallback,
     discardedReason: "unexpected_fallback",
   };
+}
+
+function buildRouteVerificationPrompt({
+  originCityName = "",
+  destinationLabel = "",
+  options = [],
+}) {
+  const payload = {
+    origin: originCityName,
+    destination: destinationLabel,
+    candidate_options: options.map((option) => ({
+      option_id: option.option_id,
+      total_duration_minutes: option.total_duration_minutes,
+      total_distance_km: option.total_distance_km,
+      transfer_count: option.transfer_count,
+      mode_mix: option.mode_mix,
+      availability_status: option.availability_status,
+      source_quality: option.source_quality,
+      last_mile: option.last_mile ?? null,
+      segments: Array.isArray(option.segments)
+        ? option.segments.map((segment) => ({
+            route_id: segment.route_id,
+            source_city_name: segment.source_city_name,
+            destination_city_name: segment.destination_city_name,
+            mode: segment.mode,
+            submode: segment.submode,
+            duration_minutes: segment.duration_minutes,
+            distance_km: segment.distance_km,
+            availability_status: segment.availability_status,
+            source_quality: segment.source_quality,
+          }))
+        : [],
+    })),
+  };
+
+  return `You are validating multimodal travel routes.
+
+You MUST ONLY evaluate the provided candidate options.
+Never invent routes, cities, segments, or IDs.
+Never rename option IDs.
+Use fastest feasible logic with transfer practicality.
+If data is insufficient, mark status as "partial".
+
+INPUT:
+${JSON.stringify(payload, null, 2)}
+
+Return strict JSON:
+{
+  "status": "verified" | "partial" | "rejected",
+  "confidence": 0.0,
+  "notes": ["string"],
+  "ranked_option_ids": ["option-1", "option-2"]
+}`;
+}
+
+function normalizeRouteVerificationPayload(parsed, options = []) {
+  const validOptionIds = new Set(
+    options
+      .map((option) => normalizeText(option.option_id))
+      .filter(Boolean)
+  );
+  const rankedOptionIds = Array.isArray(parsed?.ranked_option_ids)
+    ? parsed.ranked_option_ids
+        .map((value) => normalizeText(value))
+        .filter((value) => value && validOptionIds.has(value))
+    : [];
+  const confidence = Number.parseFloat(parsed?.confidence);
+  const status = normalizeText(parsed?.status, "partial").toLowerCase();
+
+  return {
+    status: ["verified", "partial", "rejected"].includes(status)
+      ? status
+      : "partial",
+    confidence: Number.isFinite(confidence)
+      ? Number(Math.min(1, Math.max(0, confidence)).toFixed(2))
+      : 0.45,
+    notes: Array.isArray(parsed?.notes)
+      ? parsed.notes
+          .map((note) => normalizeText(note))
+          .filter(Boolean)
+          .slice(0, 4)
+      : [],
+    ranked_option_ids: rankedOptionIds,
+  };
+}
+
+function reorderOptionsByGeminiRanking(options = [], rankedOptionIds = []) {
+  if (!Array.isArray(options) || options.length === 0) {
+    return [];
+  }
+
+  if (!Array.isArray(rankedOptionIds) || rankedOptionIds.length === 0) {
+    return options;
+  }
+
+  const orderMap = new Map(
+    rankedOptionIds.map((optionId, index) => [normalizeText(optionId), index])
+  );
+
+  return [...options].sort((left, right) => {
+    const leftRank = orderMap.get(normalizeText(left.option_id));
+    const rightRank = orderMap.get(normalizeText(right.option_id));
+    const safeLeftRank = Number.isInteger(leftRank) ? leftRank : Number.MAX_SAFE_INTEGER;
+    const safeRightRank = Number.isInteger(rightRank) ? rightRank : Number.MAX_SAFE_INTEGER;
+
+    if (safeLeftRank !== safeRightRank) {
+      return safeLeftRank - safeRightRank;
+    }
+
+    const leftDuration = Number.parseFloat(left.total_duration_minutes) || Number.MAX_SAFE_INTEGER;
+    const rightDuration = Number.parseFloat(right.total_duration_minutes) || Number.MAX_SAFE_INTEGER;
+    return leftDuration - rightDuration;
+  });
+}
+
+async function requestGeminiRouteVerification(prompt, timeoutMs) {
+  return withTimeout(
+    getGeminiModel().generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.1,
+        topP: 0.1,
+        topK: 1,
+        maxOutputTokens: 800,
+        responseMimeType: "application/json",
+      },
+    }),
+    timeoutMs
+  );
+}
+
+export async function verifyMultimodalRoutes({
+  originCityName = "",
+  destinationLabel = "",
+  options = [],
+  traceId = "",
+} = {}) {
+  const safeOptions = Array.isArray(options) ? options : [];
+
+  if (safeOptions.length === 0) {
+    return {
+      verification: {
+        status: "not_requested",
+        provider: "none",
+        confidence: 0,
+        notes: ["No candidate route options were available for verification."],
+      },
+      options: safeOptions,
+    };
+  }
+
+  if (!resolveGeminiRouteVerificationEnabled()) {
+    return {
+      verification: {
+        status: "not_requested",
+        provider: "none",
+        confidence: 0,
+        notes: ["Gemini route verification is disabled by configuration."],
+      },
+      options: safeOptions,
+    };
+  }
+
+  if (!resolveGeminiApiKey()) {
+    return {
+      verification: {
+        status: "not_requested",
+        provider: "none",
+        confidence: 0,
+        notes: ["Gemini verification skipped because API key is missing."],
+      },
+      options: safeOptions,
+    };
+  }
+
+  const timeoutMs = resolveGeminiRouteVerificationTimeoutMs();
+  const prompt = buildRouteVerificationPrompt({
+    originCityName,
+    destinationLabel,
+    options: safeOptions,
+  });
+
+  try {
+    console.info("[gemini] Route verification request started", {
+      optionCount: safeOptions.length,
+      traceId: traceId || null,
+    });
+
+    const result = await requestGeminiRouteVerification(prompt, timeoutMs);
+    const parsed = parseAiTripPayload(result.response.text());
+    const normalized = normalizeRouteVerificationPayload(parsed, safeOptions);
+    const reorderedOptions = reorderOptionsByGeminiRanking(
+      safeOptions,
+      normalized.ranked_option_ids
+    );
+
+    console.info("[gemini] Route verification response accepted", {
+      status: normalized.status,
+      confidence: normalized.confidence,
+      traceId: traceId || null,
+    });
+
+    return {
+      verification: {
+        status: normalized.status,
+        provider: "gemini",
+        confidence: normalized.confidence,
+        notes:
+          normalized.notes.length > 0
+            ? normalized.notes
+            : ["Gemini validated the candidate route set without inventing new segments."],
+      },
+      options: reorderedOptions,
+    };
+  } catch (error) {
+    console.warn("[gemini] Route verification failed, using deterministic ranking", {
+      message: error instanceof Error ? error.message : String(error),
+      traceId: traceId || null,
+    });
+    return {
+      verification: {
+        status: "partial",
+        provider: "gemini",
+        confidence: 0.35,
+        notes: [
+          "Gemini verification failed; deterministic route ranking was used instead.",
+        ],
+      },
+      options: safeOptions,
+    };
+  }
 }

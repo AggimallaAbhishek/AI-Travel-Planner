@@ -95,14 +95,98 @@ export function rankCandidatePlaces(
     ? options.preferredCategories
     : ["attraction", "restaurant"];
 
-  return places
+  const ranked = places
     .filter((place) => preferredCategories.includes(place.category))
     .map((place) => ({
       ...place,
       preferenceScore: computePreferenceScore(place, userSelection, destination),
     }))
-    .sort((left, right) => right.preferenceScore - left.preferenceScore)
-    .slice(0, safeLimit);
+    .sort((left, right) => right.preferenceScore - left.preferenceScore);
+
+  if (ranked.length <= 1) {
+    return ranked.slice(0, safeLimit);
+  }
+
+  const selected = [];
+  const consumedIds = new Set();
+  const consumedNameRoots = new Set();
+
+  while (selected.length < safeLimit && selected.length < ranked.length) {
+    let bestCandidate = null;
+    let bestCompositeScore = Number.NEGATIVE_INFINITY;
+
+    for (const candidate of ranked) {
+      if (consumedIds.has(candidate.id)) {
+        continue;
+      }
+
+      const normalizedNameRoot = normalizeText(candidate.name)
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}]+/gu, " ")
+        .split(" ")
+        .filter(Boolean)
+        .slice(0, 3)
+        .join(" ");
+      const hasSimilarName = normalizedNameRoot
+        ? consumedNameRoots.has(normalizedNameRoot)
+        : false;
+
+      const minimumDistanceFromSelected = selected
+        .map((selectedPlace) =>
+          haversineDistanceMeters(
+            candidate.coordinates,
+            selectedPlace.coordinates
+          )
+        )
+        .filter((distanceMeters) => Number.isFinite(distanceMeters) && distanceMeters >= 0)
+        .reduce(
+          (currentMin, distanceMeters) =>
+            Math.min(currentMin, distanceMeters),
+          Number.POSITIVE_INFINITY
+        );
+
+      const diversityDistanceScore =
+        selected.length === 0
+          ? 1
+          : Number.isFinite(minimumDistanceFromSelected)
+            ? clamp(minimumDistanceFromSelected / 7_500, 0.1, 1)
+            : 0.35;
+      const sameCategoryCount = selected.filter(
+        (selectedPlace) => selectedPlace.category === candidate.category
+      ).length;
+      const categoryDiversityScore = clamp(1 - sameCategoryCount * 0.22, 0.35, 1);
+      const duplicateNamePenalty = hasSimilarName ? 0.65 : 1;
+      const compositeScore =
+        (candidate.preferenceScore * 0.72 +
+          diversityDistanceScore * 0.2 +
+          categoryDiversityScore * 0.08) *
+        duplicateNamePenalty;
+
+      if (compositeScore > bestCompositeScore) {
+        bestCompositeScore = compositeScore;
+        bestCandidate = candidate;
+      }
+    }
+
+    if (!bestCandidate) {
+      break;
+    }
+
+    consumedIds.add(bestCandidate.id);
+    const bestNameRoot = normalizeText(bestCandidate.name)
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, " ")
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 3)
+      .join(" ");
+    if (bestNameRoot) {
+      consumedNameRoots.add(bestNameRoot);
+    }
+    selected.push(bestCandidate);
+  }
+
+  return selected;
 }
 
 export function buildWeightMatrixFromEdges(places = [], edges = []) {

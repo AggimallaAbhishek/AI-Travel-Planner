@@ -747,9 +747,28 @@ export function normalizeUserSelection(input = {}) {
   );
   const accommodation = normalizeText(input.accommodation ?? input.stay ?? "");
   const logistics = normalizeText(input.logistics ?? input.travelLogistics ?? "");
+  const origin = normalizeLocation(
+    input.origin ?? input.originLocation ?? input.from ?? ""
+  );
+  const preferredModes = normalizeStringArray(
+    input.preferredModes ?? input.preferred_modes,
+    3
+  )
+    .map((value) => value.toLowerCase())
+    .filter((value) => ["flight", "train", "road"].includes(value));
+  const rawMaxTransfers = input.maxTransfers ?? input.max_transfers;
+  const parsedMaxTransfers =
+    rawMaxTransfers === undefined || rawMaxTransfers === null || rawMaxTransfers === ""
+      ? null
+      : normalizeInteger(rawMaxTransfers, 0);
+  const maxTransfers =
+    Number.isInteger(parsedMaxTransfers) && parsedMaxTransfers >= 0
+      ? Math.min(parsedMaxTransfers, 8)
+      : null;
 
   return {
     location: normalizeLocation(input.location ?? input.destination),
+    origin,
     days,
     budget: budgetAmount,
     budgetAmount,
@@ -764,6 +783,8 @@ export function normalizeUserSelection(input = {}) {
     travelerCount,
     accommodation,
     logistics,
+    preferredModes,
+    maxTransfers,
   };
 }
 
@@ -826,6 +847,15 @@ export function getUserSelectionErrors(input = {}) {
       selection.travelerCount > 50)
   ) {
     errors.push("Traveler count must be between 1 and 50.");
+  }
+
+  if (
+    selection.maxTransfers !== null &&
+    (!Number.isInteger(selection.maxTransfers) ||
+      selection.maxTransfers < 0 ||
+      selection.maxTransfers > 8)
+  ) {
+    errors.push("Max transfers must be between 0 and 8.");
   }
 
   return errors;
@@ -932,6 +962,14 @@ export function normalizeItinerary(itinerary = {}) {
       places: Array.isArray(day?.places)
         ? day.places.map(normalizePlace).filter((place) => place.placeName)
         : [],
+      placeCount: clampInteger(day?.placeCount ?? day?.place_count, 0, 100, 0),
+      place_count: clampInteger(day?.placeCount ?? day?.place_count, 0, 100, 0),
+      placeCountTargetMet: normalizeBoolean(
+        day?.placeCountTargetMet ?? day?.place_count_target_met
+      ),
+      place_count_target_met: normalizeBoolean(
+        day?.placeCountTargetMet ?? day?.place_count_target_met
+      ),
     }));
   } else if (itinerary && typeof itinerary === "object") {
     days = Object.entries(itinerary).map(([dayKey, places], index) => ({
@@ -940,8 +978,29 @@ export function normalizeItinerary(itinerary = {}) {
       places: Array.isArray(places)
         ? places.map(normalizePlace).filter((place) => place.placeName)
         : [],
+      placeCount: Array.isArray(places) ? places.length : 0,
+      place_count: Array.isArray(places) ? places.length : 0,
+      placeCountTargetMet: false,
+      place_count_target_met: false,
     }));
   }
+
+  days = days.map((day) => {
+    const computedPlaceCount = Array.isArray(day.places) ? day.places.length : 0;
+    const placeCount = day.placeCount || computedPlaceCount;
+    const placeCountTargetMet =
+      day.placeCountTargetMet ||
+      day.place_count_target_met ||
+      (placeCount >= 3 && placeCount <= 4);
+
+    return {
+      ...day,
+      placeCount,
+      place_count: placeCount,
+      placeCountTargetMet,
+      place_count_target_met: placeCountTargetMet,
+    };
+  });
 
   days.sort((left, right) => left.dayNumber - right.dayNumber);
 
@@ -1284,6 +1343,38 @@ function normalizePlanningMeta(input = {}) {
             liveRefreshedEdges: 0,
             fallbackEdges: 0,
           },
+    intercityTransport:
+      input.intercityTransport && typeof input.intercityTransport === "object"
+        ? {
+            objective: normalizeText(input.intercityTransport.objective, "fastest_feasible"),
+            algorithm: normalizeText(input.intercityTransport.algorithm),
+            preferredModes: normalizeStringArray(
+              input.intercityTransport.preferredModes,
+              5
+            ).map((mode) => mode.toLowerCase()),
+            maxTransfers:
+              Number.isInteger(Number.parseInt(input.intercityTransport.maxTransfers, 10))
+                ? Number.parseInt(input.intercityTransport.maxTransfers, 10)
+                : null,
+            topK: clampInteger(input.intercityTransport.topK, 0, 20, 0),
+            cacheHit: normalizeBoolean(input.intercityTransport.cacheHit),
+            fallbackUsed: normalizeBoolean(input.intercityTransport.fallbackUsed),
+            optionCount: clampInteger(input.intercityTransport.optionCount, 0, 100, 0),
+            verification: normalizeRouteVerification(input.intercityTransport.verification),
+            message: normalizeText(input.intercityTransport.message),
+          }
+        : {
+            objective: "fastest_feasible",
+            algorithm: "",
+            preferredModes: [],
+            maxTransfers: null,
+            topK: 0,
+            cacheHit: false,
+            fallbackUsed: false,
+            optionCount: 0,
+            verification: normalizeRouteVerification({}),
+            message: "",
+          },
     validation: normalizeGroundedValidation(input.validation),
   };
 }
@@ -1337,6 +1428,139 @@ function normalizeOptimization(input = {}) {
   };
 }
 
+function normalizeTransportSegment(segment = {}) {
+  return {
+    segment_index: clampInteger(segment?.segment_index, 1, 20, 1),
+    route_id: normalizeText(segment?.route_id),
+    source_city_id: normalizeText(segment?.source_city_id),
+    source_city_name: normalizeText(segment?.source_city_name),
+    destination_city_id: normalizeText(segment?.destination_city_id),
+    destination_city_name: normalizeText(segment?.destination_city_name),
+    mode: normalizeText(segment?.mode),
+    submode: normalizeText(segment?.submode),
+    duration_minutes: clampInteger(segment?.duration_minutes, 0, 10_000, 0),
+    distance_km: normalizeNumericValue(segment?.distance_km),
+    availability_status: normalizeText(segment?.availability_status, "unknown"),
+    cost_general: normalizeNumericValue(segment?.cost_general),
+    cost_sleeper: normalizeNumericValue(segment?.cost_sleeper),
+    cost_ac3: normalizeNumericValue(segment?.cost_ac3),
+    cost_ac2: normalizeNumericValue(segment?.cost_ac2),
+    cost_ac1: normalizeNumericValue(segment?.cost_ac1),
+    cost_is_estimated: normalizeBoolean(segment?.cost_is_estimated),
+    source_dataset: normalizeText(segment?.source_dataset),
+    source_quality: normalizeText(segment?.source_quality, "medium"),
+  };
+}
+
+function normalizeTransportOption(option = {}) {
+  return {
+    option_id: normalizeText(option?.option_id),
+    mode: normalizeText(option?.mode),
+    submode: normalizeText(option?.submode),
+    source_city: normalizeText(option?.source_city),
+    destination_city: normalizeText(option?.destination_city),
+    duration_minutes: clampInteger(option?.duration_minutes, 0, 100_000, 0),
+    distance_km: normalizeNumericValue(option?.distance_km),
+    availability_status: normalizeText(option?.availability_status, "unknown"),
+    cost_general: normalizeNumericValue(option?.cost_general),
+    cost_sleeper: normalizeNumericValue(option?.cost_sleeper),
+    cost_ac3: normalizeNumericValue(option?.cost_ac3),
+    cost_ac2: normalizeNumericValue(option?.cost_ac2),
+    cost_ac1: normalizeNumericValue(option?.cost_ac1),
+    cost_is_estimated: normalizeBoolean(option?.cost_is_estimated),
+    source_quality: normalizeText(option?.source_quality, "medium"),
+    source_dataset: normalizeText(option?.source_dataset),
+    transfer_count: clampInteger(option?.transfer_count, 0, 20, 0),
+    segment_count: clampInteger(option?.segment_count, 0, 20, 0),
+    mode_mix: normalizeStringArray(option?.mode_mix, 5).map((value) =>
+      value.toLowerCase()
+    ),
+    source_datasets: normalizeStringArray(option?.source_datasets, 8),
+    segments: Array.isArray(option?.segments)
+      ? option.segments.map((segment) => normalizeTransportSegment(segment))
+      : [],
+    last_mile:
+      option?.last_mile && typeof option.last_mile === "object"
+        ? {
+            destination_id: normalizeText(option.last_mile.destination_id),
+            city_id: normalizeText(option.last_mile.city_id),
+            hub_rank: clampInteger(option.last_mile.hub_rank, 0, 20, 0),
+            access_distance_km: normalizeNumericValue(
+              option.last_mile.access_distance_km
+            ),
+            access_duration_minutes: clampInteger(
+              option.last_mile.access_duration_minutes,
+              0,
+              10_000,
+              0
+            ),
+            matching_method: normalizeText(option.last_mile.matching_method),
+          }
+        : null,
+  };
+}
+
+function normalizeRouteVerification(value = {}) {
+  if (!value || typeof value !== "object") {
+    return {
+      status: "not_requested",
+      provider: "none",
+      confidence: 0,
+      notes: [],
+    };
+  }
+
+  return {
+    status: normalizeText(value.status, "not_requested"),
+    provider: normalizeText(value.provider, "none"),
+    confidence:
+      Number.isFinite(Number.parseFloat(value.confidence))
+        ? Number(Number.parseFloat(value.confidence).toFixed(2))
+        : 0,
+    notes: normalizeStringArray(value.notes, 6),
+  };
+}
+
+function normalizeTransportSummary(value = {}) {
+  if (!value || typeof value !== "object") {
+    return {
+      objective: "fastest_feasible",
+      algorithm: "",
+      preferredModes: [],
+      maxTransfers: null,
+      topK: 0,
+      cacheHit: false,
+      fallbackUsed: false,
+      notes: [],
+      graphMetrics: {},
+    };
+  }
+
+  return {
+    objective: normalizeText(value.objective, "fastest_feasible"),
+    algorithm: normalizeText(value.algorithm),
+    preferredModes: normalizeStringArray(value.preferredModes, 5).map((mode) =>
+      mode.toLowerCase()
+    ),
+    maxTransfers:
+      Number.isInteger(Number.parseInt(value.maxTransfers, 10))
+        ? Number.parseInt(value.maxTransfers, 10)
+        : null,
+    topK: clampInteger(value.topK, 0, 20, 0),
+    cacheHit: normalizeBoolean(value.cacheHit),
+    fallbackUsed: normalizeBoolean(value.fallbackUsed),
+    notes: normalizeStringArray(value.notes, 6),
+    graphMetrics:
+      value.graphMetrics && typeof value.graphMetrics === "object"
+        ? {
+            city_count: clampInteger(value.graphMetrics.city_count, 0, 1_000_000, 0),
+            route_count: clampInteger(value.graphMetrics.route_count, 0, 10_000_000, 0),
+            hub_count: clampInteger(value.graphMetrics.hub_count, 0, 1_000_000, 0),
+          }
+        : {},
+  };
+}
+
 function normalizeRoutePlans(routePlans = []) {
   if (!Array.isArray(routePlans)) {
     return [];
@@ -1381,6 +1605,10 @@ export function buildStoredTrip({
   optimization = {},
   routePlans = [],
   recommendations = {},
+  transportOptions = [],
+  routeVerification = {},
+  transportSummary = {},
+  transportMessage = "",
   createdAt = new Date().toISOString(),
 }) {
   const normalizedGeneratedTrip = normalizeGeneratedTrip(generatedTrip, {
@@ -1392,6 +1620,18 @@ export function buildStoredTrip({
       : generatedTrip?.groundedPlan,
     userSelection
   );
+  const transportOptionsSource =
+    Array.isArray(transportOptions) && transportOptions.length > 0
+      ? transportOptions
+      : Array.isArray(generatedTrip?.transportOptions)
+      ? generatedTrip.transportOptions
+      : [];
+  const transportOptionsSnakeSource =
+    Array.isArray(transportOptions) && transportOptions.length > 0
+      ? transportOptions
+      : Array.isArray(generatedTrip?.transport_options)
+      ? generatedTrip.transport_options
+      : [];
 
   return {
     id,
@@ -1416,6 +1656,36 @@ export function buildStoredTrip({
       optimization && typeof optimization === "object"
         ? optimization
         : generatedTrip?.optimization
+    ),
+    transportOptions: transportOptionsSource.map((option) => normalizeTransportOption(option)),
+    transport_options: transportOptionsSnakeSource.map((option) =>
+      normalizeTransportOption(option)
+    ),
+    routeVerification: normalizeRouteVerification(
+      routeVerification && Object.keys(routeVerification).length > 0
+        ? routeVerification
+        : generatedTrip?.routeVerification ?? generatedTrip?.route_verification
+    ),
+    route_verification: normalizeRouteVerification(
+      routeVerification && Object.keys(routeVerification).length > 0
+        ? routeVerification
+        : generatedTrip?.routeVerification ?? generatedTrip?.route_verification
+    ),
+    transportSummary: normalizeTransportSummary(
+      transportSummary && Object.keys(transportSummary).length > 0
+        ? transportSummary
+        : generatedTrip?.transportSummary ?? generatedTrip?.transport_summary
+    ),
+    transport_summary: normalizeTransportSummary(
+      transportSummary && Object.keys(transportSummary).length > 0
+        ? transportSummary
+        : generatedTrip?.transportSummary ?? generatedTrip?.transport_summary
+    ),
+    transportMessage: normalizeText(
+      transportMessage || generatedTrip?.transportMessage || generatedTrip?.transport_message
+    ),
+    transport_message: normalizeText(
+      transportMessage || generatedTrip?.transportMessage || generatedTrip?.transport_message
     ),
     groundedPlan: normalizedGroundedPlan,
     routePlans: normalizeRoutePlans(
@@ -1461,6 +1731,26 @@ export function normalizeStoredTrip(input = {}) {
     optimization: input.optimization,
     routePlans: input.routePlans,
     recommendations: input.recommendations,
+    transportOptions:
+      input.transportOptions ??
+      input.transport_options ??
+      input.tripData?.transportOptions ??
+      input.tripData?.transport_options,
+    routeVerification:
+      input.routeVerification ??
+      input.route_verification ??
+      input.tripData?.routeVerification ??
+      input.tripData?.route_verification,
+    transportSummary:
+      input.transportSummary ??
+      input.transport_summary ??
+      input.tripData?.transportSummary ??
+      input.tripData?.transport_summary,
+    transportMessage:
+      input.transportMessage ??
+      input.transport_message ??
+      input.tripData?.transportMessage ??
+      input.tripData?.transport_message,
     createdAt: normalizeCreatedAt(input.createdAt) ?? new Date().toISOString(),
   });
 
@@ -1497,6 +1787,15 @@ export function buildTripPrompt(input = {}) {
   const locationPrecision = selection.location.placeId
     ? `${selection.location.label} (place id available)`
     : selection.location.label;
+  const originLabel = normalizeText(selection.origin?.label, "Not specified");
+  const preferredModes =
+    Array.isArray(selection.preferredModes) && selection.preferredModes.length > 0
+      ? selection.preferredModes.join(", ")
+      : "Any";
+  const maxTransfers =
+    Number.isInteger(selection.maxTransfers) && selection.maxTransfers >= 0
+      ? String(selection.maxTransfers)
+      : "Auto";
 
   return `You are a travel expert planner.
 
@@ -1515,6 +1814,9 @@ Trip request:
 - Food Preferences: ${foodPreferences}
 - Number of Travelers: ${travelerCount}
 - Traveler Profile: ${travelers}
+- Origin City: ${originLabel}
+- Preferred Intercity Modes: ${preferredModes}
+- Max Intercity Transfers: ${maxTransfers}
 
 Return JSON with this exact shape:
 {

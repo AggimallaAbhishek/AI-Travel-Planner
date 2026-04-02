@@ -116,6 +116,7 @@ export function normalizePlanningRequest(input = {}) {
   return {
     selection: normalizedSelection,
     destination: normalizedSelection.location.label,
+    origin: normalizedSelection.origin?.label ?? "",
     days: normalizedSelection.days,
     budgetAmount: normalizedSelection.budgetAmount,
     planType: normalizedSelection.planType,
@@ -123,6 +124,8 @@ export function normalizePlanningRequest(input = {}) {
     pace: normalizedSelection.pace,
     foodPreferences: normalizedSelection.foodPreferences,
     travelers: normalizedSelection.travelers,
+    preferredModes: normalizedSelection.preferredModes ?? [],
+    maxTransfers: normalizedSelection.maxTransfers,
     isComplete: missingFields.length === 0,
     missingFields,
     constraints,

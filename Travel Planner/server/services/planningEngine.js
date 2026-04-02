@@ -18,6 +18,7 @@ import {
   resolveGeminiApiKey,
 } from "./gemini.js";
 import { buildGroundedPlan } from "./groundedPlanBuilder.js";
+import { getIndiaTransportOptions } from "./indiaData.js";
 import { normalizePlanningRequest } from "./planningRequest.js";
 import { incrementPlanningMetric } from "../lib/planningMetrics.js";
 import {
@@ -136,7 +137,7 @@ function toItineraryPlace(place = {}, order) {
   const transportMode = normalizeText(place.transportModeFromPrevious, "drive");
   const placeSummary = normalizeText(
     place.description,
-    "Recommended stop generated from structured place data."
+    "Verified attraction selected from grounded destination data."
   );
   const geoCoordinates = {
     latitude: place?.coordinates?.latitude ?? null,
@@ -148,7 +149,8 @@ function toItineraryPlace(place = {}, order) {
     placeName: place.name,
     placeDetails: placeSummary,
     placeSummary,
-    placeImageUrl: place?.metadata?.imageUrl ?? "",
+    // Activity cards are rendered text-first to reduce noisy visual repetition.
+    placeImageUrl: "",
     geoCoordinates,
     mapsUrl: resolveGoogleMapsUrl({
       mapsUrl: place?.metadata?.mapsUrl,
@@ -429,11 +431,24 @@ function collectUniqueHotelsFromGroundedPlan(groundedPlan = {}) {
 }
 
 function buildItineraryDaysFromGroundedPlan(groundedPlan = {}) {
-  return (groundedPlan.days ?? []).map((day) => ({
-    dayNumber: day.day,
-    title: day.title,
-    places: day.places.map((place, index) => toItineraryPlace(place, index + 1)),
-  }));
+  return (groundedPlan.days ?? []).map((day) => {
+    const places = day.places.map((place, index) => toItineraryPlace(place, index + 1));
+    const placeCount = places.length;
+
+    return {
+      dayNumber: day.day,
+      title: day.title,
+      places,
+      placeCount,
+      place_count: placeCount,
+      placeCountTargetMet:
+        placeCount >= TARGET_MIN_STOPS_PER_DAY &&
+        placeCount <= TARGET_MAX_STOPS_PER_DAY,
+      place_count_target_met:
+        placeCount >= TARGET_MIN_STOPS_PER_DAY &&
+        placeCount <= TARGET_MAX_STOPS_PER_DAY,
+    };
+  });
 }
 
 function buildAiPlanDaysFromGroundedPlan(groundedPlan = {}) {
@@ -462,6 +477,116 @@ function buildTravelTipsFromGroundedPlan(groundedPlan = {}, narrativeSource = "t
   }
 
   return [...warnings, ...baseTips].slice(0, 6);
+}
+
+function resolvePreferredModesFromSelection(selection = {}) {
+  if (!Array.isArray(selection?.preferredModes)) {
+    return [];
+  }
+
+  return [
+    ...new Set(
+      selection.preferredModes
+        .map((mode) => normalizeText(mode).toLowerCase())
+        .filter((mode) => ["flight", "train", "road"].includes(mode))
+    ),
+  ];
+}
+
+async function buildIntercityTransportContext({
+  selection = {},
+  destinationLabel = "",
+  traceId = "",
+} = {}) {
+  const originLabel = normalizeText(selection?.origin?.label);
+  if (!originLabel) {
+    return {
+      transportOptions: [],
+      routeVerification: {
+        status: "not_requested",
+        provider: "none",
+        confidence: 0,
+        notes: ["Origin was not provided, so intercity transport optimization was skipped."],
+      },
+      transportSummary: {
+        objective: "fastest_feasible",
+        algorithm: "not_requested",
+        preferredModes: [],
+        maxTransfers: selection?.maxTransfers ?? null,
+        topK: 0,
+        cacheHit: false,
+        fallbackUsed: false,
+      },
+      message: "",
+    };
+  }
+
+  try {
+    const payload = await getIndiaTransportOptions({
+      origin: originLabel,
+      destination: destinationLabel,
+      preferredModes: resolvePreferredModesFromSelection(selection),
+      maxTransfers: selection?.maxTransfers,
+      traceId,
+    });
+
+    return {
+      transportOptions: Array.isArray(payload?.options) ? payload.options : [],
+      routeVerification:
+        payload?.route_verification && typeof payload.route_verification === "object"
+          ? payload.route_verification
+          : {
+              status: "not_requested",
+              provider: "none",
+              confidence: 0,
+              notes: [],
+            },
+      transportSummary:
+        payload?.transport_summary && typeof payload.transport_summary === "object"
+          ? payload.transport_summary
+          : {
+              objective: "fastest_feasible",
+              algorithm: "python-multimodal-dijkstra-v2",
+              preferredModes: resolvePreferredModesFromSelection(selection),
+              maxTransfers: selection?.maxTransfers ?? null,
+              topK: 0,
+              cacheHit: false,
+              fallbackUsed: false,
+            },
+      message: normalizeText(payload?.message),
+      resolvedOrigin: payload?.origin ?? null,
+      resolvedDestination: payload?.destination ?? null,
+    };
+  } catch (error) {
+    console.warn("[planning] Intercity transport optimization skipped", {
+      destination: destinationLabel,
+      origin: originLabel,
+      message: error instanceof Error ? error.message : String(error),
+      traceId: traceId || null,
+    });
+
+    return {
+      transportOptions: [],
+      routeVerification: {
+        status: "partial",
+        provider: "none",
+        confidence: 0.25,
+        notes: ["Intercity transport optimization failed; route options are temporarily unavailable."],
+      },
+      transportSummary: {
+        objective: "fastest_feasible",
+        algorithm: "failed",
+        preferredModes: resolvePreferredModesFromSelection(selection),
+        maxTransfers: selection?.maxTransfers ?? null,
+        topK: 0,
+        cacheHit: false,
+        fallbackUsed: true,
+      },
+      message: "Intercity transport optimization is temporarily unavailable.",
+      resolvedOrigin: null,
+      resolvedDestination: null,
+    };
+  }
 }
 
 function buildTotalEstimatedCostLabel(groundedPlan = {}, selection = {}) {
@@ -871,6 +996,11 @@ export async function buildDataDrivenTripPlan({
     groundedPlan,
     narrative.source
   );
+  const intercityTransport = await buildIntercityTransportContext({
+    selection,
+    destinationLabel: ingestion.destination.canonicalName,
+    traceId,
+  });
 
   const planningMeta = {
     dataProvider: ingestion.provider,
@@ -893,6 +1023,18 @@ export async function buildDataDrivenTripPlan({
       liveRefreshedEdges: transportContext.liveRefreshedEdges,
       fallbackEdges: transportContext.fallbackEdges,
     },
+    intercityTransport: {
+      objective: "fastest_feasible",
+      algorithm: intercityTransport.transportSummary?.algorithm ?? "",
+      preferredModes: intercityTransport.transportSummary?.preferredModes ?? [],
+      maxTransfers: intercityTransport.transportSummary?.maxTransfers ?? null,
+      topK: intercityTransport.transportSummary?.topK ?? 0,
+      cacheHit: Boolean(intercityTransport.transportSummary?.cacheHit),
+      fallbackUsed: Boolean(intercityTransport.transportSummary?.fallbackUsed),
+      optionCount: intercityTransport.transportOptions.length,
+      verification: intercityTransport.routeVerification,
+      message: intercityTransport.message || "",
+    },
   };
 
   const generatedTrip = {
@@ -910,6 +1052,14 @@ export async function buildDataDrivenTripPlan({
     recommendations,
     optimization: optimizationPayload.optimization,
     routePlans: optimizationPayload.optimization.dayPlans,
+    transportOptions: intercityTransport.transportOptions,
+    transport_options: intercityTransport.transportOptions,
+    routeVerification: intercityTransport.routeVerification,
+    route_verification: intercityTransport.routeVerification,
+    transportSummary: intercityTransport.transportSummary,
+    transport_summary: intercityTransport.transportSummary,
+    transportMessage: intercityTransport.message || "",
+    transport_message: intercityTransport.message || "",
   };
 
   await upsertStructuredTrip({

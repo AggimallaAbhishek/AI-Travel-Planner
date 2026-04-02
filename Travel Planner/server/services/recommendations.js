@@ -12,6 +12,7 @@ import {
   getIndiaDestinationDetail,
   resolveIndiaDestination,
 } from "./indiaData.js";
+import { haversineDistanceMeters } from "./geo.js";
 
 const GOOGLE_PLACES_TEXT_SEARCH_URL =
   "https://maps.googleapis.com/maps/api/place/textsearch/json";
@@ -32,6 +33,8 @@ const DEFAULT_RECOMMENDATIONS_CACHE_MAX_ENTRIES = 200;
 const DEFAULT_DESTINATION_DATA_BUNDLE_CACHE_MAX_ENTRIES = 100;
 const DEFAULT_DESTINATION_AUTOCOMPLETE_CACHE_MAX_ENTRIES = 500;
 const DEFAULT_ALLOW_MOCK_PLACE_DATA = false;
+const DEFAULT_VERIFIED_ONLY_MODE = true;
+const DEFAULT_RECOMMENDATIONS_MAX_DESTINATION_DISTANCE_KM = 60;
 const MAX_INDIA_ATTRACTIONS_PER_DESTINATION = 15;
 const DESTINATION_RECOMMENDATION_CACHE = createBoundedTtlCache({
   defaultTtlMs: DEFAULT_LIVE_CACHE_TTL_MS,
@@ -267,10 +270,174 @@ function normalizeCoordinate(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function resolveBudgetCategory(priceLabel = "") {
+  const normalized = normalizeText(priceLabel);
+  if (!normalized) {
+    return "unknown";
+  }
+  if (normalized === "$") {
+    return "budget";
+  }
+  if (normalized === "$$") {
+    return "midrange";
+  }
+  if (normalized === "$$$" || normalized === "$$$$") {
+    return "premium";
+  }
+  return "unknown";
+}
+
+function computeDistanceFromAnchorKm(item = {}, anchorCoordinates = null) {
+  if (!hasCoordinates(item?.geoCoordinates) || !hasCoordinates(anchorCoordinates)) {
+    return null;
+  }
+
+  const distanceMeters = haversineDistanceMeters(item.geoCoordinates, anchorCoordinates);
+  if (!Number.isFinite(distanceMeters) || distanceMeters < 0) {
+    return null;
+  }
+
+  return Number((distanceMeters / 1000).toFixed(2));
+}
+
+function computeRecommendationRankingScore({
+  rating = null,
+  popularity = null,
+  distanceKm = null,
+  budgetCategory = "unknown",
+  category = "hotel",
+} = {}) {
+  const ratingScore = Number.isFinite(Number.parseFloat(rating))
+    ? clamp(Number.parseFloat(rating) / 5, 0, 1)
+    : 0.55;
+  const popularityScore = Number.isInteger(Number.parseInt(popularity, 10))
+    ? clamp(Math.log10(Number.parseInt(popularity, 10) + 1) / 5, 0, 1)
+    : 0.5;
+  const distanceScore = Number.isFinite(Number.parseFloat(distanceKm))
+    ? clamp(1 - Number.parseFloat(distanceKm) / 30, 0.05, 1)
+    : 0.55;
+  const budgetScore =
+    category === "restaurant"
+      ? budgetCategory === "budget"
+        ? 0.95
+        : budgetCategory === "midrange"
+          ? 0.85
+          : budgetCategory === "premium"
+            ? 0.7
+            : 0.6
+      : budgetCategory === "midrange"
+        ? 0.95
+        : budgetCategory === "budget"
+          ? 0.8
+          : budgetCategory === "premium"
+            ? 0.8
+            : 0.6;
+
+  return Number(
+    (
+      ratingScore * 0.45 +
+      popularityScore * 0.2 +
+      distanceScore * 0.25 +
+      budgetScore * 0.1
+    ).toFixed(4)
+  );
+}
+
+function annotateAndRankRecommendations(items = [], { category, anchorCoordinates } = {}) {
+  return items
+    .map((item) => {
+      const distanceFromAnchorKm = computeDistanceFromAnchorKm(item, anchorCoordinates);
+      const budgetCategory = resolveBudgetCategory(item.priceLabel);
+      const rankingScore = computeRecommendationRankingScore({
+        rating: item.rating,
+        popularity: item.popularity,
+        distanceKm: distanceFromAnchorKm,
+        budgetCategory,
+        category,
+      });
+
+      return {
+        ...item,
+        verificationSource: normalizeText(item.verificationSource || item.source, "unknown"),
+        verification_source: normalizeText(item.verificationSource || item.source, "unknown"),
+        distanceFromAnchorKm,
+        distance_from_anchor_km: distanceFromAnchorKm,
+        budgetCategory,
+        budget_category: budgetCategory,
+        rankingScore,
+        ranking_score: rankingScore,
+      };
+    })
+    .sort((left, right) => {
+      const scoreDelta = (right.rankingScore ?? 0) - (left.rankingScore ?? 0);
+      if (scoreDelta !== 0) {
+        return scoreDelta;
+      }
+
+      const ratingDelta = (right.rating ?? 0) - (left.rating ?? 0);
+      if (ratingDelta !== 0) {
+        return ratingDelta;
+      }
+
+      const distanceDelta =
+        (left.distanceFromAnchorKm ?? Number.MAX_SAFE_INTEGER) -
+        (right.distanceFromAnchorKm ?? Number.MAX_SAFE_INTEGER);
+      if (distanceDelta !== 0) {
+        return distanceDelta;
+      }
+
+      return String(left.name ?? "").localeCompare(String(right.name ?? ""));
+    })
+    .slice(0, MAX_ITEMS_PER_CATEGORY);
+}
+
+function filterPlacesByDestinationCenter(places = [], destinationCenter = null) {
+  if (!hasCoordinates(destinationCenter)) {
+    return places;
+  }
+
+  const maxDistanceKm = resolveRecommendationsMaxDestinationDistanceKm();
+  const filtered = places.filter((place) => {
+    const coordinates = extractCoordinatesFromGooglePlace(place);
+    if (!coordinates) {
+      return true;
+    }
+    const distanceMeters = haversineDistanceMeters(coordinates, destinationCenter);
+    if (!Number.isFinite(distanceMeters)) {
+      return true;
+    }
+    return distanceMeters / 1000 <= maxDistanceKm;
+  });
+
+  return filtered.length > 0 ? filtered : places;
+}
+
 function resolveAllowMockPlaceData() {
+  if (resolveVerifiedOnlyMode()) {
+    return false;
+  }
+
   return parseBoolean(
     process.env.ALLOW_MOCK_PLACE_DATA,
     DEFAULT_ALLOW_MOCK_PLACE_DATA
+  );
+}
+
+function resolveVerifiedOnlyMode() {
+  return parseBoolean(
+    process.env.RECOMMENDATIONS_VERIFIED_ONLY_MODE,
+    DEFAULT_VERIFIED_ONLY_MODE
+  );
+}
+
+function resolveRecommendationsMaxDestinationDistanceKm() {
+  return parsePositiveInteger(
+    process.env.RECOMMENDATIONS_MAX_DESTINATION_DISTANCE_KM,
+    DEFAULT_RECOMMENDATIONS_MAX_DESTINATION_DISTANCE_KM
   );
 }
 
@@ -724,6 +891,7 @@ function mapGooglePlaceToRecommendation(place = {}, category, destination) {
       location: location || destination,
       description: defaultDescription,
       rating: place.rating,
+      popularity: Number.parseInt(place.user_ratings_total ?? "", 10) || null,
       priceLabel: resolvePriceLabelFromGoogleLevel(place.price_level),
       placeId,
       externalPlaceId: placeId,
@@ -736,6 +904,7 @@ function mapGooglePlaceToRecommendation(place = {}, category, destination) {
       }),
       geoCoordinates,
       source: "google_places",
+      verificationSource: "google_places",
     },
     category
   );
@@ -766,6 +935,7 @@ function mapGooglePlaceToStructuredPlace(place = {}, category, destination) {
       mapsUrl: recommendation.mapsUrl,
       imageUrl: recommendation.imageUrl,
       providerStatus: "live",
+      userRatingsTotal: Number.parseInt(place?.user_ratings_total ?? "", 10) || null,
       types: Array.isArray(place?.types)
         ? place.types.filter((value) => typeof value === "string")
         : [],
@@ -1070,19 +1240,39 @@ async function fetchLiveRecommendations(destination, apiKey) {
     currentRestaurantResults: restaurantResults,
     includeAttractions: false,
   });
+  const destinationCenter = await resolveDestinationCenterCoordinates({
+    destination,
+    apiKey,
+    timeoutMs,
+    seedResults: [...nearbyFilledResults.hotels, ...nearbyFilledResults.restaurants],
+  });
+  const filteredHotels = filterPlacesByDestinationCenter(
+    nearbyFilledResults.hotels,
+    destinationCenter
+  );
+  const filteredRestaurants = filterPlacesByDestinationCenter(
+    nearbyFilledResults.restaurants,
+    destinationCenter
+  );
+  const rankedHotels = annotateAndRankRecommendations(
+    filteredHotels.map((place) =>
+      mapGooglePlaceToRecommendation(place, "hotel", destination)
+    ),
+    { category: "hotel", anchorCoordinates: destinationCenter }
+  );
+  const rankedRestaurants = annotateAndRankRecommendations(
+    filteredRestaurants.map((place) =>
+      mapGooglePlaceToRecommendation(place, "restaurant", destination)
+    ),
+    { category: "restaurant", anchorCoordinates: destinationCenter }
+  );
 
   return normalizeDestinationRecommendations({
     destination,
     provider: "google_places",
     warning: "",
-    hotels: nearbyFilledResults.hotels
-      .map((place) => mapGooglePlaceToRecommendation(place, "hotel", destination))
-      .slice(0, MAX_ITEMS_PER_CATEGORY),
-    restaurants: nearbyFilledResults.restaurants
-      .map((place) =>
-        mapGooglePlaceToRecommendation(place, "restaurant", destination)
-      )
-      .slice(0, MAX_ITEMS_PER_CATEGORY),
+    hotels: rankedHotels,
+    restaurants: rankedRestaurants,
   });
 }
 
@@ -1119,21 +1309,49 @@ async function fetchLiveDestinationDataBundle(destination, apiKey) {
     currentAttractionResults: attractionResults,
     includeAttractions: true,
   });
+  const destinationCenter = await resolveDestinationCenterCoordinates({
+    destination,
+    apiKey,
+    timeoutMs,
+    seedResults: [
+      ...nearbyFilledResults.hotels,
+      ...nearbyFilledResults.restaurants,
+      ...nearbyFilledResults.attractions,
+    ],
+  });
+  const filteredHotels = filterPlacesByDestinationCenter(
+    nearbyFilledResults.hotels,
+    destinationCenter
+  );
+  const filteredRestaurants = filterPlacesByDestinationCenter(
+    nearbyFilledResults.restaurants,
+    destinationCenter
+  );
+  const filteredAttractions = filterPlacesByDestinationCenter(
+    nearbyFilledResults.attractions,
+    destinationCenter
+  );
 
-  const hotels = nearbyFilledResults.hotels
-    .map((place) => mapGooglePlaceToRecommendation(place, "hotel", destination))
-    .slice(0, MAX_ITEMS_PER_CATEGORY);
-  const restaurants = nearbyFilledResults.restaurants
-    .map((place) => mapGooglePlaceToRecommendation(place, "restaurant", destination))
-    .slice(0, MAX_ITEMS_PER_CATEGORY);
-  const attractions = nearbyFilledResults.attractions
+  const hotels = annotateAndRankRecommendations(
+    filteredHotels.map((place) =>
+      mapGooglePlaceToRecommendation(place, "hotel", destination)
+    ),
+    { category: "hotel", anchorCoordinates: destinationCenter }
+  );
+  const restaurants = annotateAndRankRecommendations(
+    filteredRestaurants.map((place) =>
+      mapGooglePlaceToRecommendation(place, "restaurant", destination)
+    ),
+    { category: "restaurant", anchorCoordinates: destinationCenter }
+  );
+  const attractions = filteredAttractions
     .map((place) => mapGooglePlaceToStructuredPlace(place, "attraction", destination))
     .slice(0, MAX_ITEMS_PER_CATEGORY);
 
-  const hotelPlaces = nearbyFilledResults.hotels
+  const hotelPlaces = filteredHotels
     .map((place) => mapGooglePlaceToStructuredPlace(place, "hotel", destination))
     .slice(0, MAX_ITEMS_PER_CATEGORY);
-  const restaurantPlaces = nearbyFilledResults.restaurants
+  const restaurantPlaces = filteredRestaurants
     .map((place) => mapGooglePlaceToStructuredPlace(place, "restaurant", destination))
     .slice(0, MAX_ITEMS_PER_CATEGORY);
 
@@ -1240,7 +1458,9 @@ function combineLiveWithMockIfRequired(liveRecommendations) {
     return normalizeDestinationRecommendations({
       ...liveRecommendations,
       warning:
-        "Some live recommendations were unavailable. Only verified results are shown.",
+        resolveVerifiedOnlyMode()
+          ? "Some live recommendations were unavailable. Verified-only mode is active, so no synthetic fallback was used."
+          : "Some live recommendations were unavailable. Only verified results are shown.",
     });
   }
 
@@ -1269,7 +1489,9 @@ function combineLiveDestinationDataBundleWithMockIfRequired(liveBundle) {
 
   if (!resolveAllowMockPlaceData()) {
     const warning =
-      "Some live destination data was unavailable. Only verified results are shown.";
+      resolveVerifiedOnlyMode()
+        ? "Some live destination data was unavailable. Verified-only mode is active, so no synthetic fallback was used."
+        : "Some live destination data was unavailable. Only verified results are shown.";
 
     return {
       ...liveBundle,

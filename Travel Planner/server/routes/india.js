@@ -58,7 +58,19 @@ router.get("/destinations/:destinationId", (req, res) => {
   }
 });
 
-router.get("/transport/options", (req, res) => {
+router.get("/transport/options", async (req, res) => {
+  const parseModesFromQuery = (value) =>
+    String(value ?? "")
+      .split(",")
+      .map((mode) => mode.trim().toLowerCase())
+      .filter((mode) => ["flight", "train", "road"].includes(mode));
+  const parseBooleanQueryFlag = (value) => {
+    const normalized = String(value ?? "")
+      .trim()
+      .toLowerCase();
+    return normalized === "1" || normalized === "true" || normalized === "yes";
+  };
+
   const origin = String(req.query.origin ?? "").trim();
   const destination = String(req.query.destination ?? "").trim();
 
@@ -70,7 +82,15 @@ router.get("/transport/options", (req, res) => {
   }
 
   try {
-    const payload = getIndiaTransportOptions({ origin, destination });
+    const payload = await getIndiaTransportOptions({
+      origin,
+      destination,
+      preferredModes: parseModesFromQuery(req.query.preferredModes),
+      maxTransfers: req.query.maxTransfers,
+      topK: req.query.topK,
+      forceRefresh: parseBooleanQueryFlag(req.query.force),
+      traceId: req.traceId ?? "",
+    });
     res.json(payload);
   } catch (error) {
     if (error?.code === "india-data/destination-not-found") {

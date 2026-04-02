@@ -14,9 +14,8 @@ import {
 } from "../services/trips.js";
 import { getDestinationAutocompleteSuggestions } from "../services/recommendations.js";
 import {
-  buildRecommendationsFromStructuredPlaces,
-  ensureStructuredDestinationData,
-} from "../services/destinationIngestion.js";
+  getDestinationRecommendations,
+} from "../services/recommendations.js";
 import { getTripRoutePlan } from "../services/tripRoutes.js";
 
 const router = express.Router();
@@ -288,26 +287,19 @@ router.get(
       const destination =
         trip?.userSelection?.location?.label ?? trip?.aiPlan?.destination ?? "";
       const forceRefresh = parseBooleanQueryFlag(req.query.force);
-      const ingestion = await ensureStructuredDestinationData({
+      const recommendations = await getDestinationRecommendations({
         destination,
         forceRefresh,
-        traceId: req.traceId,
-      });
-      const recommendations = buildRecommendationsFromStructuredPlaces({
-        destination,
-        provider: ingestion.provider,
-        warning: ingestion.warning,
-        places: ingestion.places,
       });
 
       res.json({
         recommendations,
         planningMeta: {
-          dataProvider: ingestion.provider,
+          dataProvider: recommendations.provider ?? "",
           algorithmVersion: trip?.optimization?.algorithmVersion ?? "",
-          cacheHit: ingestion.cacheHit,
+          cacheHit: !forceRefresh,
           generatedAt: new Date().toISOString(),
-          freshness: ingestion?.freshness?.freshUntil ?? null,
+          freshness: null,
         },
       });
     } catch (error) {

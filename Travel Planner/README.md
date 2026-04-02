@@ -148,12 +148,16 @@ VITE_FIREBASE_APP_ID=
 
 GOOGLE_GEMINI_API_KEY=
 GEMINI_MODEL=gemini-2.5-flash
+TRANSPORT_GEMINI_VERIFICATION_ENABLED=true
+GEMINI_ROUTE_VERIFICATION_TIMEOUT_MS=5000
 GOOGLE_PLACES_API_KEY=
 RECOMMENDATIONS_PROVIDER_TIMEOUT_MS=8000
 RECOMMENDATIONS_CACHE_TTL_MS=300000
 RECOMMENDATIONS_MOCK_CACHE_TTL_MS=30000
 RECOMMENDATIONS_UNAVAILABLE_CACHE_TTL_MS=30000
 RECOMMENDATIONS_NEARBY_RADIUS_METERS=12000
+RECOMMENDATIONS_MAX_DESTINATION_DISTANCE_KM=60
+RECOMMENDATIONS_VERIFIED_ONLY_MODE=true
 RECOMMENDATIONS_CACHE_MAX_ENTRIES=200
 DESTINATION_DATA_BUNDLE_CACHE_MAX_ENTRIES=100
 DESTINATION_AUTOCOMPLETE_CACHE_MAX_ENTRIES=500
@@ -175,6 +179,9 @@ ROUTE_CANDIDATE_LIMIT=24
 PYTHON_BIN=python3
 PYTHON_ROUTE_OPTIMIZER_PATH=
 PYTHON_OPTIMIZER_TIMEOUT_MS=10000
+INDIA_TRANSPORT_OPTIONS_CACHE_TTL_MS=300000
+INDIA_TRANSPORT_MAX_TRANSFERS=4
+INDIA_TRANSPORT_TOP_K=4
 PLANNING_USE_GEMINI_NARRATIVE=true
 
 UPSTASH_REDIS_REST_URL=
@@ -281,7 +288,23 @@ npm test
 - Authenticated admin requests bypass endpoint throttles with `X-RateLimit-Bypass: admin`; guest/public traffic remains rate-limited.
 - Server-side destination caches are bounded with LRU-style TTL eviction. Tune capacity with `RECOMMENDATIONS_CACHE_MAX_ENTRIES`, `DESTINATION_DATA_BUNDLE_CACHE_MAX_ENTRIES`, and `DESTINATION_AUTOCOMPLETE_CACHE_MAX_ENTRIES`.
 - Hotel and restaurant recommendations use Google Places Text Search first, then Nearby Search fallback for missing categories. Tune this fallback radius with `RECOMMENDATIONS_NEARBY_RADIUS_METERS`.
+- Recommendation ranking now includes `verification_source`, `distance_from_anchor_km`, `budget_category`, and `ranking_score` for each hotel/restaurant card.
+- Destination filtering is strict by default (`RECOMMENDATIONS_MAX_DESTINATION_DISTANCE_KM`) and verified-only mode is enabled by default (`RECOMMENDATIONS_VERIFIED_ONLY_MODE=true`), so synthetic fallback entries are not returned.
 - `verified_unavailable` recommendation payloads use a short cache TTL (`RECOMMENDATIONS_UNAVAILABLE_CACHE_TTL_MS`) so live recommendations recover quickly after configuration or provider outages.
+
+## Multimodal Transport
+
+- `GET /api/india/transport/options` now uses the Python multimodal optimizer (`route_optimizer.py`) with fastest-feasible objective and directed edges.
+- Gemini route verification is candidate-only and can be toggled with `TRANSPORT_GEMINI_VERIFICATION_ENABLED` (timeout: `GEMINI_ROUTE_VERIFICATION_TIMEOUT_MS`).
+- Optional query controls:
+  - `preferredModes=flight,train,road`
+  - `maxTransfers` (default from `INDIA_TRANSPORT_MAX_TRANSFERS`)
+  - `topK` (default from `INDIA_TRANSPORT_TOP_K`)
+  - `force=true` bypasses the transport options cache.
+- Responses include:
+  - `options[]` with segment-level route details
+  - `route_verification` metadata (Gemini candidate-only validation)
+  - `transport_summary` (algorithm, cache/fallback diagnostics, graph metrics)
 
 ## Admin RBAC
 

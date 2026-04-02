@@ -315,3 +315,85 @@ test("getDestinationRecommendations bypasses cached unavailable data when API ke
     clearDestinationRecommendationsCache();
   }
 });
+
+test("getDestinationRecommendations annotates ranking metadata for verified results", async () => {
+  const originalApiKey = process.env.GOOGLE_PLACES_API_KEY;
+  const originalFetch = globalThis.fetch;
+
+  try {
+    process.env.GOOGLE_PLACES_API_KEY = "test-key";
+    clearDestinationRecommendationsCache();
+
+    globalThis.fetch = async (input) => {
+      const url =
+        input instanceof URL
+          ? input
+          : new URL(typeof input === "string" ? input : input.url);
+      const query = String(url.searchParams.get("query") ?? "").toLowerCase();
+
+      if (url.pathname.endsWith("/textsearch/json")) {
+        const isHotelQuery = query.includes("best hotels");
+        return {
+          ok: true,
+          async json() {
+            return {
+              status: "OK",
+              results: [
+                {
+                  ...createGooglePlacesResult({
+                    name: isHotelQuery ? "Riverfront Hotel" : "Spice Route Kitchen",
+                    rating: isHotelQuery ? 4.7 : 4.6,
+                    priceLevel: isHotelQuery ? 3 : 2,
+                  }),
+                  user_ratings_total: isHotelQuery ? 1200 : 890,
+                },
+              ],
+            };
+          },
+        };
+      }
+
+      if (url.pathname.endsWith("/nearbysearch/json")) {
+        return {
+          ok: true,
+          async json() {
+            return {
+              status: "ZERO_RESULTS",
+              results: [],
+            };
+          },
+        };
+      }
+
+      throw new Error(`Unexpected URL: ${url.toString()}`);
+    };
+
+    const recommendations = await getDestinationRecommendations({
+      destination: "Kolkata, West Bengal, India",
+    });
+
+    assert.equal(recommendations.provider, "google_places");
+    assert.equal(recommendations.hotels.length > 0, true);
+    assert.equal(recommendations.restaurants.length > 0, true);
+    assert.equal(recommendations.hotels[0].verificationSource, "google_places");
+    assert.equal(
+      Number.isFinite(Number.parseFloat(recommendations.hotels[0].rankingScore)),
+      true
+    );
+    assert.equal(
+      recommendations.hotels[0].budgetCategory === "premium" ||
+        recommendations.hotels[0].budgetCategory === "midrange" ||
+        recommendations.hotels[0].budgetCategory === "budget",
+      true
+    );
+  } finally {
+    if (originalApiKey === undefined) {
+      delete process.env.GOOGLE_PLACES_API_KEY;
+    } else {
+      process.env.GOOGLE_PLACES_API_KEY = originalApiKey;
+    }
+
+    globalThis.fetch = originalFetch;
+    clearDestinationRecommendationsCache();
+  }
+});

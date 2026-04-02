@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   getUserSelectionErrors,
   normalizeGeneratedTrip,
+  normalizeUserSelection,
   normalizeStoredTrip,
 } from "../shared/trips.js";
 
@@ -129,4 +130,57 @@ test("getUserSelectionErrors validates minimum realistic budget", () => {
   });
 
   assert.ok(errors.includes("Budget must be between $100 and $50,000."));
+});
+
+test("normalizeUserSelection accepts optional origin and intercity optimization hints", () => {
+  const selection = normalizeUserSelection({
+    destination: "Varanasi, Uttar Pradesh, India",
+    origin: { label: "Delhi, India" },
+    days: 3,
+    budget: 1200,
+    travelers: "Solo",
+    preferredModes: ["flight", "train", "invalid-mode"],
+    maxTransfers: 2,
+  });
+
+  assert.equal(selection.origin.label, "Delhi, India");
+  assert.deepEqual(selection.preferredModes, ["flight", "train"]);
+  assert.equal(selection.maxTransfers, 2);
+});
+
+test("normalizeStoredTrip preserves transport options and route verification payloads", () => {
+  const trip = normalizeStoredTrip({
+    id: "transport-trip",
+    ownerEmail: "owner@example.com",
+    userSelection: {
+      location: { label: "Varanasi, Uttar Pradesh, India" },
+      origin: { label: "Delhi, India" },
+      days: 2,
+      budget: 1200,
+      travelers: "Solo",
+    },
+    transport_options: [
+      {
+        option_id: "option-1",
+        mode: "flight",
+        source_city: "Delhi",
+        destination_city: "Varanasi",
+        duration_minutes: 120,
+        availability_status: "yes",
+        source_quality: "high",
+        segments: [],
+      },
+    ],
+    route_verification: {
+      status: "verified",
+      provider: "gemini",
+      confidence: 0.9,
+      notes: ["Verified candidate route set."],
+    },
+  });
+
+  assert.equal(trip.transportOptions.length, 1);
+  assert.equal(trip.transportOptions[0].option_id, "option-1");
+  assert.equal(trip.routeVerification.status, "verified");
+  assert.equal(trip.route_verification.provider, "gemini");
 });

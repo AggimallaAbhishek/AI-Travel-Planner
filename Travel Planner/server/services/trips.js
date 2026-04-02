@@ -122,6 +122,40 @@ export function buildPlanningFallbackResult({
         restaurants: [],
       },
       routePlans: [],
+      transportOptions: [],
+      transport_options: [],
+      routeVerification: {
+        status: "not_requested",
+        provider: "none",
+        confidence: 0,
+        notes: ["Template fallback mode was used."],
+      },
+      route_verification: {
+        status: "not_requested",
+        provider: "none",
+        confidence: 0,
+        notes: ["Template fallback mode was used."],
+      },
+      transportSummary: {
+        objective: "fastest_feasible",
+        algorithm: "template-fallback-v1",
+        preferredModes: [],
+        maxTransfers: null,
+        topK: 0,
+        cacheHit: false,
+        fallbackUsed: true,
+      },
+      transport_summary: {
+        objective: "fastest_feasible",
+        algorithm: "template-fallback-v1",
+        preferredModes: [],
+        maxTransfers: null,
+        topK: 0,
+        cacheHit: false,
+        fallbackUsed: true,
+      },
+      transportMessage: "Intercity transport options are unavailable in fallback mode.",
+      transport_message: "Intercity transport options are unavailable in fallback mode.",
       optimization: {
         objective: "fallback_template",
         algorithmVersion: "template-fallback-v1",
@@ -298,7 +332,40 @@ async function backfillLegacyOwnership(docRef, user) {
 }
 
 export function validateTripRequest(body = {}) {
-  const planningRequest = normalizePlanningRequest(body.userSelection ?? body);
+  const optimizationHints =
+    body?.optimizationHints && typeof body.optimizationHints === "object"
+      ? body.optimizationHints
+      : {};
+  const rawSelection =
+    body?.userSelection && typeof body.userSelection === "object"
+      ? body.userSelection
+      : body;
+  const mergedSelection = {
+    ...(rawSelection && typeof rawSelection === "object" ? rawSelection : {}),
+    origin:
+      rawSelection?.origin ??
+      body?.origin ??
+      optimizationHints?.origin ??
+      "",
+    preferredModes:
+      rawSelection?.preferredModes ??
+      rawSelection?.preferred_modes ??
+      body?.preferredModes ??
+      body?.preferred_modes ??
+      optimizationHints?.preferredModes ??
+      optimizationHints?.preferred_modes ??
+      [],
+    maxTransfers:
+      rawSelection?.maxTransfers ??
+      rawSelection?.max_transfers ??
+      body?.maxTransfers ??
+      body?.max_transfers ??
+      optimizationHints?.maxTransfers ??
+      optimizationHints?.max_transfers ??
+      null,
+  };
+
+  const planningRequest = normalizePlanningRequest(mergedSelection);
   const userSelection = planningRequest.selection;
   const errors = getUserSelectionErrors(userSelection);
 
@@ -351,6 +418,22 @@ export async function createTripForUser({
     optimization: dataDrivenPlan.optimization,
     routePlans: dataDrivenPlan.generatedTrip.routePlans,
     recommendations: dataDrivenPlan.generatedTrip.recommendations,
+    transportOptions:
+      dataDrivenPlan.generatedTrip.transportOptions ??
+      dataDrivenPlan.generatedTrip.transport_options ??
+      [],
+    routeVerification:
+      dataDrivenPlan.generatedTrip.routeVerification ??
+      dataDrivenPlan.generatedTrip.route_verification ??
+      {},
+    transportSummary:
+      dataDrivenPlan.generatedTrip.transportSummary ??
+      dataDrivenPlan.generatedTrip.transport_summary ??
+      {},
+    transportMessage:
+      dataDrivenPlan.generatedTrip.transportMessage ??
+      dataDrivenPlan.generatedTrip.transport_message ??
+      "",
   });
 
   try {
