@@ -81,6 +81,24 @@ function mapTripHotelsToRecommendationItems(hotels = []) {
   return hotels.map((hotel) => toTripHotelRecommendationItem(hotel));
 }
 
+function isVerifiedOnlineRecommendation(item = {}) {
+  const source = String(item?.source ?? "")
+    .trim()
+    .toLowerCase();
+
+  if (source === "google_places" || source === "india_dataset") {
+    return true;
+  }
+
+  return Boolean(
+    String(item?.externalPlaceId ?? "").trim() ||
+      (item?.geoCoordinates?.latitude !== null &&
+        item?.geoCoordinates?.latitude !== undefined &&
+        item?.geoCoordinates?.longitude !== null &&
+        item?.geoCoordinates?.longitude !== undefined)
+  );
+}
+
 function Viewtrip() {
   const { tripId } = useParams();
   const location = useLocation();
@@ -98,10 +116,11 @@ function Viewtrip() {
   const [pdfAction, setPdfAction] = useState("");
   const loginPath = buildLoginPath(`${location.pathname}${location.search}${location.hash}`);
 
-  const fallbackHotelRecommendations = useMemo(
-    () => mapTripHotelsToRecommendationItems(trip?.hotels),
-    [trip?.hotels]
-  );
+  const fallbackHotelRecommendations = useMemo(() => {
+    return mapTripHotelsToRecommendationItems(trip?.hotels).filter(
+      isVerifiedOnlineRecommendation
+    );
+  }, [trip?.hotels]);
   const hasLiveHotels = recommendations.hotels.length > 0;
   const hotelsToDisplay = hasLiveHotels
     ? recommendations.hotels
