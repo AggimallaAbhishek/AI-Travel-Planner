@@ -67,6 +67,7 @@ Travel Planner is a Vite + React single-page application backed by an Express AP
 ### Backend Routes
 
 - `GET /api/health`
+- `GET /api/auth/session`
 - `GET /api/places/autocomplete`
 - `POST /api/trips/generate`
 - `GET /api/trips/:tripId`
@@ -180,6 +181,7 @@ UPSTASH_REDIS_REST_URL=
 UPSTASH_REDIS_REST_TOKEN=
 
 CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+ADMIN_EMAILS=
 TRIP_GENERATION_RATE_LIMIT_WINDOW_MS=60000
 TRIP_GENERATION_RATE_LIMIT_MAX=5
 PLACES_AUTOCOMPLETE_RATE_LIMIT_WINDOW_MS=60000
@@ -276,9 +278,20 @@ npm test
 ## Autocomplete Protection
 
 - `GET /api/places/autocomplete` stays public for guest trip planning, but it is rate-limited with `PLACES_AUTOCOMPLETE_RATE_LIMIT_WINDOW_MS` and `PLACES_AUTOCOMPLETE_RATE_LIMIT_MAX`.
+- Authenticated admin requests bypass endpoint throttles with `X-RateLimit-Bypass: admin`; guest/public traffic remains rate-limited.
 - Server-side destination caches are bounded with LRU-style TTL eviction. Tune capacity with `RECOMMENDATIONS_CACHE_MAX_ENTRIES`, `DESTINATION_DATA_BUNDLE_CACHE_MAX_ENTRIES`, and `DESTINATION_AUTOCOMPLETE_CACHE_MAX_ENTRIES`.
 - Hotel and restaurant recommendations use Google Places Text Search first, then Nearby Search fallback for missing categories. Tune this fallback radius with `RECOMMENDATIONS_NEARBY_RADIUS_METERS`.
 - `verified_unavailable` recommendation payloads use a short cache TTL (`RECOMMENDATIONS_UNAVAILABLE_CACHE_TTL_MS`) so live recommendations recover quickly after configuration or provider outages.
+
+## Admin RBAC
+
+- Backend role resolution is email-allowlist based, case-insensitive, and always includes required fallback admin email: `aggimallaabhishek@gmail.com`.
+- Optional `ADMIN_EMAILS` can include additional comma-separated admin addresses.
+- `GET /api/auth/session` returns normalized `user`, `role`, and capability flags for frontend gating.
+- Admin-only capabilities include:
+  - rate-limit bypass on authenticated endpoints
+  - cross-user trip read/list access on existing trip APIs
+  - debug UI visibility and force-refresh controls in frontend diagnostics panels
 
 ## Troubleshooting
 

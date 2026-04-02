@@ -216,7 +216,7 @@ function listTripsFromMemoryStoreForUser(user) {
 
   for (const trip of MEMORY_TRIP_STORE.values()) {
     const normalizedTrip = normalizeStoredTrip(trip);
-    if (isTripOwnedByUser(normalizedTrip, user)) {
+    if (isTripAccessibleByUser(normalizedTrip, user)) {
       trips.push(normalizedTrip);
     }
   }
@@ -260,12 +260,28 @@ export function resolveTripPersistenceFailure(error) {
   return error;
 }
 
+function isAdminUser(user) {
+  return Boolean(user?.isAdmin || user?.role === "admin");
+}
+
 function isTripOwnedByUser(trip, user) {
+  if (!trip || !user) {
+    return false;
+  }
+
   if (trip.ownerId) {
     return trip.ownerId === user.uid;
   }
 
   return Boolean(user.email && trip.ownerEmail === user.email);
+}
+
+export function isTripAccessibleByUser(trip, user) {
+  if (isAdminUser(user)) {
+    return true;
+  }
+
+  return isTripOwnedByUser(trip, user);
 }
 
 async function backfillLegacyOwnership(docRef, user) {
@@ -398,7 +414,7 @@ export async function getTripForUser({ tripId, user }) {
     if (!fallbackTrip) {
       return null;
     }
-    if (!isTripOwnedByUser(fallbackTrip, user)) {
+    if (!isTripAccessibleByUser(fallbackTrip, user)) {
       return "forbidden";
     }
     return fallbackTrip;
@@ -408,7 +424,7 @@ export async function getTripForUser({ tripId, user }) {
     if (resolveTripMemoryFallbackEnabled()) {
       const fallbackTrip = getTripFromMemoryStore(tripId);
       if (fallbackTrip) {
-        if (!isTripOwnedByUser(fallbackTrip, user)) {
+        if (!isTripAccessibleByUser(fallbackTrip, user)) {
           return "forbidden";
         }
         return fallbackTrip;
@@ -419,11 +435,11 @@ export async function getTripForUser({ tripId, user }) {
 
   const trip = normalizeStoredTrip(snapshot.data());
 
-  if (!isTripOwnedByUser(trip, user)) {
+  if (!isTripAccessibleByUser(trip, user)) {
     return "forbidden";
   }
 
-  if (!trip.ownerId) {
+  if (!trip.ownerId && !isAdminUser(user)) {
     await backfillLegacyOwnership(docRef, user);
     trip.ownerId = user.uid;
     trip.ownerEmail = user.email ?? "";
@@ -434,11 +450,20 @@ export async function getTripForUser({ tripId, user }) {
 
 export async function listTripsForUser(user) {
   const collection = getTripsCollection();
-  const queries = [collection.where("ownerId", "==", user.uid).get()];
+  const queries = [];
+  if (isAdminUser(user)) {
+    console.info("[trips] Admin listing all trips", {
+      userId: user?.uid ?? "",
+      email: user?.email ?? "",
+    });
+    queries.push(collection.get());
+  } else {
+    queries.push(collection.where("ownerId", "==", user.uid).get());
 
-  if (user.email) {
-    queries.push(collection.where("ownerEmail", "==", user.email).get());
-    queries.push(collection.where("userEmail", "==", user.email).get());
+    if (user.email) {
+      queries.push(collection.where("ownerEmail", "==", user.email).get());
+      queries.push(collection.where("userEmail", "==", user.email).get());
+    }
   }
 
   let snapshots = [];
@@ -462,13 +487,13 @@ export async function listTripsForUser(user) {
     snapshot.forEach((doc) => {
       const trip = normalizeStoredTrip({ id: doc.id, ...doc.data() });
 
-      if (!isTripOwnedByUser(trip, user)) {
+      if (!isTripAccessibleByUser(trip, user)) {
         return;
       }
 
       tripsById.set(trip.id, trip);
 
-      if (!trip.ownerId) {
+      if (!trip.ownerId && !isAdminUser(user)) {
         backfillLegacyOwnership(doc.ref, user).catch((error) => {
           console.error("[trips] Failed to backfill owner metadata", error);
         });

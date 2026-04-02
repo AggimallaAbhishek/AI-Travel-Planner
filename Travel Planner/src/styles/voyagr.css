@@ -3058,6 +3058,18 @@ html[data-theme="light"] .voy-inline-error {
   color: var(--voy-text-muted);
 }
 
+.voy-admin-pill {
+  border: 1px solid color-mix(in srgb, var(--voy-gold) 42%, transparent);
+  background: color-mix(in srgb, var(--voy-gold-dim) 74%, transparent);
+  color: var(--voy-gold);
+  border-radius: 999px;
+  padding: 0.12rem 0.45rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
 .voy-user-chip button {
   border: 0;
   background: transparent;
@@ -3105,6 +3117,65 @@ html[data-theme="light"] .voy-inline-error {
   padding: 0.58rem 0.72rem;
   border-radius: 10px;
   font-size: 0.84rem;
+}
+
+.voy-admin-panel {
+  border: 1px solid color-mix(in srgb, var(--voy-gold) 30%, var(--voy-border));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--voy-surface2) 92%, transparent);
+  padding: 0.9rem 1rem;
+}
+
+.voy-admin-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-bottom: 0.45rem;
+}
+
+.voy-admin-panel-head h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--voy-text);
+}
+
+.voy-admin-panel-badge {
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--voy-gold) 36%, transparent);
+  background: color-mix(in srgb, var(--voy-gold-dim) 72%, transparent);
+  color: var(--voy-gold);
+  font-size: 0.68rem;
+  padding: 0.2rem 0.52rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.voy-admin-panel p {
+  margin: 0.2rem 0 0;
+  color: var(--voy-text-muted);
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+.voy-admin-capabilities {
+  margin-top: 0.72rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.voy-admin-capabilities span {
+  color: var(--voy-text-faint);
+  font-size: 0.8rem;
+}
+
+.voy-admin-actions {
+  margin-top: 0.72rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
 }
 
 .voy-footer {
@@ -3293,6 +3364,20 @@ html[data-theme="light"] .voy-inline-error {
   .voy-nav-actions .voy-nav-ghost,
   .voy-nav-actions .voy-user-chip {
     display: none;
+  }
+
+  .voy-admin-panel-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .voy-admin-actions {
+    flex-direction: column;
+  }
+
+  .voy-admin-actions .voy-nav-ghost {
+    width: 100%;
+    justify-content: center;
   }
 
   .voy-mobile-toggle {

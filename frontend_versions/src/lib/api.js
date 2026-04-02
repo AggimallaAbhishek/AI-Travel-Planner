@@ -297,3 +297,7 @@ export function fetchIndiaTransportOptions(
 
   return apiFetch(`/api/india/transport/options?${searchParams}`, options);
 }
+
+export function fetchAuthSession(options = {}) {
+  return apiFetch("/api/auth/session", options);
+}

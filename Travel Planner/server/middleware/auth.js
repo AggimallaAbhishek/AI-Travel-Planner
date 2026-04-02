@@ -1,4 +1,5 @@
 import { getAdminAuth } from "../lib/firebaseAdmin.js";
+import { attachAuthContextToRequest, logAdminAction } from "../lib/rbac.js";
 
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
@@ -16,6 +17,59 @@ function getErrorText(error) {
 
 function includesAny(text, patterns = []) {
   return patterns.some((pattern) => text.includes(pattern));
+}
+
+function sendAuthFailureResponse(res, failure) {
+  res.status(failure.status).json({
+    message: failure.message,
+    code: failure.code,
+    requiresReauth: failure.requiresReauth,
+    ...(IS_PRODUCTION ? {} : { hint: failure.hint }),
+  });
+}
+
+function parseBearerToken(authorizationHeader) {
+  const header = String(authorizationHeader ?? "").trim();
+  if (!header) {
+    return {
+      status: 401,
+      code: "auth/missing-token",
+      message: "Authentication is required.",
+      requiresReauth: true,
+    };
+  }
+
+  if (!header.startsWith("Bearer ")) {
+    return {
+      status: 401,
+      code: "auth/invalid-authorization-header",
+      message: "Authorization header must use Bearer token format.",
+      requiresReauth: true,
+    };
+  }
+
+  const idToken = header.slice("Bearer ".length).trim();
+  if (!idToken) {
+    return {
+      status: 401,
+      code: "auth/missing-token",
+      message: "Authentication is required.",
+      requiresReauth: true,
+    };
+  }
+
+  return {
+    idToken,
+  };
+}
+
+async function verifyAndAttachAuthContext(req, idToken) {
+  // Pass checkRevoked: true to proactively reject tokens if the user
+  // signed out on another device, overriding the typical 1-hr expiration.
+  const decodedToken = await getAdminAuth().verifyIdToken(idToken, true);
+  const authContext = attachAuthContextToRequest(req, decodedToken);
+  logAdminAction(req, "authenticated_request");
+  return authContext;
 }
 
 export function classifyAuthFailure(error) {
@@ -84,23 +138,14 @@ export function classifyAuthFailure(error) {
 }
 
 export async function requireAuth(req, res, next) {
-  const authorization = req.headers.authorization ?? "";
-
-  if (!authorization.startsWith("Bearer ")) {
-    res.status(401).json({
-      message: "Authentication is required.",
-      code: "auth/missing-token",
-      requiresReauth: true,
-    });
+  const tokenResult = parseBearerToken(req.headers.authorization);
+  if (!tokenResult.idToken) {
+    sendAuthFailureResponse(res, tokenResult);
     return;
   }
 
-  const idToken = authorization.replace("Bearer ", "").trim();
-
   try {
-    // Pass checkRevoked: true to proactively reject tokens if the user
-    // signed out on another device, overriding the typical 1-hr expiration.
-    req.user = await getAdminAuth().verifyIdToken(idToken, true);
+    await verifyAndAttachAuthContext(req, tokenResult.idToken);
     next();
   } catch (error) {
     const failure = classifyAuthFailure(error);
@@ -111,12 +156,36 @@ export async function requireAuth(req, res, next) {
       resolvedCode: failure.code,
       requiresReauth: failure.requiresReauth,
     });
+    sendAuthFailureResponse(res, failure);
+  }
+}
 
-    res.status(failure.status).json({
-      message: failure.message,
-      code: failure.code,
+export async function optionalAuth(req, res, next) {
+  const authorization = String(req.headers.authorization ?? "").trim();
+  if (!authorization) {
+    next();
+    return;
+  }
+
+  const tokenResult = parseBearerToken(authorization);
+  if (!tokenResult.idToken) {
+    sendAuthFailureResponse(res, tokenResult);
+    return;
+  }
+
+  try {
+    await verifyAndAttachAuthContext(req, tokenResult.idToken);
+    next();
+  } catch (error) {
+    const failure = classifyAuthFailure(error);
+    console.warn("[auth] Optional auth token verification failed", {
+      code: error?.code ?? null,
+      message: getErrorText(error),
+      resolvedStatus: failure.status,
+      resolvedCode: failure.code,
       requiresReauth: failure.requiresReauth,
-      ...(IS_PRODUCTION ? {} : { hint: failure.hint }),
+      path: req.originalUrl ?? req.path ?? "",
     });
+    sendAuthFailureResponse(res, failure);
   }
 }

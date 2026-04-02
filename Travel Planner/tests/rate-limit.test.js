@@ -109,6 +109,57 @@ test("endpoint limiter blocks requests beyond configured threshold", () => {
   assert.equal(third.headers["retry-after"], "1");
 });
 
+test("endpoint limiter bypasses throttling for authenticated admin requests", () => {
+  let currentTime = 0;
+  const middleware = createEndpointRateLimiter({
+    windowMs: 1_000,
+    maxRequests: 1,
+    now: () => currentTime,
+    label: "admin-endpoint",
+  });
+  const request = {
+    user: { uid: "admin-1", isAdmin: true },
+    authContext: { isAdmin: true },
+    ip: "127.0.0.1",
+  };
+
+  const first = createMockResponse();
+  assert.equal(runLimiter(middleware, request, first), true);
+  assert.equal(first.headers["x-ratelimit-bypass"], "admin");
+  assert.equal(first.headers["x-ratelimit-remaining"], "1");
+
+  currentTime = 100;
+  const second = createMockResponse();
+  assert.equal(runLimiter(middleware, request, second), true);
+  assert.equal(second.statusCode, 200);
+  assert.equal(second.headers["x-ratelimit-bypass"], "admin");
+});
+
+test("trip generation limiter bypasses throttling for authenticated admin requests", () => {
+  let currentTime = 0;
+  const middleware = createTripGenerationRateLimiter({
+    windowMs: 1_000,
+    maxRequests: 1,
+    now: () => currentTime,
+  });
+  const request = {
+    user: { uid: "admin-2", isAdmin: true },
+    authContext: { isAdmin: true },
+    ip: "127.0.0.1",
+  };
+
+  const first = createMockResponse();
+  assert.equal(runLimiter(middleware, request, first), true);
+  assert.equal(first.headers["x-ratelimit-bypass"], "admin");
+  assert.equal(first.headers["x-ratelimit-remaining"], "1");
+
+  currentTime = 100;
+  const second = createMockResponse();
+  assert.equal(runLimiter(middleware, request, second), true);
+  assert.equal(second.statusCode, 200);
+  assert.equal(second.headers["x-ratelimit-bypass"], "admin");
+});
+
 test("places autocomplete limiter uses env-backed defaults and message", () => {
   const originalWindowMs = process.env.PLACES_AUTOCOMPLETE_RATE_LIMIT_WINDOW_MS;
   const originalMax = process.env.PLACES_AUTOCOMPLETE_RATE_LIMIT_MAX;

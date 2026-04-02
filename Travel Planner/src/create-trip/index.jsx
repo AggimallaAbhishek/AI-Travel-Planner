@@ -415,7 +415,7 @@ function CreateTrip() {
   const hasAppliedPrefillRef = useRef(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, signInWithGoogle } = useAuth();
+  const { user, role, isAdmin, capabilities, signInWithGoogle } = useAuth();
 
   const destinationInputValue = state.form.location?.label ?? "";
   const safeIntelligenceInput = useMemo(
@@ -782,6 +782,33 @@ function CreateTrip() {
               </span>
             </div>
           </header>
+
+          {isAdmin ? (
+            <section className="voy-admin-panel" aria-live="polite">
+              <div className="voy-admin-panel-head">
+                <h3>Admin diagnostics</h3>
+                <span className="voy-admin-panel-badge">Unrestricted mode</span>
+              </div>
+              <p>
+                Signed in as <strong>{user?.email ?? "unknown"}</strong> with role{" "}
+                <strong>{role}</strong>. Rate-limit bypass and cross-user trip access are
+                active for authenticated admin requests.
+              </p>
+              <div className="voy-admin-capabilities">
+                <span>
+                  unrestrictedRateLimits:{" "}
+                  <strong>{capabilities?.unrestrictedRateLimits ? "enabled" : "disabled"}</strong>
+                </span>
+                <span>
+                  crossUserTripAccess:{" "}
+                  <strong>{capabilities?.crossUserTripAccess ? "enabled" : "disabled"}</strong>
+                </span>
+                <span>
+                  debugTools: <strong>{capabilities?.debugTools ? "enabled" : "disabled"}</strong>
+                </span>
+              </div>
+            </section>
+          ) : null}
 
           <div className="voy-create-layout">
             <div className="voy-create-main-stack">

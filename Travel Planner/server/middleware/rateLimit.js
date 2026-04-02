@@ -7,12 +7,26 @@ function parsePositiveInteger(value, fallback) {
   return fallback;
 }
 
+function isAdminRequest(req) {
+  return Boolean(req?.authContext?.isAdmin || req?.user?.isAdmin);
+}
+
 function getIdentity(req) {
   if (req.user?.uid) {
     return `uid:${req.user.uid}`;
   }
 
   return `ip:${req.ip ?? "unknown"}`;
+}
+
+function applyRateLimitHeaders(res, { maxRequests, remaining }) {
+  res.setHeader("X-RateLimit-Limit", String(maxRequests));
+  res.setHeader("X-RateLimit-Remaining", String(Math.max(0, remaining)));
+}
+
+function applyAdminBypassHeaders(res, { maxRequests }) {
+  applyRateLimitHeaders(res, { maxRequests, remaining: maxRequests });
+  res.setHeader("X-RateLimit-Bypass", "admin");
 }
 
 export function createTripGenerationRateLimiter(options = {}) {
@@ -42,6 +56,17 @@ export function createTripGenerationRateLimiter(options = {}) {
   }
 
   return function tripGenerationRateLimit(req, res, next) {
+    if (isAdminRequest(req)) {
+      applyAdminBypassHeaders(res, { maxRequests });
+      console.info("[rate-limit] Admin bypass applied", {
+        label: "trip-generation",
+        uid: req?.user?.uid ?? "",
+        path: req?.originalUrl ?? req?.path ?? "",
+      });
+      next();
+      return;
+    }
+
     const currentTime = now();
     clearExpiredBuckets(currentTime);
 
@@ -59,8 +84,7 @@ export function createTripGenerationRateLimiter(options = {}) {
       );
 
       res.setHeader("Retry-After", String(retryAfterSeconds));
-      res.setHeader("X-RateLimit-Limit", String(maxRequests));
-      res.setHeader("X-RateLimit-Remaining", "0");
+      applyRateLimitHeaders(res, { maxRequests, remaining: 0 });
 
       console.warn("[rate-limit] Trip generation throttled", {
         identity,
@@ -77,11 +101,10 @@ export function createTripGenerationRateLimiter(options = {}) {
 
     const nextTimestamps = [...activeTimestamps, currentTime];
     requestLogByIdentity.set(identity, nextTimestamps);
-    res.setHeader("X-RateLimit-Limit", String(maxRequests));
-    res.setHeader(
-      "X-RateLimit-Remaining",
-      String(Math.max(0, maxRequests - nextTimestamps.length))
-    );
+    applyRateLimitHeaders(res, {
+      maxRequests,
+      remaining: maxRequests - nextTimestamps.length,
+    });
     next();
   };
 }
@@ -114,6 +137,17 @@ export function createEndpointRateLimiter(options = {}) {
   }
 
   return function endpointRateLimit(req, res, next) {
+    if (isAdminRequest(req)) {
+      applyAdminBypassHeaders(res, { maxRequests });
+      console.info("[rate-limit] Admin bypass applied", {
+        label,
+        uid: req?.user?.uid ?? "",
+        path: req?.originalUrl ?? req?.path ?? "",
+      });
+      next();
+      return;
+    }
+
     const currentTime = now();
     clearExpiredBuckets(currentTime);
 
@@ -131,8 +165,7 @@ export function createEndpointRateLimiter(options = {}) {
       );
 
       res.setHeader("Retry-After", String(retryAfterSeconds));
-      res.setHeader("X-RateLimit-Limit", String(maxRequests));
-      res.setHeader("X-RateLimit-Remaining", "0");
+      applyRateLimitHeaders(res, { maxRequests, remaining: 0 });
 
       console.warn("[rate-limit] Endpoint throttled", {
         label,
@@ -149,11 +182,10 @@ export function createEndpointRateLimiter(options = {}) {
 
     const nextTimestamps = [...activeTimestamps, currentTime];
     requestLogByIdentity.set(identity, nextTimestamps);
-    res.setHeader("X-RateLimit-Limit", String(maxRequests));
-    res.setHeader(
-      "X-RateLimit-Remaining",
-      String(Math.max(0, maxRequests - nextTimestamps.length))
-    );
+    applyRateLimitHeaders(res, {
+      maxRequests,
+      remaining: maxRequests - nextTimestamps.length,
+    });
     next();
   };
 }

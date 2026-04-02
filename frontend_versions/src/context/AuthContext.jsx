@@ -14,9 +14,14 @@ import {
   signOut as firebaseSignOut,
 } from "firebase/auth";
 import { auth, isFirebaseConfigured } from "@/service/firebaseConfig";
-import { SESSION_EXPIRED_EVENT } from "@/lib/api";
+import { fetchAuthSession, SESSION_EXPIRED_EVENT } from "@/lib/api";
 
 const AuthContext = createContext(null);
+const DEFAULT_CAPABILITIES = Object.freeze({
+  unrestrictedRateLimits: false,
+  crossUserTripAccess: false,
+  debugTools: false,
+});
 
 /**
  * Firebase ID tokens expire after 3600 seconds (1 hour).
@@ -51,6 +56,9 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [sessionExpired, setSessionExpired] = useState(false);
+  const [role, setRole] = useState("user");
+  const [capabilities, setCapabilities] = useState(DEFAULT_CAPABILITIES);
+  const [sessionMetadataLoading, setSessionMetadataLoading] = useState(false);
   const refreshTimerRef = useRef(null);
 
   // ── Proactive token refresh scheduler ─────────────────────────────────
@@ -147,10 +155,71 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
+  useEffect(() => {
+    const controller = new AbortController();
+
+    if (!user) {
+      setRole("user");
+      setCapabilities(DEFAULT_CAPABILITIES);
+      setSessionMetadataLoading(false);
+      return () => controller.abort();
+    }
+
+    async function loadSessionMetadata() {
+      setSessionMetadataLoading(true);
+
+      try {
+        const session = await fetchAuthSession({
+          signal: controller.signal,
+        });
+        const nextRole = session?.role === "admin" ? "admin" : "user";
+        const nextCapabilities = {
+          ...DEFAULT_CAPABILITIES,
+          ...(session?.capabilities && typeof session.capabilities === "object"
+            ? session.capabilities
+            : {}),
+        };
+
+        console.info("[auth] Loaded backend auth session metadata", {
+          uid: session?.user?.uid ?? "",
+          email: session?.user?.email ?? "",
+          role: nextRole,
+          capabilities: nextCapabilities,
+        });
+        setRole(nextRole);
+        setCapabilities(nextCapabilities);
+      } catch (error) {
+        if (controller.signal.aborted || (error instanceof DOMException && error.name === "AbortError")) {
+          return;
+        }
+
+        if (error?.details?.requiresReauth) {
+          return;
+        }
+
+        console.warn("[auth] Failed to load backend auth session metadata", {
+          message: error instanceof Error ? error.message : String(error),
+        });
+        setRole("user");
+        setCapabilities(DEFAULT_CAPABILITIES);
+      } finally {
+        setSessionMetadataLoading(false);
+      }
+    }
+
+    loadSessionMetadata();
+
+    return () => controller.abort();
+  }, [user]);
+
   const value = useMemo(
     () => ({
       user,
       loading,
+      role,
+      isAdmin: role === "admin",
+      capabilities,
+      sessionMetadataLoading,
       isConfigured: isFirebaseConfigured,
       sessionExpired,
       dismissSessionExpired() {
@@ -179,7 +248,7 @@ export function AuthProvider({ children }) {
         await firebaseSignOut(auth);
       },
     }),
-    [loading, user, sessionExpired]
+    [loading, user, role, capabilities, sessionMetadataLoading, sessionExpired]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

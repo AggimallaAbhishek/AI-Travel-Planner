@@ -9,7 +9,7 @@ import { useTheme } from "@/context/ThemeContext";
 
 function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const { user, signOut } = useAuth();
+  const { user, isAdmin, signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
 
@@ -104,6 +104,7 @@ function Header() {
                   <img src={user.photoURL} alt={user.displayName ?? "User"} />
                 ) : null}
                 <span>{user.displayName ?? "Traveler"}</span>
+                {isAdmin ? <span className="voy-admin-pill">Admin</span> : null}
                 <button type="button" onClick={handleSignOut}>
                   Logout
                 </button>

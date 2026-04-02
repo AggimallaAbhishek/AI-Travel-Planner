@@ -115,3 +115,30 @@ test("GET /api/trips/:tripId/routes requires authentication", async () => {
   assert.equal(response.statusCode, 401);
   assert.equal(response.body.message, "Authentication is required.");
 });
+
+test("GET /api/auth/session requires authentication", async () => {
+  const response = await invokeApp({
+    method: "GET",
+    url: "/api/auth/session",
+  });
+
+  assert.equal(response.statusCode, 401);
+  assert.equal(response.body.message, "Authentication is required.");
+});
+
+test("GET /api/places/autocomplete rejects malformed Authorization header", async () => {
+  const response = await invokeApp({
+    method: "GET",
+    url: "/api/places/autocomplete?q=delhi",
+    headers: {
+      authorization: "Token malformed",
+    },
+  });
+
+  assert.equal(response.statusCode, 401);
+  assert.equal(
+    response.body.message,
+    "Authorization header must use Bearer token format."
+  );
+  assert.equal(response.body.code, "auth/invalid-authorization-header");
+});

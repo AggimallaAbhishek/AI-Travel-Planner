@@ -8,7 +8,7 @@ import { toast } from "react-toastify";
 import { buildLoginPath } from "@/lib/authRedirect";
 
 function MyTrips() {
-  const { user, loading } = useAuth();
+  const { user, loading, role, isAdmin, capabilities } = useAuth();
   const [userTrips, setUserTrips] = useState([]);
   const [isLoadingTrips, setIsLoadingTrips] = useState(false);
   const loginPath = buildLoginPath("/my-trips");
@@ -88,9 +88,38 @@ function MyTrips() {
         <div className="voy-trips-hero">
           <h1 className="voy-page-title">My Trips</h1>
           <p className="voy-page-subtitle">
-            View your recent itineraries and jump back into planning.
+            {isAdmin
+              ? "Admin view: listing all saved itineraries across users."
+              : "View your recent itineraries and jump back into planning."}
           </p>
         </div>
+
+        {isAdmin ? (
+          <section className="voy-admin-panel mt-4" aria-live="polite">
+            <div className="voy-admin-panel-head">
+              <h3>Admin diagnostics</h3>
+              <span className="voy-admin-panel-badge">Global trip access</span>
+            </div>
+            <p>
+              Signed in as <strong>{user?.email ?? "unknown"}</strong> with role{" "}
+              <strong>{role}</strong>. This page is loading all trips using backend
+              cross-user access controls.
+            </p>
+            <div className="voy-admin-capabilities">
+              <span>
+                unrestrictedRateLimits:{" "}
+                <strong>{capabilities?.unrestrictedRateLimits ? "enabled" : "disabled"}</strong>
+              </span>
+              <span>
+                crossUserTripAccess:{" "}
+                <strong>{capabilities?.crossUserTripAccess ? "enabled" : "disabled"}</strong>
+              </span>
+              <span>
+                debugTools: <strong>{capabilities?.debugTools ? "enabled" : "disabled"}</strong>
+              </span>
+            </div>
+          </section>
+        ) : null}
 
         <div className="voy-trips-grid" aria-live="polite">
           {isLoadingTrips

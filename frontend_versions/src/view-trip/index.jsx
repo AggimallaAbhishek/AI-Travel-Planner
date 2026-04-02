@@ -7,8 +7,11 @@ import PlacesToVisit from "./components/PlacesToVisit";
 import { toast } from "react-toastify";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/lib/api";
-import { fetchTripRecommendations } from "@/lib/tripRecommendations";
-import { fetchTripRoute } from "@/lib/tripRoutes";
+import {
+  clearTripRecommendationsCache,
+  fetchTripRecommendations,
+} from "@/lib/tripRecommendations";
+import { clearTripRouteCache, fetchTripRoute } from "@/lib/tripRoutes";
 import { downloadTripPdf, printTripPdf } from "@/lib/trip-pdf";
 import { Button } from "@/components/ui/button";
 import { buildLoginPath } from "@/lib/authRedirect";
@@ -102,16 +105,22 @@ function isVerifiedOnlineRecommendation(item = {}) {
 function Viewtrip() {
   const { tripId } = useParams();
   const location = useLocation();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, role, isAdmin, capabilities } = useAuth();
   const [trip, setTrip] = useState(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [recommendations, setRecommendations] = useState(
     INITIAL_RECOMMENDATION_STATE
   );
-  const [recommendationReloadToken, setRecommendationReloadToken] = useState(0);
+  const [recommendationReloadState, setRecommendationReloadState] = useState({
+    nonce: 0,
+    force: false,
+  });
   const [routePlan, setRoutePlan] = useState(INITIAL_ROUTE_STATE);
-  const [routeReloadToken, setRouteReloadToken] = useState(0);
+  const [routeReloadState, setRouteReloadState] = useState({
+    nonce: 0,
+    force: false,
+  });
   const [selectedRouteDay, setSelectedRouteDay] = useState(1);
   const [pdfAction, setPdfAction] = useState("");
   const loginPath = buildLoginPath(`${location.pathname}${location.search}${location.hash}`);
@@ -213,7 +222,7 @@ function Viewtrip() {
     async function loadRecommendations() {
       setRecommendations((previous) => ({
         ...previous,
-        ...(recommendationReloadToken > 0 ? { hotels: [], restaurants: [] } : {}),
+        ...(recommendationReloadState.nonce > 0 ? { hotels: [], restaurants: [] } : {}),
         destination,
         loading: true,
         errorMessage: "",
@@ -222,7 +231,7 @@ function Viewtrip() {
       try {
         const response = await fetchTripRecommendations(trip.id, {
           signal: controller.signal,
-          force: recommendationReloadToken > 0,
+          force: recommendationReloadState.force,
           destination,
         });
 
@@ -269,7 +278,13 @@ function Viewtrip() {
     loadRecommendations();
 
     return () => controller.abort();
-  }, [trip?.id, trip?.userSelection?.location?.label, user, recommendationReloadToken]);
+  }, [
+    trip?.id,
+    trip?.userSelection?.location?.label,
+    user,
+    recommendationReloadState.nonce,
+    recommendationReloadState.force,
+  ]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -290,7 +305,7 @@ function Viewtrip() {
         const response = await fetchTripRoute(trip.id, {
           signal: controller.signal,
           day: selectedRouteDay,
-          force: routeReloadToken > 0,
+          force: routeReloadState.force,
         });
 
         setRoutePlan({
@@ -327,14 +342,46 @@ function Viewtrip() {
 
     loadRoutePlan();
     return () => controller.abort();
-  }, [trip?.id, selectedRouteDay, user, routeReloadToken]);
+  }, [trip?.id, selectedRouteDay, user, routeReloadState.nonce, routeReloadState.force]);
 
   const handleRetryRecommendations = () => {
-    setRecommendationReloadToken((previous) => previous + 1);
+    if (trip?.id) {
+      clearTripRecommendationsCache(trip.id);
+    }
+    setRecommendationReloadState((previous) => ({
+      nonce: previous.nonce + 1,
+      force: false,
+    }));
+  };
+
+  const handleForceRefreshRecommendations = () => {
+    if (trip?.id) {
+      clearTripRecommendationsCache(trip.id);
+    }
+    setRecommendationReloadState((previous) => ({
+      nonce: previous.nonce + 1,
+      force: true,
+    }));
   };
 
   const handleRetryRoutePlan = () => {
-    setRouteReloadToken((previous) => previous + 1);
+    if (trip?.id) {
+      clearTripRouteCache(trip.id);
+    }
+    setRouteReloadState((previous) => ({
+      nonce: previous.nonce + 1,
+      force: false,
+    }));
+  };
+
+  const handleForceRefreshRoutePlan = () => {
+    if (trip?.id) {
+      clearTripRouteCache(trip.id);
+    }
+    setRouteReloadState((previous) => ({
+      nonce: previous.nonce + 1,
+      force: true,
+    }));
   };
 
   const handleDownloadPdf = async () => {
@@ -455,6 +502,50 @@ function Viewtrip() {
           onDownloadPdf={handleDownloadPdf}
           onPrintPdf={handlePrintPdf}
         />
+        {isAdmin ? (
+          <section className="voy-admin-panel" aria-live="polite">
+            <div className="voy-admin-panel-head">
+              <h3>Admin diagnostics</h3>
+              <span className="voy-admin-panel-badge">Debug tools enabled</span>
+            </div>
+            <p>
+              Signed in as <strong>{user?.email ?? "unknown"}</strong> with role{" "}
+              <strong>{role}</strong>. Use force refresh controls to bypass caches for
+              recommendations and route data.
+            </p>
+            <div className="voy-admin-capabilities">
+              <span>
+                unrestrictedRateLimits:{" "}
+                <strong>{capabilities?.unrestrictedRateLimits ? "enabled" : "disabled"}</strong>
+              </span>
+              <span>
+                crossUserTripAccess:{" "}
+                <strong>{capabilities?.crossUserTripAccess ? "enabled" : "disabled"}</strong>
+              </span>
+              <span>
+                debugTools: <strong>{capabilities?.debugTools ? "enabled" : "disabled"}</strong>
+              </span>
+            </div>
+            <div className="voy-admin-actions">
+              <Button
+                type="button"
+                className="voy-nav-ghost"
+                onClick={handleForceRefreshRecommendations}
+                disabled={recommendations.loading}
+              >
+                Force refresh recommendations
+              </Button>
+              <Button
+                type="button"
+                className="voy-nav-ghost"
+                onClick={handleForceRefreshRoutePlan}
+                disabled={routePlan.loading}
+              >
+                Force refresh routes
+              </Button>
+            </div>
+          </section>
+        ) : null}
         <Hotels
           trip={trip}
           hotels={hotelsToDisplay}

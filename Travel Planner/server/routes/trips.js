@@ -1,5 +1,5 @@
 import express from "express";
-import { requireAuth } from "../middleware/auth.js";
+import { optionalAuth, requireAuth } from "../middleware/auth.js";
 import {
   placesAutocompleteRateLimit,
   recommendationsRateLimit,
@@ -188,31 +188,36 @@ export function resolveTripGenerationFailure(error) {
   };
 }
 
-router.get("/places/autocomplete", placesAutocompleteRateLimit, async (req, res) => {
-  try {
-    const suggestions = await getDestinationAutocompleteSuggestions({
-      query: req.query.q,
-      forceRefresh: parseBooleanQueryFlag(req.query.force),
-    });
-
-    res.json({ suggestions });
-  } catch (error) {
-    if (error?.code === "recommendations/invalid-query") {
-      res.status(400).json({
-        message: error.message,
+router.get(
+  "/places/autocomplete",
+  optionalAuth,
+  placesAutocompleteRateLimit,
+  async (req, res) => {
+    try {
+      const suggestions = await getDestinationAutocompleteSuggestions({
+        query: req.query.q,
+        forceRefresh: parseBooleanQueryFlag(req.query.force),
       });
-      return;
-    }
 
-    console.error("[places] Failed to load autocomplete suggestions", {
-      query: String(req.query.q ?? ""),
-      errorMessage: getErrorText(error),
-    });
-    res.status(500).json({
-      message: "Unable to load destination suggestions right now.",
-    });
+      res.json({ suggestions });
+    } catch (error) {
+      if (error?.code === "recommendations/invalid-query") {
+        res.status(400).json({
+          message: error.message,
+        });
+        return;
+      }
+
+      console.error("[places] Failed to load autocomplete suggestions", {
+        query: String(req.query.q ?? ""),
+        errorMessage: getErrorText(error),
+      });
+      res.status(500).json({
+        message: "Unable to load destination suggestions right now.",
+      });
+    }
   }
-});
+);
 
 router.post("/trips/generate", requireAuth, tripGenerationRateLimit, async (req, res) => {
   const { userSelection, errors, planningRequest } = validateTripRequest(req.body);
