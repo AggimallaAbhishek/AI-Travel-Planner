@@ -68,8 +68,6 @@ const INITIAL_FORM_STATE = {
   foodPreferences: [],
   travelStyle: "",
   pace: "Balanced",
-  accommodation: "",
-  logistics: "",
 };
 
 const INITIAL_STATE = {
@@ -126,8 +124,6 @@ function createHydratedForm(prefill = {}) {
     ...(prefill.budgetAmount ? { budgetAmount: prefill.budgetAmount } : {}),
     ...(prefill.travelStyle ? { travelStyle: prefill.travelStyle } : {}),
     ...(prefill.pace ? { pace: prefill.pace } : {}),
-    ...(prefill.accommodation ? { accommodation: prefill.accommodation } : {}),
-    ...(prefill.logistics ? { logistics: prefill.logistics } : {}),
     ...(Array.isArray(prefill.foodPreferences)
       ? { foodPreferences: prefill.foodPreferences }
       : {}),
@@ -271,30 +267,6 @@ function formReducer(state, action) {
       return {
         ...state,
         manualPlanType: Boolean(action.value),
-      };
-    case "set_accommodation":
-      return {
-        ...state,
-        form: {
-          ...state.form,
-          accommodation: action.value,
-        },
-        fieldErrors: {
-          ...state.fieldErrors,
-          accommodation: "",
-        },
-      };
-    case "set_logistics":
-      return {
-        ...state,
-        form: {
-          ...state.form,
-          logistics: action.value,
-        },
-        fieldErrors: {
-          ...state.fieldErrors,
-          logistics: "",
-        },
       };
     case "set_field_errors":
       return {
@@ -667,8 +639,6 @@ function CreateTrip() {
       food_preference: normalizedSelection.foodPreferences,
       pace: normalizedSelection.pace,
       budget: normalizedSelection.budgetAmount,
-      accommodation: normalizedSelection.accommodation,
-      logistics: normalizedSelection.logistics,
     };
 
     console.info("[create-trip] Final normalized submit payload", payload);
