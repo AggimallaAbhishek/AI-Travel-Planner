@@ -1,3 +1,14 @@
+<img width="1710" height="1112" alt="Screenshot 2026-04-05 at 3 46 20 PM" src="https://github.com/user-attachments/assets/fd67afe1-2604-43e8-bf72-0102d3e3fbcf" /># Travel Planner Website
+
+<img width="1710" height="1112" alt="Screenshot 2026-04-05 at 3 46 20 PM" src="https://github.com/user-attachments/assets/92cc1b34-2cf5-453c-9b76-f3d6e7041786" />
+
+
+# Live Demo App - https://ai-travel-planner-weld-phi.vercel.app/
+
+# Travel Planner Mobile App
+
+<img width="633" height="863" alt="Screenshot 2026-04-05 at 4 15 20 PM" src="https://github.com/user-attachments/assets/67228e37-70c1-4849-aa50-2d3ddba7b199" />
+
 # Travel Planner App
 
 Travel Planner is a Vite + React single-page application backed by a small Express API. It uses Firebase Authentication for Google sign-in, Cloud Firestore for saved trips, and Google Gemini for itinerary generation.
