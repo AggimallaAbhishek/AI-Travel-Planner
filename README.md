@@ -1,7 +1,6 @@
-<img width="1710" height="1112" alt="Screenshot 2026-04-05 at 3 46 20 PM" src="https://github.com/user-attachments/assets/fd67afe1-2604-43e8-bf72-0102d3e3fbcf" /># Travel Planner Website
+# Travel Planner Website
 
 <img width="1710" height="1112" alt="Screenshot 2026-04-05 at 3 46 20 PM" src="https://github.com/user-attachments/assets/92cc1b34-2cf5-453c-9b76-f3d6e7041786" />
-
 
 # Live Demo App - https://ai-travel-planner-weld-phi.vercel.app/
 
